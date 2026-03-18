@@ -25,28 +25,37 @@ export default function RegisterPage() {
     setLoading(true);
     setServerError(null);
 
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values)
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      setServerError(data.error ?? "Falha ao criar conta.");
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const data = (await response.json()) as { error?: string };
+        setServerError(data.error ?? "Falha ao criar conta.");
+        return;
+      }
+
+      await signIn("credentials", {
+        email: values.email,
+        password: values.password,
+        redirect: false
+      });
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setServerError("NÃ£o foi possÃ­vel criar a conta agora. Verifique a conexÃ£o com o banco e tente novamente.");
+    } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
-      return;
     }
-
-    await signIn("credentials", {
-      email: values.email,
-      password: values.password,
-      redirect: false
-    });
-
-    setLoading(false);
-    router.push("/dashboard");
-    router.refresh();
   });
 
   return (
@@ -93,4 +102,3 @@ export default function RegisterPage() {
     </main>
   );
 }
-
