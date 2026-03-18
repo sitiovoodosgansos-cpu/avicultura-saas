@@ -5,7 +5,11 @@ export async function GET() {
   try {
     await prisma.$queryRaw`SELECT 1`;
     return NextResponse.json({ ok: true, service: "avicultura-saas", db: "up", at: new Date().toISOString() });
-  } catch {
-    return NextResponse.json({ ok: false, service: "avicultura-saas", db: "down", at: new Date().toISOString() }, { status: 503 });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "unknown_error";
+    return NextResponse.json(
+      { ok: false, service: "avicultura-saas", db: "down", reason, at: new Date().toISOString() },
+      { status: 503 }
+    );
   }
 }
