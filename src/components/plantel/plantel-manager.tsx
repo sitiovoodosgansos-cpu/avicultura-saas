@@ -119,18 +119,15 @@ const emptyBirdForm: BirdForm = {
 
 function Field({
   label,
-  hint,
   children
 }: {
   label: string;
-  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <label className="grid gap-1.5">
       <span className="text-sm font-semibold text-slate-800">{label}</span>
       {children}
-      {hint ? <span className="text-xs text-[color:var(--ink-soft)]">{hint}</span> : null}
     </label>
   );
 }
@@ -380,14 +377,14 @@ export function PlantelManager() {
 
           <form className="mt-5 grid gap-4" onSubmit={submitGroup}>
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Especie" hint="Exemplo: Galinha, Pavao, Faisao, Marreco.">
+              <Field label="Especie">
                 <Input
                   placeholder="Galinha"
                   value={groupForm.species}
                   onChange={(event) => setGroupForm((prev) => ({ ...prev, species: event.target.value }))}
                 />
               </Field>
-              <Field label="Raca" hint="Exemplo: Brahma, Dourado, Azul.">
+              <Field label="Raca">
                 <Input
                   placeholder="Brahma"
                   value={groupForm.breed}
@@ -397,14 +394,14 @@ export function PlantelManager() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Variedade ou cor" hint="Opcional. Exemplo: Dark, Branco, Arlequim.">
+              <Field label="Variedade ou cor">
                 <Input
                   placeholder="Dark"
                   value={groupForm.variety}
                   onChange={(event) => setGroupForm((prev) => ({ ...prev, variety: event.target.value }))}
                 />
               </Field>
-              <Field label="Nome do card" hint="Como isso vai aparecer na tela principal. Exemplo: Galinha Brahma Dark.">
+              <Field label="Nome do card">
                 <Input
                   placeholder="Galinha Brahma Dark"
                   value={groupForm.title}
@@ -414,7 +411,7 @@ export function PlantelManager() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Numero de matrizes" hint="Quantidade de femeas do grupo.">
+              <Field label="Numero de matrizes">
                 <Input
                   type="number"
                   min={0}
@@ -422,7 +419,7 @@ export function PlantelManager() {
                   onChange={(event) => setGroupForm((prev) => ({ ...prev, matrixCount: Number(event.target.value) }))}
                 />
               </Field>
-              <Field label="Numero de reprodutores" hint="Quantidade de machos do grupo.">
+              <Field label="Numero de reprodutores">
                 <Input
                   type="number"
                   min={0}
@@ -435,7 +432,7 @@ export function PlantelManager() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Meta de postura" hint="Quantos ovos voce espera desse grupo em um periodo.">
+              <Field label="Meta de postura">
                 <Input
                   type="number"
                   min={0}
@@ -450,7 +447,7 @@ export function PlantelManager() {
                   }
                 />
               </Field>
-              <Field label="Investimento total" hint="Valor pago para comprar esse grupo.">
+              <Field label="Investimento total">
                 <Input
                   type="number"
                   min={0}
@@ -465,7 +462,7 @@ export function PlantelManager() {
                   }
                 />
               </Field>
-              <Field label="Data da compra" hint="Data em que esse grupo entrou no sitio.">
+              <Field label="Data da compra">
                 <Input
                   type="date"
                   value={groupForm.purchaseDate}
@@ -474,7 +471,7 @@ export function PlantelManager() {
               </Field>
             </div>
 
-            <Field label="Observacoes" hint="Espaco para origem, comportamento, detalhes do lote e notas gerais.">
+            <Field label="Observacoes">
               <textarea
                 className={textareaClass}
                 placeholder="Descreva informacoes uteis sobre esse grupo."
@@ -512,7 +509,7 @@ export function PlantelManager() {
           </p>
 
           <form className="mt-5 grid gap-4" onSubmit={submitBird}>
-            <Field label="Grupo da ave" hint="Escolha o card ao qual essa ave pertence.">
+            <Field label="Grupo da ave">
               <select
                 className={selectClass}
                 value={birdForm.flockGroupId}
@@ -528,14 +525,14 @@ export function PlantelManager() {
             </Field>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Numero da anilha" hint="Codigo unico da ave. Exemplo: 2025-001.">
+              <Field label="Numero da anilha">
                 <Input
                   placeholder="2025-001"
                   value={birdForm.ringNumber}
                   onChange={(event) => setBirdForm((prev) => ({ ...prev, ringNumber: event.target.value }))}
                 />
               </Field>
-              <Field label="Nome ou apelido" hint="Opcional, so para facilitar o reconhecimento.">
+              <Field label="Nome ou apelido">
                 <Input
                   placeholder="Rainha"
                   value={birdForm.nickname}
@@ -545,7 +542,7 @@ export function PlantelManager() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Sexo" hint="Selecione se a ave e femea, macho ou ainda nao identificado.">
+              <Field label="Sexo">
                 <select
                   className={selectClass}
                   value={birdForm.sex}
@@ -556,7 +553,7 @@ export function PlantelManager() {
                   <option value="MALE">Macho</option>
                 </select>
               </Field>
-              <Field label="Status atual" hint="Define como a ave aparece nos dashboards e relatorios.">
+              <Field label="Status atual">
                 <select
                   className={selectClass}
                   value={birdForm.status}
@@ -571,14 +568,14 @@ export function PlantelManager() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Data de aquisicao" hint="Quando essa ave entrou no sitio.">
+              <Field label="Data de aquisicao">
                 <Input
                   type="date"
                   value={birdForm.acquisitionDate}
                   onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
                 />
               </Field>
-              <Field label="Valor da compra" hint="Quanto custou essa ave individualmente.">
+              <Field label="Valor da compra">
                 <Input
                   type="number"
                   min={0}
@@ -595,7 +592,7 @@ export function PlantelManager() {
               </Field>
             </div>
 
-            <Field label="Origem ou fornecedor" hint="Criatorio, pessoa ou local de onde veio a ave.">
+            <Field label="Origem ou fornecedor">
               <Input
                 placeholder="Criatorio Exemplo"
                 value={birdForm.origin}

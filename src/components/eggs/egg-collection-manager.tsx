@@ -19,9 +19,6 @@ type CollectionRow = {
   flockGroup: {
     id: string;
     title: string;
-    species: { name: string };
-    breed: { name: string };
-    variety: { name: string } | null;
   };
 };
 
@@ -33,7 +30,6 @@ type MetricsResponse = {
     goodRateToday: number;
   };
   calendar: Array<{ date: string; total: number; good: number; cracked: number }>;
-  monthlySeries: Array<{ date: string; total: number; good: number; cracked: number }>;
   groupCards: Array<{
     groupId: string;
     title: string;
@@ -89,18 +85,15 @@ const emptyForm: FormState = {
 
 function Field({
   label,
-  hint,
   children
 }: {
   label: string;
-  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <label className="grid gap-1.5">
       <span className="text-sm font-semibold text-slate-800">{label}</span>
       {children}
-      {hint ? <span className="text-xs text-[color:var(--ink-soft)]">{hint}</span> : null}
     </label>
   );
 }
@@ -138,9 +131,9 @@ function formatPercent(value: number) {
 }
 
 function formatPerfLabel(perf: "below" | "on_track" | "above") {
-  if (perf === "below") return "Abaixo do esperado";
-  if (perf === "above") return "Acima do esperado";
-  return "Dentro do esperado";
+  if (perf === "below") return "Abaixo";
+  if (perf === "above") return "Acima";
+  return "No alvo";
 }
 
 function perfColor(perf: "below" | "on_track" | "above") {
@@ -154,7 +147,6 @@ function monthKeyFromDate(date: Date) {
 }
 
 export function EggCollectionManager() {
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<CollectionRow[]>([]);
@@ -165,11 +157,11 @@ export function EggCollectionManager() {
   const [capacityDraft, setCapacityDraft] = useState<Record<string, number>>({});
   const [monthCursor, setMonthCursor] = useState(monthKeyFromDate(new Date()));
   const [selectedDate, setSelectedDate] = useState(todayIso);
+  const [showDayModal, setShowDayModal] = useState(false);
 
   const groups = useMemo(() => metrics?.groupCards ?? [], [metrics]);
 
   async function loadData() {
-    setLoading(true);
     setError(null);
 
     const monthStart = `${monthCursor}-01`;
@@ -189,7 +181,6 @@ export function EggCollectionManager() {
 
     if (!collectionRes.ok || !metricsRes.ok) {
       setError("Nao foi possivel carregar a coleta de ovos.");
-      setLoading(false);
       return;
     }
 
@@ -206,7 +197,6 @@ export function EggCollectionManager() {
       setForm((prev) => ({ ...prev, flockGroupId: metricsData.groupCards[0].groupId }));
     }
 
-    setLoading(false);
   }
 
   useEffect(() => {
@@ -238,6 +228,7 @@ export function EggCollectionManager() {
     setForm((prev) => ({ ...emptyForm, flockGroupId: prev.flockGroupId || form.flockGroupId, date: selectedDate }));
     setEditingId(null);
     setSaving(false);
+    setShowDayModal(false);
     await loadData();
   }
 
@@ -319,19 +310,21 @@ export function EggCollectionManager() {
     const nextKey = monthKeyFromDate(next);
     setMonthCursor(nextKey);
     setSelectedDate(`${nextKey}-01`);
+    setShowDayModal(false);
   }
 
-  function applyDayToForm(date: string) {
+  function openDay(date: string) {
     setSelectedDate(date);
     setForm((prev) => ({ ...prev, date }));
     setEditingId(null);
+    setShowDayModal(true);
   }
 
   return (
     <main className="space-y-6">
       <PageTitle
         title="🥚 Coleta de ovos"
-        description="A tela agora gira em torno do calendario mensal. Clique no dia para ver e editar as coletas sem se perder em listas enormes."
+        description="Visao mensal para acompanhar o sitio sem lotar a tela com listas longas."
       />
 
       {error ? (
@@ -347,241 +340,65 @@ export function EggCollectionManager() {
         <StatTile emoji="📈" label="Taxa de bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
-        <Card>
-          <h3 className="text-xl font-semibold text-slate-900">
-            {editingId ? "✏️ Editar coleta" : "➕ Nova coleta"}
-          </h3>
-          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-            Os numeros abaixo se referem ao dia escolhido no calendario e ao grupo selecionado.
-          </p>
-
-          <form className="mt-5 grid gap-4" onSubmit={submitCollection}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Data da coleta" hint="Dia em que os ovos foram recolhidos.">
-                <Input
-                  type="date"
-                  value={form.date}
-                  onChange={(event) => {
-                    setSelectedDate(event.target.value);
-                    setForm((prev) => ({ ...prev, date: event.target.value }));
-                  }}
-                />
-              </Field>
-
-              <Field label="Grupo de origem" hint="Escolha o card do plantel responsavel por esses ovos.">
-                <select
-                  className={selectClass}
-                  value={form.flockGroupId}
-                  onChange={(event) => setForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
-                >
-                  <option value="">Selecione o grupo</option>
-                  {groups.map((group) => (
-                    <option key={group.groupId} value={group.groupId}>
-                      {group.title}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Total de ovos" hint="Quantidade total recolhida naquele dia.">
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.totalEggs}
-                  onChange={(event) => setForm((prev) => ({ ...prev, totalEggs: Number(event.target.value) }))}
-                />
-              </Field>
-              <Field label="Ovos bons" hint="Quantidade boa para uso ou incubacao.">
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.goodEggs}
-                  onChange={(event) => setForm((prev) => ({ ...prev, goodEggs: Number(event.target.value) }))}
-                />
-              </Field>
-              <Field label="Ovos trincados" hint="Quantidade com rachadura ou dano.">
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.crackedEggs}
-                  onChange={(event) => setForm((prev) => ({ ...prev, crackedEggs: Number(event.target.value) }))}
-                />
-              </Field>
-            </div>
-
-            <Field label="Observacoes" hint="Detalhes daquele dia: clima, queda de postura, selecao, manejo ou anormalidades.">
-              <textarea
-                className={textareaClass}
-                value={form.notes}
-                onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
-                placeholder="Escreva algo importante sobre essa coleta."
-              />
-            </Field>
-
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={saving}>
-                {saving ? "Salvando..." : editingId ? "Atualizar coleta" : "Registrar coleta"}
-              </Button>
-              {editingId ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingId(null);
-                    setForm((prev) => ({ ...emptyForm, flockGroupId: prev.flockGroupId, date: selectedDate }));
-                  }}
-                >
-                  Cancelar
-                </Button>
-              ) : null}
-            </div>
-          </form>
-        </Card>
-
-        <Card>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h3 className="text-xl font-semibold text-slate-900">🗓️ Calendario mensal</h3>
-              <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-                Clique em uma data para ver apenas os registros daquele dia.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => goMonth(-1)}>
-                Mes anterior
-              </Button>
-              <Button type="button" variant="outline" onClick={() => goMonth(1)}>
-                Proximo mes
-              </Button>
-            </div>
+      <Card>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">Calendario do mes</h3>
           </div>
-
-          <div className="mt-4 grid gap-4 md:grid-cols-[0.42fr_0.58fr]">
-            <div>
-              <div className="rounded-3xl bg-[color:var(--surface-soft)] px-4 py-3">
-                <p className="text-sm font-semibold capitalize text-slate-900">{monthName}</p>
-                <p className="mt-1 text-xs text-[color:var(--ink-soft)]">
-                  Selecione o grupo para reduzir a visualizacao quando houver muitas especies.
-                </p>
-              </div>
-
-              <div className="mt-4 grid grid-cols-7 gap-2 text-center text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
-                {weekLabels.map((label) => (
-                  <div key={label}>{label}</div>
-                ))}
-              </div>
-
-              <div className="mt-2 grid grid-cols-7 gap-2">
-                {monthDays.map((cell) => {
-                  if (!cell.date || !cell.day) {
-                    return <div key={cell.key} className="h-24 rounded-2xl bg-white/40" />;
-                  }
-
-                  const values = calendarMap.get(cell.date);
-                  const active = selectedDate === cell.date;
-                  return (
-                    <button
-                      key={cell.key}
-                      type="button"
-                      onClick={() => applyDayToForm(cell.date!)}
-                      className={`h-24 rounded-2xl border p-2 text-left transition ${
-                        active
-                          ? "border-transparent bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-white shadow-[0_14px_28px_rgba(15,157,138,0.22)]"
-                          : "border-[color:var(--line)] bg-white hover:bg-[color:var(--surface-soft)]"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold">{cell.day}</p>
-                      <p className="mt-2 text-[11px]">Total {values?.total ?? 0}</p>
-                      <p className="text-[11px]">Bons {values?.good ?? 0}</p>
-                      <p className="text-[11px]">Trinc. {values?.cracked ?? 0}</p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-[color:var(--line)] bg-white/80 p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Dia selecionado</p>
-                  <h4 className="mt-1 text-lg font-semibold text-slate-900">
-                    {new Date(`${selectedDate}T12:00:00`).toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric"
-                    })}
-                  </h4>
-                </div>
-                <div className="w-full md:w-60">
-                  <select className={selectClass} value={filterGroupId} onChange={(event) => setFilterGroupId(event.target.value)}>
-                    <option value="">Todos os grupos</option>
-                    {groups.map((group) => (
-                      <option key={group.groupId} value={group.groupId}>
-                        {group.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {loading ? <p className="mt-4 text-sm text-[color:var(--ink-soft)]">Carregando registros...</p> : null}
-              {!loading && selectedDateRows.length === 0 ? (
-                <p className="mt-4 text-sm text-[color:var(--ink-soft)]">
-                  Nenhuma coleta encontrada para essa data.
-                </p>
-              ) : null}
-
-              {!loading && selectedDateRows.length > 0 ? (
-                <div className="mt-4 space-y-3">
-                  {selectedDateRows.map((row) => (
-                    <div key={row.id} className="rounded-3xl border border-[color:var(--line)] bg-slate-50/70 p-4">
-                      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                        <div>
-                          <h5 className="text-base font-semibold text-slate-900">{row.flockGroup.title}</h5>
-                          <p className="text-sm text-[color:var(--ink-soft)]">
-                            {row.totalEggs} ovos no total • {row.goodEggs} bons • {row.crackedEggs} trincados
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Bons {formatPercent(row.goodRate)} • Trincados {formatPercent(row.crackedRate)}
-                          </p>
-                          {row.notes ? <p className="mt-2 text-sm text-slate-600">{row.notes}</p> : null}
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="outline"
-                            type="button"
-                            onClick={() => {
-                              setEditingId(row.id);
-                              setSelectedDate(formatDateInput(row.date));
-                              setForm({
-                                date: formatDateInput(row.date),
-                                flockGroupId: row.flockGroupId,
-                                totalEggs: row.totalEggs,
-                                goodEggs: row.goodEggs,
-                                crackedEggs: row.crackedEggs,
-                                notes: row.notes ?? ""
-                              });
-                            }}
-                          >
-                            Editar
-                          </Button>
-                          <Button variant="danger" type="button" onClick={() => deleteCollection(row.id)}>
-                            Excluir
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select className={`${selectClass} sm:w-64`} value={filterGroupId} onChange={(event) => setFilterGroupId(event.target.value)}>
+              <option value="">Todos os grupos</option>
+              {groups.map((group) => (
+                <option key={group.groupId} value={group.groupId}>
+                  {group.title}
+                </option>
+              ))}
+            </select>
+            <Button type="button" variant="outline" onClick={() => goMonth(-1)}>
+              Mes anterior
+            </Button>
+            <Button type="button" variant="outline" onClick={() => goMonth(1)}>
+              Proximo mes
+            </Button>
           </div>
-        </Card>
-      </section>
+        </div>
+
+        <div className="mt-5 rounded-3xl bg-[color:var(--surface-soft)] px-5 py-4">
+          <p className="text-lg font-semibold capitalize text-slate-900">{monthName}</p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-7 gap-3 text-center text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
+          {weekLabels.map((label) => (
+            <div key={label}>{label}</div>
+          ))}
+        </div>
+
+        <div className="mt-3 grid grid-cols-7 gap-3">
+          {monthDays.map((cell) => {
+            if (!cell.date || !cell.day) {
+              return <div key={cell.key} className="h-32 rounded-[24px] bg-white/30" />;
+            }
+
+            const values = calendarMap.get(cell.date);
+            return (
+              <button
+                key={cell.key}
+                type="button"
+                onClick={() => openDay(cell.date!)}
+                className="h-32 rounded-[24px] border border-[color:var(--line)] bg-white p-3 text-left transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)]"
+              >
+                <p className="text-base font-semibold text-slate-900">{cell.day}</p>
+                <p className="mt-4 text-xs text-slate-500">Total</p>
+                <p className="text-xl font-semibold text-slate-900">{values?.total ?? 0}</p>
+                <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
+                  <span>Bons {values?.good ?? 0}</span>
+                  <span>Trinc. {values?.cracked ?? 0}</span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </Card>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {groups.map((group) => {
@@ -612,7 +429,7 @@ export function EggCollectionManager() {
               </div>
 
               <div className="mt-5">
-                <Field label="Meta de ovos" hint="Numero esperado para comparar o desempenho real.">
+                <Field label="Meta de ovos">
                   <div className="flex gap-2">
                     <Input
                       type="number"
@@ -642,6 +459,157 @@ export function EggCollectionManager() {
           );
         })}
       </section>
+
+      {showDayModal ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-[color:var(--line)] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.25)]">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Dia selecionado</p>
+                <h3 className="mt-1 text-2xl font-semibold text-slate-900">
+                  {new Date(`${selectedDate}T12:00:00`).toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric"
+                  })}
+                </h3>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setShowDayModal(false)}>
+                Fechar
+              </Button>
+            </div>
+
+            <form className="mt-6 grid gap-4" onSubmit={submitCollection}>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Data da coleta">
+                  <Input
+                    type="date"
+                    value={form.date}
+                    onChange={(event) => {
+                      setSelectedDate(event.target.value);
+                      setForm((prev) => ({ ...prev, date: event.target.value }));
+                    }}
+                  />
+                </Field>
+                <Field label="Grupo de origem">
+                  <select
+                    className={selectClass}
+                    value={form.flockGroupId}
+                    onChange={(event) => setForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
+                  >
+                    <option value="">Selecione o grupo</option>
+                    {groups.map((group) => (
+                      <option key={group.groupId} value={group.groupId}>
+                        {group.title}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field label="Total de ovos">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.totalEggs}
+                    onChange={(event) => setForm((prev) => ({ ...prev, totalEggs: Number(event.target.value) }))}
+                  />
+                </Field>
+                <Field label="Ovos bons">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.goodEggs}
+                    onChange={(event) => setForm((prev) => ({ ...prev, goodEggs: Number(event.target.value) }))}
+                  />
+                </Field>
+                <Field label="Ovos trincados">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={form.crackedEggs}
+                    onChange={(event) => setForm((prev) => ({ ...prev, crackedEggs: Number(event.target.value) }))}
+                  />
+                </Field>
+              </div>
+
+              <Field label="Observacoes">
+                <textarea
+                  className={textareaClass}
+                  value={form.notes}
+                  onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
+                  placeholder="Observacoes da coleta"
+                />
+              </Field>
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" disabled={saving}>
+                  {saving ? "Salvando..." : editingId ? "Atualizar coleta" : "Registrar coleta"}
+                </Button>
+                {editingId ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingId(null);
+                      setForm((prev) => ({ ...emptyForm, flockGroupId: prev.flockGroupId, date: selectedDate }));
+                    }}
+                  >
+                    Cancelar
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+
+            <div className="mt-6 space-y-3">
+              {selectedDateRows.length === 0 ? (
+                <p className="text-sm text-[color:var(--ink-soft)]">Nenhuma coleta encontrada para essa data.</p>
+              ) : (
+                selectedDateRows.map((row) => (
+                  <div key={row.id} className="rounded-3xl border border-[color:var(--line)] bg-slate-50/70 p-4">
+                    <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                      <div>
+                        <h5 className="text-base font-semibold text-slate-900">{row.flockGroup.title}</h5>
+                        <p className="text-sm text-[color:var(--ink-soft)]">
+                          {row.totalEggs} ovos no total • {row.goodEggs} bons • {row.crackedEggs} trincados
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Bons {formatPercent(row.goodRate)} • Trincados {formatPercent(row.crackedRate)}
+                        </p>
+                        {row.notes ? <p className="mt-2 text-sm text-slate-600">{row.notes}</p> : null}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          type="button"
+                          onClick={() => {
+                            setEditingId(row.id);
+                            setForm({
+                              date: formatDateInput(row.date),
+                              flockGroupId: row.flockGroupId,
+                              totalEggs: row.totalEggs,
+                              goodEggs: row.goodEggs,
+                              crackedEggs: row.crackedEggs,
+                              notes: row.notes ?? ""
+                            });
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        <Button variant="danger" type="button" onClick={() => deleteCollection(row.id)}>
+                          Excluir
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
