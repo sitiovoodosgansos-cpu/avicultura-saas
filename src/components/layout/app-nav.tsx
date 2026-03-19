@@ -2,27 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  BarChart3,
-  Bird,
-  Egg,
-  FlaskConical,
-  HeartPulse,
-  Home,
-  Settings,
-  Wallet
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", emoji: "🏠", icon: Home },
-  { href: "/plantel", label: "Plantel", emoji: "🦚", icon: Bird },
-  { href: "/coleta-ovos", label: "Coleta", emoji: "🥚", icon: Egg },
-  { href: "/chocadeiras", label: "Chocadeiras", emoji: "🐣", icon: FlaskConical },
-  { href: "/sanidade", label: "Sanidade", emoji: "💊", icon: HeartPulse },
-  { href: "/financeiro", label: "Financeiro", emoji: "💰", icon: Wallet },
-  { href: "/relatorios", label: "Relatorios", emoji: "📊", icon: BarChart3 },
-  { href: "/perfil", label: "Perfil", emoji: "⚙️", icon: Settings }
+  { href: "/dashboard", label: "Dashboard", emoji: "🏠" },
+  { href: "/plantel", label: "Plantel", emoji: "🦚" },
+  { href: "/coleta-ovos", label: "Coleta", emoji: "🥚" },
+  { href: "/chocadeiras", label: "Chocadeiras", emoji: "🐣" },
+  { href: "/sanidade", label: "Sanidade", emoji: "💊" },
+  { href: "/financeiro", label: "Financeiro", emoji: "💰" },
+  { href: "/relatorios", label: "Relatorios", emoji: "📊" },
+  { href: "/perfil", label: "Perfil", emoji: "⚙️" }
 ];
 
 export function AppNav() {
@@ -50,7 +40,7 @@ export function AppNav() {
           </div>
 
           <nav className="space-y-2">
-            {navItems.map(({ href, label, emoji, icon: Icon }) => {
+            {navItems.map(({ href, label, emoji }) => {
               const active = pathname === href;
               return (
                 <Link
@@ -71,10 +61,7 @@ export function AppNav() {
                   >
                     {emoji}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <Icon className="size-4" />
-                    {label}
-                  </div>
+                  <div>{label}</div>
                 </Link>
               );
             })}
@@ -83,7 +70,7 @@ export function AppNav() {
       </aside>
 
       <nav className="fixed bottom-3 left-3 right-3 z-50 grid grid-cols-4 rounded-[26px] border border-[color:var(--line)] bg-white/95 p-2 shadow-[0_20px_45px_rgba(15,23,42,0.15)] backdrop-blur md:hidden">
-        {navItems.map(({ href, label, emoji, icon: Icon }) => {
+        {navItems.map(({ href, label, emoji }) => {
           const active = pathname === href;
           return (
             <Link
@@ -95,7 +82,6 @@ export function AppNav() {
               )}
             >
               <span className="text-base">{emoji}</span>
-              <Icon className="size-4" />
               {label}
             </Link>
           );
