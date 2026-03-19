@@ -1,4 +1,3 @@
-﻿import { FinancialCategory } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 function toDate(value: string) {
@@ -29,7 +28,7 @@ function monthKey(date: Date) {
 
 export async function listFinancialEntries(
   tenantId: string,
-  params?: { from?: string; to?: string; category?: FinancialCategory; q?: string }
+  params?: { from?: string; to?: string; category?: string; q?: string }
 ) {
   const entries = await prisma.financialEntry.findMany({
     where: {
@@ -56,7 +55,7 @@ export async function listFinancialEntries(
 
 export async function listFinancialExpenses(
   tenantId: string,
-  params?: { from?: string; to?: string; category?: FinancialCategory; q?: string }
+  params?: { from?: string; to?: string; category?: string; q?: string }
 ) {
   const expenses = await prisma.financialExpense.findMany({
     where: {
@@ -86,7 +85,7 @@ export async function createEntry(
   userId: string,
   input: {
     date: string;
-    category: FinancialCategory;
+    category: string;
     item: string;
     amount: number;
     description?: string;
@@ -127,7 +126,7 @@ export async function updateEntry(
   id: string,
   input: {
     date: string;
-    category: FinancialCategory;
+    category: string;
     item: string;
     amount: number;
     description?: string;
@@ -190,7 +189,7 @@ export async function createExpense(
   userId: string,
   input: {
     date: string;
-    category: FinancialCategory;
+    category: string;
     item: string;
     amount: number;
     description?: string;
@@ -231,7 +230,7 @@ export async function updateExpense(
   id: string,
   input: {
     date: string;
-    category: FinancialCategory;
+    category: string;
     item: string;
     amount: number;
     description?: string;
@@ -374,3 +373,5 @@ export async function getFinancialMetrics(tenantId: string) {
     monthlyEvolution
   };
 }
+
+

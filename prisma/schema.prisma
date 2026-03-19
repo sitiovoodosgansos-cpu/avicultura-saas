@@ -68,17 +68,6 @@ enum InfirmaryCaseStatus {
   TRANSFERRED
 }
 
-enum FinancialCategory {
-  EGG_SALE
-  CHICK_SALE
-  ADULT_BIRD_SALE
-  FEED
-  MEDICATION
-  STRUCTURE
-  MAINTENANCE
-  OTHER
-}
-
 enum ReportType {
   GENERAL
   FLOCK
@@ -383,7 +372,7 @@ model FinancialEntry {
   id          String            @id @default(cuid())
   tenantId    String
   date        DateTime
-  category    FinancialCategory
+  category    String
   item        String
   amount      Decimal           @db.Decimal(12, 2)
   description String?
@@ -398,7 +387,7 @@ model FinancialExpense {
   id          String            @id @default(cuid())
   tenantId    String
   date        DateTime
-  category    FinancialCategory
+  category    String
   item        String
   amount      Decimal           @db.Decimal(12, 2)
   description String?

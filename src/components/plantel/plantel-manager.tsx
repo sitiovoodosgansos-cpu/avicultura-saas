@@ -350,7 +350,7 @@ export function PlantelManager() {
     <main className="space-y-6">
       <PageTitle
         title="🦚 Plantel"
-        description="Agora cada formulario explica o que cada numero e data significam, para voce cadastrar grupos e aves sem ficar em duvida."
+        description="Cadastro do plantel com foco em grupos, anilhas e status das aves."
       />
 
       {error ? (
@@ -371,43 +371,41 @@ export function PlantelManager() {
           <h3 className="text-xl font-semibold text-slate-900">
             {editingGroupId ? "✏️ Editar grupo" : "➕ Novo grupo de aves"}
           </h3>
-          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-            Grupo significa um conjunto do mesmo tipo de ave, como Galinha Brahma Dark.
-          </p>
+          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Cadastro do grupo principal.</p>
 
           <form className="mt-5 grid gap-4" onSubmit={submitGroup}>
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Especie">
+              <div>
                 <Input
-                  placeholder="Galinha"
+                  placeholder="Especie: Galinha, Peru, Faisao"
                   value={groupForm.species}
                   onChange={(event) => setGroupForm((prev) => ({ ...prev, species: event.target.value }))}
                 />
-              </Field>
-              <Field label="Raca">
+              </div>
+              <div>
                 <Input
-                  placeholder="Brahma"
+                  placeholder="Raca: Brahma, Gigante Negro, Bronze"
                   value={groupForm.breed}
                   onChange={(event) => setGroupForm((prev) => ({ ...prev, breed: event.target.value }))}
                 />
-              </Field>
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Variedade ou cor">
+              <div>
                 <Input
-                  placeholder="Dark"
+                  placeholder="Variedade ou cor: Dark, Branco, Dourado"
                   value={groupForm.variety}
                   onChange={(event) => setGroupForm((prev) => ({ ...prev, variety: event.target.value }))}
                 />
-              </Field>
-              <Field label="Nome do card">
+              </div>
+              <div>
                 <Input
-                  placeholder="Galinha Brahma Dark"
+                  placeholder="Nome do card: Galinha Brahma Dark"
                   value={groupForm.title}
                   onChange={(event) => setGroupForm((prev) => ({ ...prev, title: event.target.value }))}
                 />
-              </Field>
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -462,23 +460,30 @@ export function PlantelManager() {
                   }
                 />
               </Field>
-              <Field label="Data da compra">
+              <div>
                 <Input
-                  type="date"
+                  type={groupForm.purchaseDate ? "date" : "text"}
+                  placeholder="Data da compra: dd/mm/aaaa"
                   value={groupForm.purchaseDate}
+                  onFocus={(event) => {
+                    event.currentTarget.type = "date";
+                  }}
+                  onBlur={(event) => {
+                    if (!event.currentTarget.value) event.currentTarget.type = "text";
+                  }}
                   onChange={(event) => setGroupForm((prev) => ({ ...prev, purchaseDate: event.target.value }))}
                 />
-              </Field>
+              </div>
             </div>
 
-            <Field label="Observacoes">
+            <div>
               <textarea
                 className={textareaClass}
-                placeholder="Descreva informacoes uteis sobre esse grupo."
+                placeholder="Observacoes: origem, comportamento, detalhes do lote"
                 value={groupForm.notes}
                 onChange={(event) => setGroupForm((prev) => ({ ...prev, notes: event.target.value }))}
               />
-            </Field>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={saving}>
@@ -504,77 +509,82 @@ export function PlantelManager() {
           <h3 className="text-xl font-semibold text-slate-900">
             {editingBirdId ? "🛠️ Editar ave" : "🐣 Cadastro individual por anilha"}
           </h3>
-          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-            Aqui cada numero esta ligado a uma ave especifica. Use a anilha para localizar rapidamente.
-          </p>
+          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Cadastro individual das aves.</p>
 
           <form className="mt-5 grid gap-4" onSubmit={submitBird}>
-            <Field label="Grupo da ave">
+            <div>
               <select
                 className={selectClass}
                 value={birdForm.flockGroupId}
                 onChange={(event) => setBirdForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
               >
-                <option value="">Selecione o grupo</option>
+                <option value="">Grupo da ave: selecione o grupo</option>
                 {groups.map((group) => (
                   <option key={group.id} value={group.id}>
                     {group.title}
                   </option>
                 ))}
               </select>
-            </Field>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Numero da anilha">
-                <Input
-                  placeholder="2025-001"
-                  value={birdForm.ringNumber}
-                  onChange={(event) => setBirdForm((prev) => ({ ...prev, ringNumber: event.target.value }))}
-                />
-              </Field>
-              <Field label="Nome ou apelido">
-                <Input
-                  placeholder="Rainha"
-                  value={birdForm.nickname}
-                  onChange={(event) => setBirdForm((prev) => ({ ...prev, nickname: event.target.value }))}
-                />
-              </Field>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Sexo">
+              <div>
+                <Input
+                  placeholder="Numero da anilha: 2025-001"
+                  value={birdForm.ringNumber}
+                  onChange={(event) => setBirdForm((prev) => ({ ...prev, ringNumber: event.target.value }))}
+                />
+              </div>
+              <div>
+                <Input
+                  placeholder="Nome ou apelido: Rainha"
+                  value={birdForm.nickname}
+                  onChange={(event) => setBirdForm((prev) => ({ ...prev, nickname: event.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
                 <select
                   className={selectClass}
                   value={birdForm.sex}
                   onChange={(event) => setBirdForm((prev) => ({ ...prev, sex: event.target.value as BirdForm["sex"] }))}
                 >
-                  <option value="UNKNOWN">Nao informado</option>
-                  <option value="FEMALE">Femea</option>
-                  <option value="MALE">Macho</option>
+                  <option value="UNKNOWN">Sexo: nao informado</option>
+                  <option value="FEMALE">Sexo: matriz</option>
+                  <option value="MALE">Sexo: reprodutor</option>
                 </select>
-              </Field>
-              <Field label="Status atual">
+              </div>
+              <div>
                 <select
                   className={selectClass}
                   value={birdForm.status}
                   onChange={(event) => setBirdForm((prev) => ({ ...prev, status: event.target.value as BirdStatus }))}
                 >
-                  <option value="ACTIVE">Ativa</option>
-                  <option value="SICK">Doente</option>
-                  <option value="DEAD">Morta</option>
-                  <option value="BROODY">Choca</option>
+                  <option value="ACTIVE">Status atual: ativa</option>
+                  <option value="SICK">Status atual: doente</option>
+                  <option value="DEAD">Status atual: morta</option>
+                  <option value="BROODY">Status atual: choca</option>
                 </select>
-              </Field>
+              </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Data de aquisicao">
+              <div>
                 <Input
-                  type="date"
+                  type={birdForm.acquisitionDate ? "date" : "text"}
+                  placeholder="Data de aquisicao: dd/mm/aaaa"
                   value={birdForm.acquisitionDate}
+                  onFocus={(event) => {
+                    event.currentTarget.type = "date";
+                  }}
+                  onBlur={(event) => {
+                    if (!event.currentTarget.value) event.currentTarget.type = "text";
+                  }}
                   onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
                 />
-              </Field>
+              </div>
               <Field label="Valor da compra">
                 <Input
                   type="number"
@@ -592,13 +602,13 @@ export function PlantelManager() {
               </Field>
             </div>
 
-            <Field label="Origem ou fornecedor">
+            <div>
               <Input
-                placeholder="Criatorio Exemplo"
+                placeholder="Origem ou fornecedor: Criatorio Exemplo"
                 value={birdForm.origin}
                 onChange={(event) => setBirdForm((prev) => ({ ...prev, origin: event.target.value }))}
               />
-            </Field>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={saving || !canSubmitBird}>
@@ -670,13 +680,12 @@ export function PlantelManager() {
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <StatChip emoji="🐥" label="Total" value={group.summary.totalBirds} />
-                    <StatChip emoji="♀️" label="Femeas" value={group.summary.females} />
-                    <StatChip emoji="♂️" label="Machos" value={group.summary.males} />
+                    <StatChip emoji="🥚" label="Matrizes" value={group.matrixCount} />
+                    <StatChip emoji="🐓" label="Reprodutores" value={group.reproducerCount} />
                     <StatChip emoji="✅" label="Ativas" value={group.summary.ACTIVE} />
                     <StatChip emoji="🤒" label="Doentes" value={group.summary.SICK} />
                     <StatChip emoji="🕊️" label="Mortas" value={group.summary.DEAD} />
                     <StatChip emoji="🥚" label="Chocas" value={group.summary.BROODY} />
-                    <StatChip emoji="👩‍🌾" label="Matrizes" value={group.matrixCount} />
                   </div>
 
                   {group.notes ? (

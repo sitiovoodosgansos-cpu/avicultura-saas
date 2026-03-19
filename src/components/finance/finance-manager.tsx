@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -7,15 +7,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Category =
-  | "EGG_SALE"
-  | "CHICK_SALE"
-  | "ADULT_BIRD_SALE"
-  | "FEED"
-  | "MEDICATION"
-  | "STRUCTURE"
-  | "MAINTENANCE"
-  | "OTHER";
+type Category = string;
+
+type CategoryOption = {
+  value: Category;
+  label: string;
+};
 
 type Entry = {
   id: string;
@@ -73,7 +70,7 @@ type ExpenseForm = {
   notes: string;
 };
 
-const categories: Array<{ value: Category; label: string }> = [
+const defaultCategories: CategoryOption[] = [
   { value: "EGG_SALE", label: "Venda de ovos" },
   { value: "CHICK_SALE", label: "Venda de filhotes" },
   { value: "ADULT_BIRD_SALE", label: "Venda de aves adultas" },
@@ -119,6 +116,45 @@ function toDateInput(value: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function formatCategoryLabel(value: string) {
+  const fromDefault = defaultCategories.find((category) => category.value === value);
+  if (fromDefault) return fromDefault.label;
+  return value;
+}
+
+function CategorySelect({
+  value,
+  options,
+  onChange,
+  onCreate
+}: {
+  value: string;
+  options: CategoryOption[];
+  onChange: (value: string) => void;
+  onCreate: () => void;
+}) {
+  return (
+    <select
+      className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+      value={value}
+      onChange={(event) => {
+        if (event.target.value === "__new__") {
+          onCreate();
+          return;
+        }
+        onChange(event.target.value);
+      }}
+    >
+      {options.map((category) => (
+        <option key={category.value} value={category.value}>
+          {category.label}
+        </option>
+      ))}
+      <option value="__new__">+ Nova categoria</option>
+    </select>
+  );
+}
+
 export function FinanceManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -137,6 +173,31 @@ export function FinanceManager() {
   const [filterTo, setFilterTo] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
+
+  const [customCategories, setCustomCategories] = useState<CategoryOption[]>([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [categoryTarget, setCategoryTarget] = useState<"entry" | "expense" | "filter">("entry");
+
+  const categoryOptions = useMemo(() => {
+    const map = new Map<string, CategoryOption>();
+
+    for (const option of defaultCategories) {
+      map.set(option.value, option);
+    }
+
+    for (const option of customCategories) {
+      map.set(option.value, option);
+    }
+
+    for (const value of [...entries.map((row) => row.category), ...expenses.map((row) => row.category)]) {
+      if (!map.has(value)) {
+        map.set(value, { value, label: formatCategoryLabel(value) });
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [customCategories, entries, expenses]);
 
   const totals = useMemo(() => {
     const income = entries.reduce((sum, row) => sum + row.amount, 0);
@@ -184,6 +245,35 @@ export function FinanceManager() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterFrom, filterTo, filterCategory, filterQuery]);
+
+  function openCategoryModal(target: "entry" | "expense" | "filter") {
+    setCategoryTarget(target);
+    setNewCategoryName("");
+    setShowCategoryModal(true);
+  }
+
+  function saveNewCategory() {
+    const value = newCategoryName.trim();
+    if (!value) return;
+
+    const option = { value, label: value };
+    setCustomCategories((prev) => {
+      if (prev.some((item) => item.value.toLowerCase() === value.toLowerCase())) return prev;
+      return [...prev, option];
+    });
+
+    if (categoryTarget === "entry") {
+      setEntryForm((prev) => ({ ...prev, category: value }));
+    }
+    if (categoryTarget === "expense") {
+      setExpenseForm((prev) => ({ ...prev, category: value }));
+    }
+    if (categoryTarget === "filter") {
+      setFilterCategory(value);
+    }
+
+    setShowCategoryModal(false);
+  }
 
   async function saveEntry(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -261,10 +351,7 @@ export function FinanceManager() {
 
   return (
     <main className="space-y-6">
-      <PageTitle
-        title="Financeiro"
-        description="Entradas, saídas, comparativos de período e resultado líquido."
-      />
+      <PageTitle title="Financeiro" description="Entradas, saídas, comparativos de período e resultado líquido." />
 
       {error ? (
         <Card>
@@ -293,13 +380,21 @@ export function FinanceManager() {
 
       <section className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Nova entrada</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-zinc-900">Nova entrada</h3>
+            <Button type="button" variant="outline" onClick={() => openCategoryModal("entry")}>
+              Nova categoria
+            </Button>
+          </div>
           <form className="mt-4 grid gap-3" onSubmit={saveEntry}>
             <div className="grid grid-cols-2 gap-3">
               <Input type="date" value={entryForm.date} onChange={(e) => setEntryForm((p) => ({ ...p, date: e.target.value }))} />
-              <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={entryForm.category} onChange={(e) => setEntryForm((p) => ({ ...p, category: e.target.value as Category }))}>
-                {categories.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
-              </select>
+              <CategorySelect
+                value={entryForm.category}
+                options={categoryOptions}
+                onChange={(value) => setEntryForm((p) => ({ ...p, category: value }))}
+                onCreate={() => openCategoryModal("entry")}
+              />
             </div>
             <Input placeholder="Item vendido" value={entryForm.item} onChange={(e) => setEntryForm((p) => ({ ...p, item: e.target.value }))} />
             <Input type="number" min={0} step="0.01" placeholder="Valor" value={entryForm.amount} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
@@ -318,13 +413,21 @@ export function FinanceManager() {
         </Card>
 
         <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Nova saída</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-zinc-900">Nova saída</h3>
+            <Button type="button" variant="outline" onClick={() => openCategoryModal("expense")}>
+              Nova categoria
+            </Button>
+          </div>
           <form className="mt-4 grid gap-3" onSubmit={saveExpense}>
             <div className="grid grid-cols-2 gap-3">
               <Input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm((p) => ({ ...p, date: e.target.value }))} />
-              <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={expenseForm.category} onChange={(e) => setExpenseForm((p) => ({ ...p, category: e.target.value as Category }))}>
-                {categories.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
-              </select>
+              <CategorySelect
+                value={expenseForm.category}
+                options={categoryOptions}
+                onChange={(value) => setExpenseForm((p) => ({ ...p, category: value }))}
+                onCreate={() => openCategoryModal("expense")}
+              />
             </div>
             <Input placeholder="Item comprado/despesa" value={expenseForm.item} onChange={(e) => setExpenseForm((p) => ({ ...p, item: e.target.value }))} />
             <Input type="number" min={0} step="0.01" placeholder="Valor" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
@@ -344,13 +447,18 @@ export function FinanceManager() {
       </section>
 
       <Card>
-        <h3 className="text-base font-semibold text-zinc-900">Filtros e totalizadores</h3>
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-base font-semibold text-zinc-900">Filtros e totalizadores</h3>
+          <Button type="button" variant="outline" onClick={() => openCategoryModal("filter")}>
+            Nova categoria
+          </Button>
+        </div>
         <div className="mt-3 grid gap-3 md:grid-cols-4">
           <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
           <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
             <option value="">Todas categorias</option>
-            {categories.map((cat) => <option key={cat.value} value={cat.value}>{cat.label}</option>)}
+            {categoryOptions.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
           </select>
           <Input placeholder="Busca textual" value={filterQuery} onChange={(e) => setFilterQuery(e.target.value)} />
         </div>
@@ -409,7 +517,7 @@ export function FinanceManager() {
                 {entries.map((row) => (
                   <tr key={row.id} className="border-b border-zinc-100">
                     <td className="py-2 pr-3">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
-                    <td className="py-2 pr-3">{categories.find((c) => c.value === row.category)?.label ?? row.category}</td>
+                    <td className="py-2 pr-3">{formatCategoryLabel(row.category)}</td>
                     <td className="py-2 pr-3">{row.item}</td>
                     <td className="py-2 pr-3">{row.customer || "-"}</td>
                     <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
@@ -458,7 +566,7 @@ export function FinanceManager() {
                 {expenses.map((row) => (
                   <tr key={row.id} className="border-b border-zinc-100">
                     <td className="py-2 pr-3">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
-                    <td className="py-2 pr-3">{categories.find((c) => c.value === row.category)?.label ?? row.category}</td>
+                    <td className="py-2 pr-3">{formatCategoryLabel(row.category)}</td>
                     <td className="py-2 pr-3">{row.item}</td>
                     <td className="py-2 pr-3">{row.supplier || "-"}</td>
                     <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
@@ -486,6 +594,27 @@ export function FinanceManager() {
           </div>
         ) : null}
       </Card>
+
+      {showCategoryModal ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[28px] border border-zinc-200 bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.25)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Categoria personalizada</p>
+            <h3 className="mt-2 text-2xl font-semibold text-zinc-900">Nova categoria</h3>
+            <p className="mt-2 text-sm text-zinc-500">Crie uma categoria nova para entradas, saídas ou filtro.</p>
+            <div className="mt-5">
+              <Input
+                placeholder="Ex.: Vacinas, Frete, Equipamentos"
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+              />
+            </div>
+            <div className="mt-5 flex gap-2">
+              <Button type="button" onClick={saveNewCategory}>Salvar categoria</Button>
+              <Button type="button" variant="outline" onClick={() => setShowCategoryModal(false)}>Cancelar</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

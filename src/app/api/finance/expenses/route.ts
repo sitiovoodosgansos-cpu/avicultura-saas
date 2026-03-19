@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { financialExpenseSchema } from "@/lib/validators/finance";
 import { createExpense, listFinancialExpenses } from "@/lib/finance/service";
@@ -8,16 +8,7 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
-  const category = searchParams.get("category") as
-    | "EGG_SALE"
-    | "CHICK_SALE"
-    | "ADULT_BIRD_SALE"
-    | "FEED"
-    | "MEDICATION"
-    | "STRUCTURE"
-    | "MAINTENANCE"
-    | "OTHER"
-    | null;
+  const category = searchParams.get("category");
 
   const data = await listFinancialExpenses(auth.session.user.tenantId, {
     from: searchParams.get("from") ?? undefined,
@@ -37,7 +28,7 @@ export async function POST(request: NextRequest) {
   const parsed = financialExpenseSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inválidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv�lidos." },
       { status: 400 }
     );
   }
@@ -45,3 +36,4 @@ export async function POST(request: NextRequest) {
   const created = await createExpense(auth.session.user.tenantId, auth.session.user.id, parsed.data);
   return NextResponse.json(created, { status: 201 });
 }
+

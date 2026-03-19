@@ -64,7 +64,6 @@ export async function createEggCollection(
     date: string;
     flockGroupId: string;
     totalEggs: number;
-    goodEggs: number;
     crackedEggs: number;
     notes?: string;
   }
@@ -72,13 +71,15 @@ export async function createEggCollection(
   const group = await prisma.flockGroup.findFirst({ where: { id: input.flockGroupId, tenantId } });
   if (!group) return null;
 
+  const goodEggs = Math.max(input.totalEggs - input.crackedEggs, 0);
+
   const created = await prisma.eggCollection.create({
     data: {
       tenantId,
       date: new Date(`${input.date}T12:00:00`),
       flockGroupId: input.flockGroupId,
       totalEggs: input.totalEggs,
-      goodEggs: input.goodEggs,
+      goodEggs,
       crackedEggs: input.crackedEggs,
       notes: input.notes
     }
@@ -110,7 +111,6 @@ export async function updateEggCollection(
     date: string;
     flockGroupId: string;
     totalEggs: number;
-    goodEggs: number;
     crackedEggs: number;
     notes?: string;
   }
@@ -118,13 +118,15 @@ export async function updateEggCollection(
   const existing = await prisma.eggCollection.findFirst({ where: { id, tenantId } });
   if (!existing) return null;
 
+  const goodEggs = Math.max(input.totalEggs - input.crackedEggs, 0);
+
   const updated = await prisma.eggCollection.update({
     where: { id },
     data: {
       date: new Date(`${input.date}T12:00:00`),
       flockGroupId: input.flockGroupId,
       totalEggs: input.totalEggs,
-      goodEggs: input.goodEggs,
+      goodEggs,
       crackedEggs: input.crackedEggs,
       notes: input.notes
     }

@@ -5,16 +5,15 @@ export const eggCollectionSchema = z
     date: z.string().min(1, "Informe a data da coleta."),
     flockGroupId: z.string().cuid("Grupo inválido."),
     totalEggs: z.coerce.number().int().min(0),
-    goodEggs: z.coerce.number().int().min(0),
     crackedEggs: z.coerce.number().int().min(0),
     notes: z.string().trim().optional()
   })
   .superRefine((value, ctx) => {
-    if (value.goodEggs + value.crackedEggs > value.totalEggs) {
+    if (value.crackedEggs > value.totalEggs) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["goodEggs"],
-        message: "Bons + trincados não pode ultrapassar o total."
+        path: ["crackedEggs"],
+        message: "Ovos trincados não pode ultrapassar o total coletado."
       });
     }
   });

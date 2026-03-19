@@ -53,7 +53,6 @@ type FormState = {
   date: string;
   flockGroupId: string;
   totalEggs: number;
-  goodEggs: number;
   crackedEggs: number;
   notes: string;
 };
@@ -78,7 +77,6 @@ const emptyForm: FormState = {
   date: todayIso,
   flockGroupId: "",
   totalEggs: 0,
-  goodEggs: 0,
   crackedEggs: 0,
   notes: ""
 };
@@ -160,6 +158,17 @@ export function EggCollectionManager() {
   const [showDayModal, setShowDayModal] = useState(false);
 
   const groups = useMemo(() => metrics?.groupCards ?? [], [metrics]);
+  const overallAverages = useMemo(() => {
+    return groups.reduce(
+      (acc, group) => {
+        acc.daily += group.averageDaily;
+        acc.weekly += group.averageWeekly;
+        acc.monthly += group.averageMonthly;
+        return acc;
+      },
+      { daily: 0, weekly: 0, monthly: 0 }
+    );
+  }, [groups]);
 
   async function loadData() {
     setError(null);
@@ -335,9 +344,11 @@ export function EggCollectionManager() {
 
       <section className="grid gap-4 md:grid-cols-4">
         <StatTile emoji="🥚" label="Coletados hoje" value={metrics?.summary.eggsToday ?? 0} />
-        <StatTile emoji="✨" label="Ovos bons" value={metrics?.summary.goodEggsToday ?? 0} />
         <StatTile emoji="⚠️" label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
         <StatTile emoji="📈" label="Taxa de bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
+        <StatTile emoji="📆" label="Média diária geral" value={overallAverages.daily.toFixed(1)} />
+        <StatTile emoji="🗓️" label="Média semanal geral" value={overallAverages.weekly.toFixed(1)} />
+        <StatTile emoji="📊" label="Média mensal geral" value={overallAverages.monthly.toFixed(1)} />
       </section>
 
       <Card>
@@ -391,8 +402,10 @@ export function EggCollectionManager() {
                 <p className="mt-4 text-xs text-slate-500">Total</p>
                 <p className="text-xl font-semibold text-slate-900">{values?.total ?? 0}</p>
                 <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
-                  <span>Bons {values?.good ?? 0}</span>
                   <span>Trinc. {values?.cracked ?? 0}</span>
+                  <span>
+                    Taxa {formatPercent(values?.total ? ((values.good / values.total) * 100) : 0)}
+                  </span>
                 </div>
               </button>
             );
@@ -402,7 +415,7 @@ export function EggCollectionManager() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {groups.map((group) => {
-          const width = Math.min(group.progress, 160);
+          const width = Math.min(group.progress, 100);
           return (
             <Card key={group.groupId}>
               <div className="flex items-start justify-between gap-3">
@@ -423,9 +436,6 @@ export function EggCollectionManager() {
                 <p>Ultimos 30 dias: {group.eggs30} ovos</p>
                 <p>Ultimos 365 dias: {group.eggs365} ovos</p>
                 <p>Taxa de ovos bons: {formatPercent(group.goodEggRate)}</p>
-                <p>Media diaria: {group.averageDaily}</p>
-                <p>Media semanal: {group.averageWeekly}</p>
-                <p>Media mensal: {group.averageMonthly}</p>
               </div>
 
               <div className="mt-5">
@@ -516,14 +526,6 @@ export function EggCollectionManager() {
                     onChange={(event) => setForm((prev) => ({ ...prev, totalEggs: Number(event.target.value) }))}
                   />
                 </Field>
-                <Field label="Ovos bons">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.goodEggs}
-                    onChange={(event) => setForm((prev) => ({ ...prev, goodEggs: Number(event.target.value) }))}
-                  />
-                </Field>
                 <Field label="Ovos trincados">
                   <Input
                     type="number"
@@ -532,6 +534,17 @@ export function EggCollectionManager() {
                     onChange={(event) => setForm((prev) => ({ ...prev, crackedEggs: Number(event.target.value) }))}
                   />
                 </Field>
+                <div className="rounded-2xl border border-dashed border-[color:var(--line)] bg-[color:var(--surface-soft)] px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Taxa de ovos bons</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">
+                    {formatPercent(
+                      form.totalEggs > 0 ? ((Math.max(form.totalEggs - form.crackedEggs, 0) / form.totalEggs) * 100) : 0
+                    )}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    O sistema calcula automaticamente: total menos trincados.
+                  </p>
+                </div>
               </div>
 
               <Field label="Observacoes">
@@ -572,10 +585,10 @@ export function EggCollectionManager() {
                       <div>
                         <h5 className="text-base font-semibold text-slate-900">{row.flockGroup.title}</h5>
                         <p className="text-sm text-[color:var(--ink-soft)]">
-                          {row.totalEggs} ovos no total • {row.goodEggs} bons • {row.crackedEggs} trincados
+                          {row.totalEggs} ovos no total • {row.crackedEggs} trincados
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          Bons {formatPercent(row.goodRate)} • Trincados {formatPercent(row.crackedRate)}
+                          Taxa de ovos bons {formatPercent(row.goodRate)} • Trincados {formatPercent(row.crackedRate)}
                         </p>
                         {row.notes ? <p className="mt-2 text-sm text-slate-600">{row.notes}</p> : null}
                       </div>
@@ -590,7 +603,6 @@ export function EggCollectionManager() {
                               date: formatDateInput(row.date),
                               flockGroupId: row.flockGroupId,
                               totalEggs: row.totalEggs,
-                              goodEggs: row.goodEggs,
                               crackedEggs: row.crackedEggs,
                               notes: row.notes ?? ""
                             });
