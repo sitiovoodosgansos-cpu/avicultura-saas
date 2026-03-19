@@ -4,9 +4,11 @@ import { cn } from "@/lib/utils";
 type Variant = "default" | "outline" | "danger";
 
 const variantStyles: Record<Variant, string> = {
-  default: "bg-[#0f766e] text-white hover:opacity-90",
-  outline: "border border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-50",
-  danger: "bg-red-600 text-white hover:bg-red-700"
+  default:
+    "bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-white shadow-[0_12px_30px_rgba(15,157,138,0.25)] hover:translate-y-[-1px] hover:opacity-95",
+  outline:
+    "border border-[color:var(--line)] bg-white/90 text-slate-800 hover:bg-[color:var(--surface-soft)]",
+  danger: "bg-red-600 text-white shadow-[0_10px_25px_rgba(220,38,38,0.2)] hover:bg-red-700"
 };
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -19,7 +21,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          "inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+          "inline-flex h-11 items-center justify-center rounded-2xl px-4 text-sm font-semibold transition duration-200 disabled:cursor-not-allowed disabled:opacity-50",
           variantStyles[variant],
           className
         )}
@@ -30,4 +32,3 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = "Button";
-

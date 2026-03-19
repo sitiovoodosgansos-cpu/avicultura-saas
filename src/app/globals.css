@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8f6f2;
-  --foreground: #18181b;
+  --background: #f6f8fb;
+  --foreground: #14213d;
+  --surface: #ffffff;
+  --surface-soft: #f0f5ff;
+  --line: rgba(15, 23, 42, 0.08);
+  --brand: #0f9d8a;
+  --brand-strong: #0c7a6b;
+  --accent: #ffb703;
+  --ink-soft: #5f6c84;
 }
 
 @theme inline {
@@ -10,9 +17,28 @@
   --color-foreground: var(--foreground);
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background-image:
+    radial-gradient(circle at top left, rgba(15, 157, 138, 0.12), transparent 26%),
+    radial-gradient(circle at top right, rgba(255, 183, 3, 0.12), transparent 24%),
+    linear-gradient(180deg, #f8fbff 0%, #f5f7fb 100%);
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
   min-height: 100vh;
+}
+
+select,
+textarea,
+input,
+button {
+  font: inherit;
 }

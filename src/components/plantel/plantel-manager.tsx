@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
@@ -48,15 +48,6 @@ type BirdHistory = {
   createdAt: string;
 };
 
-type PlantelResponse = {
-  groups: PlantelGroup[];
-  taxonomy: {
-    species: Array<{ id: string; name: string }>;
-    breeds: Array<{ id: string; name: string }>;
-    varieties: Array<{ id: string; name: string }>;
-  };
-};
-
 type GroupForm = {
   species: string;
   breed: string;
@@ -81,11 +72,28 @@ type BirdForm = {
   status: BirdStatus;
 };
 
+type PlantelResponse = {
+  groups: PlantelGroup[];
+};
+
+const selectClass =
+  "h-11 w-full rounded-2xl border border-[color:var(--line)] bg-white/90 px-4 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[color:var(--brand)]/20";
+
+const textareaClass =
+  "min-h-24 w-full rounded-2xl border border-[color:var(--line)] bg-white/90 px-4 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-[color:var(--brand)]/20";
+
 const statusLabel: Record<BirdStatus, string> = {
   ACTIVE: "Ativa",
   SICK: "Doente",
   DEAD: "Morta",
   BROODY: "Choca"
+};
+
+const statusBadge: Record<BirdStatus, string> = {
+  ACTIVE: "bg-emerald-100 text-emerald-700",
+  SICK: "bg-amber-100 text-amber-700",
+  DEAD: "bg-rose-100 text-rose-700",
+  BROODY: "bg-sky-100 text-sky-700"
 };
 
 const emptyGroupForm: GroupForm = {
@@ -109,6 +117,43 @@ const emptyBirdForm: BirdForm = {
   status: "ACTIVE"
 };
 
+function Field({
+  label,
+  hint,
+  children
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="grid gap-1.5">
+      <span className="text-sm font-semibold text-slate-800">{label}</span>
+      {children}
+      {hint ? <span className="text-xs text-[color:var(--ink-soft)]">{hint}</span> : null}
+    </label>
+  );
+}
+
+function StatChip({
+  emoji,
+  label,
+  value
+}: {
+  emoji: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-2xl bg-[color:var(--surface-soft)] px-3 py-3">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {emoji} {label}
+      </p>
+      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
 function toDateInput(value: string | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
@@ -131,7 +176,6 @@ export function PlantelManager() {
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [historyByBird, setHistoryByBird] = useState<Record<string, BirdHistory[]>>({});
   const [statusDraftByBird, setStatusDraftByBird] = useState<Record<string, BirdStatus>>({});
-
   const [filterSpecies, setFilterSpecies] = useState("");
   const [filterBreed, setFilterBreed] = useState("");
   const [filterVariety, setFilterVariety] = useState("");
@@ -153,7 +197,7 @@ export function PlantelManager() {
 
     const response = await fetch(`/api/plantel/groups?${params.toString()}`, { cache: "no-store" });
     if (!response.ok) {
-      setError("Não foi possível carregar o plantel.");
+      setError("Nao foi possivel carregar o plantel.");
       setLoading(false);
       return;
     }
@@ -229,24 +273,24 @@ export function PlantelManager() {
   }
 
   async function removeGroup(id: string) {
-    const ok = window.confirm("Tem certeza que deseja excluir este grupo? As aves também serão removidas.");
+    const ok = window.confirm("Tem certeza que deseja excluir este grupo? As aves tambem serao removidas.");
     if (!ok) return;
 
     const response = await fetch(`/api/plantel/groups/${id}`, { method: "DELETE" });
     if (!response.ok) {
-      setError("Não foi possível excluir o grupo.");
+      setError("Nao foi possivel excluir o grupo.");
       return;
     }
     await loadData();
   }
 
   async function removeBird(id: string) {
-    const ok = window.confirm("Confirma a exclusão desta ave?");
+    const ok = window.confirm("Confirma a exclusao desta ave?");
     if (!ok) return;
 
     const response = await fetch(`/api/plantel/birds/${id}`, { method: "DELETE" });
     if (!response.ok) {
-      setError("Não foi possível excluir a ave.");
+      setError("Nao foi possivel excluir a ave.");
       return;
     }
     await loadData();
@@ -256,7 +300,7 @@ export function PlantelManager() {
     const nextStatus = statusDraftByBird[id];
     if (!nextStatus) return;
 
-    const reason = window.prompt("Motivo da alteração de status (opcional):") ?? "";
+    const reason = window.prompt("Motivo da alteracao de status (opcional):") ?? "";
 
     const response = await fetch(`/api/plantel/birds/${id}/status`, {
       method: "POST",
@@ -265,7 +309,7 @@ export function PlantelManager() {
     });
 
     if (!response.ok) {
-      setError("Não foi possível atualizar o status.");
+      setError("Nao foi possivel atualizar o status.");
       return;
     }
 
@@ -284,7 +328,7 @@ export function PlantelManager() {
 
     const response = await fetch(`/api/plantel/birds/${id}/history`, { cache: "no-store" });
     if (!response.ok) {
-      setError("Não foi possível carregar o histórico da ave.");
+      setError("Nao foi possivel carregar o historico da ave.");
       return;
     }
 
@@ -292,41 +336,157 @@ export function PlantelManager() {
     setHistoryByBird((prev) => ({ ...prev, [id]: data.history }));
   }
 
+  const totals = useMemo(() => {
+    return groups.reduce(
+      (acc, group) => {
+        acc.total += group.summary.totalBirds;
+        acc.active += group.summary.ACTIVE;
+        acc.sick += group.summary.SICK;
+        acc.dead += group.summary.DEAD;
+        return acc;
+      },
+      { total: 0, active: 0, sick: 0, dead: 0 }
+    );
+  }, [groups]);
+
   return (
     <main className="space-y-6">
       <PageTitle
-        title="Plantel"
-        description="Cadastro de grupos, aves por anilha, filtros e histórico de status."
+        title="🦚 Plantel"
+        description="Agora cada formulario explica o que cada numero e data significam, para voce cadastrar grupos e aves sem ficar em duvida."
       />
 
       {error ? (
-        <Card>
-          <p className="text-sm text-red-600">{error}</p>
+        <Card className="border-rose-200 bg-rose-50">
+          <p className="text-sm font-medium text-rose-700">{error}</p>
         </Card>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-4">
+        <StatChip emoji="🐥" label="Aves totais" value={totals.total} />
+        <StatChip emoji="✅" label="Ativas" value={totals.active} />
+        <StatChip emoji="🤒" label="Doentes" value={totals.sick} />
+        <StatChip emoji="🕊️" label="Mortas" value={totals.dead} />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>
-          <h3 className="text-base font-semibold text-zinc-900">
-            {editingGroupId ? "Editar grupo" : "Novo grupo"}
+          <h3 className="text-xl font-semibold text-slate-900">
+            {editingGroupId ? "✏️ Editar grupo" : "➕ Novo grupo de aves"}
           </h3>
-          <form className="mt-4 grid gap-3" onSubmit={submitGroup}>
-            <Input placeholder="Espécie (ex: Galinha)" value={groupForm.species} onChange={(e) => setGroupForm((p) => ({ ...p, species: e.target.value }))} />
-            <Input placeholder="Raça (ex: Brahma)" value={groupForm.breed} onChange={(e) => setGroupForm((p) => ({ ...p, breed: e.target.value }))} />
-            <Input placeholder="Variedade/cor (opcional)" value={groupForm.variety} onChange={(e) => setGroupForm((p) => ({ ...p, variety: e.target.value }))} />
-            <Input placeholder="Título do card (ex: Galinha Brahma Dark)" value={groupForm.title} onChange={(e) => setGroupForm((p) => ({ ...p, title: e.target.value }))} />
-            <div className="grid grid-cols-2 gap-3">
-              <Input type="number" min={0} placeholder="Qtd matrizes" value={groupForm.matrixCount} onChange={(e) => setGroupForm((p) => ({ ...p, matrixCount: Number(e.target.value) }))} />
-              <Input type="number" min={0} placeholder="Qtd reprodutores" value={groupForm.reproducerCount} onChange={(e) => setGroupForm((p) => ({ ...p, reproducerCount: Number(e.target.value) }))} />
+          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
+            Grupo significa um conjunto do mesmo tipo de ave, como Galinha Brahma Dark.
+          </p>
+
+          <form className="mt-5 grid gap-4" onSubmit={submitGroup}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Especie" hint="Exemplo: Galinha, Pavao, Faisao, Marreco.">
+                <Input
+                  placeholder="Galinha"
+                  value={groupForm.species}
+                  onChange={(event) => setGroupForm((prev) => ({ ...prev, species: event.target.value }))}
+                />
+              </Field>
+              <Field label="Raca" hint="Exemplo: Brahma, Dourado, Azul.">
+                <Input
+                  placeholder="Brahma"
+                  value={groupForm.breed}
+                  onChange={(event) => setGroupForm((prev) => ({ ...prev, breed: event.target.value }))}
+                />
+              </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Input type="number" min={0} max={100} placeholder="Meta postura (%)" value={groupForm.expectedLayCapacity ?? ""} onChange={(e) => setGroupForm((p) => ({ ...p, expectedLayCapacity: e.target.value ? Number(e.target.value) : undefined }))} />
-              <Input type="number" min={0} step="0.01" placeholder="Investimento total" value={groupForm.purchaseInvestmentTotal ?? ""} onChange={(e) => setGroupForm((p) => ({ ...p, purchaseInvestmentTotal: e.target.value ? Number(e.target.value) : undefined }))} />
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Variedade ou cor" hint="Opcional. Exemplo: Dark, Branco, Arlequim.">
+                <Input
+                  placeholder="Dark"
+                  value={groupForm.variety}
+                  onChange={(event) => setGroupForm((prev) => ({ ...prev, variety: event.target.value }))}
+                />
+              </Field>
+              <Field label="Nome do card" hint="Como isso vai aparecer na tela principal. Exemplo: Galinha Brahma Dark.">
+                <Input
+                  placeholder="Galinha Brahma Dark"
+                  value={groupForm.title}
+                  onChange={(event) => setGroupForm((prev) => ({ ...prev, title: event.target.value }))}
+                />
+              </Field>
             </div>
-            <Input type="date" value={groupForm.purchaseDate} onChange={(e) => setGroupForm((p) => ({ ...p, purchaseDate: e.target.value }))} />
-            <Input placeholder="Observações" value={groupForm.notes} onChange={(e) => setGroupForm((p) => ({ ...p, notes: e.target.value }))} />
-            <div className="flex gap-2">
-              <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingGroupId ? "Atualizar grupo" : "Cadastrar grupo"}</Button>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Numero de matrizes" hint="Quantidade de femeas do grupo.">
+                <Input
+                  type="number"
+                  min={0}
+                  value={groupForm.matrixCount}
+                  onChange={(event) => setGroupForm((prev) => ({ ...prev, matrixCount: Number(event.target.value) }))}
+                />
+              </Field>
+              <Field label="Numero de reprodutores" hint="Quantidade de machos do grupo.">
+                <Input
+                  type="number"
+                  min={0}
+                  value={groupForm.reproducerCount}
+                  onChange={(event) =>
+                    setGroupForm((prev) => ({ ...prev, reproducerCount: Number(event.target.value) }))
+                  }
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label="Meta de postura" hint="Quantos ovos voce espera desse grupo em um periodo.">
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  placeholder="Ex: 80"
+                  value={groupForm.expectedLayCapacity ?? ""}
+                  onChange={(event) =>
+                    setGroupForm((prev) => ({
+                      ...prev,
+                      expectedLayCapacity: event.target.value ? Number(event.target.value) : undefined
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Investimento total" hint="Valor pago para comprar esse grupo.">
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="Ex: 2500"
+                  value={groupForm.purchaseInvestmentTotal ?? ""}
+                  onChange={(event) =>
+                    setGroupForm((prev) => ({
+                      ...prev,
+                      purchaseInvestmentTotal: event.target.value ? Number(event.target.value) : undefined
+                    }))
+                  }
+                />
+              </Field>
+              <Field label="Data da compra" hint="Data em que esse grupo entrou no sitio.">
+                <Input
+                  type="date"
+                  value={groupForm.purchaseDate}
+                  onChange={(event) => setGroupForm((prev) => ({ ...prev, purchaseDate: event.target.value }))}
+                />
+              </Field>
+            </div>
+
+            <Field label="Observacoes" hint="Espaco para origem, comportamento, detalhes do lote e notas gerais.">
+              <textarea
+                className={textareaClass}
+                placeholder="Descreva informacoes uteis sobre esse grupo."
+                value={groupForm.notes}
+                onChange={(event) => setGroupForm((prev) => ({ ...prev, notes: event.target.value }))}
+              />
+            </Field>
+
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={saving}>
+                {saving ? "Salvando..." : editingGroupId ? "Atualizar grupo" : "Cadastrar grupo"}
+              </Button>
               {editingGroupId ? (
                 <Button
                   type="button"
@@ -344,48 +504,109 @@ export function PlantelManager() {
         </Card>
 
         <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Nova ave / editar ave</h3>
-          <form className="mt-4 grid gap-3" onSubmit={submitBird}>
-            <select
-              className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-              value={birdForm.flockGroupId}
-              onChange={(e) => setBirdForm((p) => ({ ...p, flockGroupId: e.target.value }))}
-            >
-              <option value="">Selecione o grupo</option>
-              {groups.map((group) => (
-                <option key={group.id} value={group.id}>{group.title}</option>
-              ))}
-            </select>
-            <Input placeholder="Número da anilha" value={birdForm.ringNumber} onChange={(e) => setBirdForm((p) => ({ ...p, ringNumber: e.target.value }))} />
-            <Input placeholder="Nome/apelido (opcional)" value={birdForm.nickname} onChange={(e) => setBirdForm((p) => ({ ...p, nickname: e.target.value }))} />
-            <div className="grid grid-cols-2 gap-3">
+          <h3 className="text-xl font-semibold text-slate-900">
+            {editingBirdId ? "🛠️ Editar ave" : "🐣 Cadastro individual por anilha"}
+          </h3>
+          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
+            Aqui cada numero esta ligado a uma ave especifica. Use a anilha para localizar rapidamente.
+          </p>
+
+          <form className="mt-5 grid gap-4" onSubmit={submitBird}>
+            <Field label="Grupo da ave" hint="Escolha o card ao qual essa ave pertence.">
               <select
-                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-                value={birdForm.sex}
-                onChange={(e) => setBirdForm((p) => ({ ...p, sex: e.target.value as BirdForm["sex"] }))}
+                className={selectClass}
+                value={birdForm.flockGroupId}
+                onChange={(event) => setBirdForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
               >
-                <option value="UNKNOWN">Sexo não informado</option>
-                <option value="FEMALE">Fêmea</option>
-                <option value="MALE">Macho</option>
+                <option value="">Selecione o grupo</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.title}
+                  </option>
+                ))}
               </select>
-              <select
-                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-                value={birdForm.status}
-                onChange={(e) => setBirdForm((p) => ({ ...p, status: e.target.value as BirdStatus }))}
-              >
-                <option value="ACTIVE">Ativa</option>
-                <option value="SICK">Doente</option>
-                <option value="DEAD">Morta</option>
-                <option value="BROODY">Choca</option>
-              </select>
+            </Field>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Numero da anilha" hint="Codigo unico da ave. Exemplo: 2025-001.">
+                <Input
+                  placeholder="2025-001"
+                  value={birdForm.ringNumber}
+                  onChange={(event) => setBirdForm((prev) => ({ ...prev, ringNumber: event.target.value }))}
+                />
+              </Field>
+              <Field label="Nome ou apelido" hint="Opcional, so para facilitar o reconhecimento.">
+                <Input
+                  placeholder="Rainha"
+                  value={birdForm.nickname}
+                  onChange={(event) => setBirdForm((prev) => ({ ...prev, nickname: event.target.value }))}
+                />
+              </Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Input type="date" value={birdForm.acquisitionDate} onChange={(e) => setBirdForm((p) => ({ ...p, acquisitionDate: e.target.value }))} />
-              <Input type="number" min={0} step="0.01" placeholder="Valor compra" value={birdForm.purchaseValue ?? ""} onChange={(e) => setBirdForm((p) => ({ ...p, purchaseValue: e.target.value ? Number(e.target.value) : undefined }))} />
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Sexo" hint="Selecione se a ave e femea, macho ou ainda nao identificado.">
+                <select
+                  className={selectClass}
+                  value={birdForm.sex}
+                  onChange={(event) => setBirdForm((prev) => ({ ...prev, sex: event.target.value as BirdForm["sex"] }))}
+                >
+                  <option value="UNKNOWN">Nao informado</option>
+                  <option value="FEMALE">Femea</option>
+                  <option value="MALE">Macho</option>
+                </select>
+              </Field>
+              <Field label="Status atual" hint="Define como a ave aparece nos dashboards e relatorios.">
+                <select
+                  className={selectClass}
+                  value={birdForm.status}
+                  onChange={(event) => setBirdForm((prev) => ({ ...prev, status: event.target.value as BirdStatus }))}
+                >
+                  <option value="ACTIVE">Ativa</option>
+                  <option value="SICK">Doente</option>
+                  <option value="DEAD">Morta</option>
+                  <option value="BROODY">Choca</option>
+                </select>
+              </Field>
             </div>
-            <Input placeholder="Origem/fornecedor" value={birdForm.origin} onChange={(e) => setBirdForm((p) => ({ ...p, origin: e.target.value }))} />
-            <div className="flex gap-2">
-              <Button type="submit" disabled={saving || !canSubmitBird}>{saving ? "Salvando..." : editingBirdId ? "Atualizar ave" : "Cadastrar ave"}</Button>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Data de aquisicao" hint="Quando essa ave entrou no sitio.">
+                <Input
+                  type="date"
+                  value={birdForm.acquisitionDate}
+                  onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
+                />
+              </Field>
+              <Field label="Valor da compra" hint="Quanto custou essa ave individualmente.">
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="Ex: 350"
+                  value={birdForm.purchaseValue ?? ""}
+                  onChange={(event) =>
+                    setBirdForm((prev) => ({
+                      ...prev,
+                      purchaseValue: event.target.value ? Number(event.target.value) : undefined
+                    }))
+                  }
+                />
+              </Field>
+            </div>
+
+            <Field label="Origem ou fornecedor" hint="Criatorio, pessoa ou local de onde veio a ave.">
+              <Input
+                placeholder="Criatorio Exemplo"
+                value={birdForm.origin}
+                onChange={(event) => setBirdForm((prev) => ({ ...prev, origin: event.target.value }))}
+              />
+            </Field>
+
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={saving || !canSubmitBird}>
+                {saving ? "Salvando..." : editingBirdId ? "Atualizar ave" : "Cadastrar ave"}
+              </Button>
               {editingBirdId ? (
                 <Button
                   type="button"
@@ -404,52 +625,71 @@ export function PlantelManager() {
       </section>
 
       <Card>
-        <h3 className="text-base font-semibold text-zinc-900">Filtros</h3>
-        <div className="mt-3 grid gap-3 md:grid-cols-5">
-          <Input placeholder="Espécie" value={filterSpecies} onChange={(e) => setFilterSpecies(e.target.value)} />
-          <Input placeholder="Raça" value={filterBreed} onChange={(e) => setFilterBreed(e.target.value)} />
-          <Input placeholder="Variedade" value={filterVariety} onChange={(e) => setFilterVariety(e.target.value)} />
-          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+        <h3 className="text-xl font-semibold text-slate-900">🔎 Filtros do plantel</h3>
+        <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
+          Use os filtros para encontrar especie, raca, variedade, status ou uma anilha especifica.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-5">
+          <Input placeholder="Especie" value={filterSpecies} onChange={(event) => setFilterSpecies(event.target.value)} />
+          <Input placeholder="Raca" value={filterBreed} onChange={(event) => setFilterBreed(event.target.value)} />
+          <Input placeholder="Variedade" value={filterVariety} onChange={(event) => setFilterVariety(event.target.value)} />
+          <select className={selectClass} value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
             <option value="">Todos os status</option>
             <option value="ACTIVE">Ativa</option>
             <option value="SICK">Doente</option>
             <option value="DEAD">Morta</option>
             <option value="BROODY">Choca</option>
           </select>
-          <Input placeholder="Buscar por anilha" value={ringSearch} onChange={(e) => setRingSearch(e.target.value)} />
+          <Input placeholder="Buscar por anilha" value={ringSearch} onChange={(event) => setRingSearch(event.target.value)} />
         </div>
       </Card>
 
-      {loading ? <p className="text-sm text-zinc-500">Carregando plantel...</p> : null}
+      {loading ? <p className="text-sm text-[color:var(--ink-soft)]">Carregando plantel...</p> : null}
       {!loading && groups.length === 0 ? (
         <Card>
-          <p className="text-sm text-zinc-500">Nenhum grupo encontrado com os filtros atuais.</p>
+          <p className="text-sm text-[color:var(--ink-soft)]">Nenhum grupo encontrado com os filtros atuais.</p>
         </Card>
       ) : null}
 
       <section className="grid gap-4">
         {groups.map((group) => {
           const expanded = expandedGroupId === group.id;
+
           return (
-            <Card key={group.id}>
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-zinc-900">{group.title}</h3>
-                  <p className="text-sm text-zinc-500">
+            <Card key={group.id} className="overflow-hidden">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                <div className="flex-1">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h3 className="text-2xl font-semibold text-slate-900">{group.title}</h3>
+                    <span className="rounded-full bg-[color:var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-strong)]">
+                      {group.summary.totalBirds} aves
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-sm text-[color:var(--ink-soft)]">
                     {group.species.name} • {group.breed.name}
                     {group.variety?.name ? ` • ${group.variety.name}` : ""}
                   </p>
-                  <div className="mt-3 grid gap-1 text-sm text-zinc-700 md:grid-cols-2 xl:grid-cols-4">
-                    <p>Total: {group.summary.totalBirds}</p>
-                    <p>Fêmeas: {group.summary.females}</p>
-                    <p>Machos: {group.summary.males}</p>
-                    <p>Ativas: {group.summary.ACTIVE}</p>
-                    <p>Doentes: {group.summary.SICK}</p>
-                    <p>Mortas: {group.summary.DEAD}</p>
-                    <p>Chocas: {group.summary.BROODY}</p>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <StatChip emoji="🐥" label="Total" value={group.summary.totalBirds} />
+                    <StatChip emoji="♀️" label="Femeas" value={group.summary.females} />
+                    <StatChip emoji="♂️" label="Machos" value={group.summary.males} />
+                    <StatChip emoji="✅" label="Ativas" value={group.summary.ACTIVE} />
+                    <StatChip emoji="🤒" label="Doentes" value={group.summary.SICK} />
+                    <StatChip emoji="🕊️" label="Mortas" value={group.summary.DEAD} />
+                    <StatChip emoji="🥚" label="Chocas" value={group.summary.BROODY} />
+                    <StatChip emoji="👩‍🌾" label="Matrizes" value={group.matrixCount} />
                   </div>
+
+                  {group.notes ? (
+                    <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      {group.notes}
+                    </div>
+                  ) : null}
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex flex-wrap gap-2 xl:max-w-xs xl:justify-end">
                   <Button
                     variant="outline"
                     type="button"
@@ -472,39 +712,39 @@ export function PlantelManager() {
                   <Button variant="danger" type="button" onClick={() => removeGroup(group.id)}>
                     Excluir grupo
                   </Button>
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => setExpandedGroupId(expanded ? null : group.id)}
-                  >
-                    {expanded ? "Fechar" : "Abrir"}
+                  <Button variant="outline" type="button" onClick={() => setExpandedGroupId(expanded ? null : group.id)}>
+                    {expanded ? "Fechar aves" : "Abrir aves"}
                   </Button>
                 </div>
               </div>
 
               {expanded ? (
-                <div className="mt-4 overflow-x-auto">
+                <div className="mt-6 overflow-x-auto rounded-[24px] border border-[color:var(--line)]">
                   <table className="min-w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                        <th className="py-2 pr-3">Anilha</th>
-                        <th className="py-2 pr-3">Nome</th>
-                        <th className="py-2 pr-3">Sexo</th>
-                        <th className="py-2 pr-3">Status</th>
-                        <th className="py-2 pr-3">Ações</th>
+                    <thead className="bg-slate-50 text-left text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3">Anilha</th>
+                        <th className="px-4 py-3">Nome</th>
+                        <th className="px-4 py-3">Sexo</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Acoes</th>
                       </tr>
                     </thead>
                     <tbody>
                       {group.birds.map((bird) => (
-                        <>
-                          <tr key={bird.id} className="border-b border-zinc-100 align-top">
-                            <td className="py-2 pr-3 font-medium text-zinc-900">{bird.ringNumber}</td>
-                            <td className="py-2 pr-3">{bird.nickname || "-"}</td>
-                            <td className="py-2 pr-3">
-                              {bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "Não informado"}
+                        <Fragment key={bird.id}>
+                          <tr className="border-t border-[color:var(--line)] align-top">
+                            <td className="px-4 py-4 font-semibold text-slate-900">{bird.ringNumber}</td>
+                            <td className="px-4 py-4">{bird.nickname || "-"}</td>
+                            <td className="px-4 py-4">
+                              {bird.sex === "FEMALE" ? "Femea" : bird.sex === "MALE" ? "Macho" : "Nao informado"}
                             </td>
-                            <td className="py-2 pr-3">{statusLabel[bird.status]}</td>
-                            <td className="py-2 pr-3">
+                            <td className="px-4 py-4">
+                              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadge[bird.status]}`}>
+                                {statusLabel[bird.status]}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
                               <div className="flex flex-wrap gap-2">
                                 <Button
                                   variant="outline"
@@ -529,12 +769,12 @@ export function PlantelManager() {
                                   Excluir
                                 </Button>
                                 <select
-                                  className="h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm"
+                                  className={`${selectClass} min-w-40`}
                                   value={statusDraftByBird[bird.id] ?? bird.status}
-                                  onChange={(e) =>
+                                  onChange={(event) =>
                                     setStatusDraftByBird((prev) => ({
                                       ...prev,
-                                      [bird.id]: e.target.value as BirdStatus
+                                      [bird.id]: event.target.value as BirdStatus
                                     }))
                                   }
                                 >
@@ -547,21 +787,23 @@ export function PlantelManager() {
                                   Atualizar status
                                 </Button>
                                 <Button variant="outline" type="button" onClick={() => toggleHistory(bird.id)}>
-                                  {historyByBird[bird.id] ? "Ocultar histórico" : "Ver histórico"}
+                                  {historyByBird[bird.id] ? "Ocultar historico" : "Ver historico"}
                                 </Button>
                               </div>
                             </td>
                           </tr>
                           {historyByBird[bird.id] ? (
-                            <tr className="border-b border-zinc-100">
-                              <td className="py-2 pr-3 text-xs text-zinc-500" colSpan={5}>
+                            <tr className="border-t border-[color:var(--line)] bg-slate-50/70">
+                              <td className="px-4 py-3 text-xs text-slate-600" colSpan={5}>
                                 {historyByBird[bird.id].length === 0 ? (
-                                  <p>Sem histórico de status.</p>
+                                  <p>Sem historico de status.</p>
                                 ) : (
                                   <ul className="space-y-1">
                                     {historyByBird[bird.id].map((event) => (
                                       <li key={event.id}>
-                                        {new Date(event.createdAt).toLocaleString("pt-BR")} • {event.fromStatus ? statusLabel[event.fromStatus] : "-"} → {statusLabel[event.toStatus]} {event.reason ? `• ${event.reason}` : ""}
+                                        {new Date(event.createdAt).toLocaleString("pt-BR")} •{" "}
+                                        {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para {statusLabel[event.toStatus]}
+                                        {event.reason ? ` • ${event.reason}` : ""}
                                       </li>
                                     ))}
                                   </ul>
@@ -569,7 +811,7 @@ export function PlantelManager() {
                               </td>
                             </tr>
                           ) : null}
-                        </>
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>

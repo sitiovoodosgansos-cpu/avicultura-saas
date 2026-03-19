@@ -8,21 +8,21 @@ import {
   Egg,
   FlaskConical,
   HeartPulse,
-  LayoutDashboard,
+  Home,
   Settings,
   Wallet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/plantel", label: "Plantel", icon: Bird },
-  { href: "/coleta-ovos", label: "Coleta", icon: Egg },
-  { href: "/chocadeiras", label: "Chocadeiras", icon: FlaskConical },
-  { href: "/sanidade", label: "Sanidade", icon: HeartPulse },
-  { href: "/financeiro", label: "Financeiro", icon: Wallet },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
-  { href: "/perfil", label: "Perfil", icon: Settings }
+  { href: "/dashboard", label: "Dashboard", emoji: "🏠", icon: Home },
+  { href: "/plantel", label: "Plantel", emoji: "🦚", icon: Bird },
+  { href: "/coleta-ovos", label: "Coleta", emoji: "🥚", icon: Egg },
+  { href: "/chocadeiras", label: "Chocadeiras", emoji: "🐣", icon: FlaskConical },
+  { href: "/sanidade", label: "Sanidade", emoji: "💊", icon: HeartPulse },
+  { href: "/financeiro", label: "Financeiro", emoji: "💰", icon: Wallet },
+  { href: "/relatorios", label: "Relatorios", emoji: "📊", icon: BarChart3 },
+  { href: "/perfil", label: "Perfil", emoji: "⚙️", icon: Settings }
 ];
 
 export function AppNav() {
@@ -30,45 +30,71 @@ export function AppNav() {
 
   return (
     <>
-      <aside className="hidden w-64 shrink-0 border-r border-zinc-200 bg-white p-4 md:block">
-        <div className="mb-6">
-          <p className="text-xs uppercase tracking-wide text-zinc-400">Gestão de Aves</p>
-          <h2 className="text-lg font-semibold text-zinc-900">Painel Principal</h2>
+      <aside className="hidden w-72 shrink-0 p-4 md:block">
+        <div className="sticky top-4 rounded-[30px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,249,255,0.94))] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+          <div className="mb-8">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-2xl shadow-[0_12px_30px_rgba(15,157,138,0.22)]">
+                🪿
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                  Gestao Avicola
+                </p>
+                <h2 className="text-lg font-semibold text-slate-900">Sitio em foco</h2>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl bg-[color:var(--surface-soft)] p-3 text-sm text-[color:var(--ink-soft)]">
+              Menu rapido com icones para acompanhar o sitio sem se perder.
+            </div>
+          </div>
+
+          <nav className="space-y-2">
+            {navItems.map(({ href, label, emoji, icon: Icon }) => {
+              const active = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold transition duration-200",
+                    active
+                      ? "bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-white shadow-[0_12px_28px_rgba(15,157,138,0.22)]"
+                      : "text-slate-700 hover:bg-[color:var(--surface-soft)]"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex size-10 items-center justify-center rounded-2xl text-lg",
+                      active ? "bg-white/18" : "bg-white shadow-sm"
+                    )}
+                  >
+                    {emoji}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Icon className="size-4" />
+                    {label}
+                  </div>
+                </Link>
+              );
+            })}
+          </nav>
         </div>
-        <nav className="space-y-1">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href;
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
-                  active
-                    ? "bg-[#0f766e] text-white"
-                    : "text-zinc-700 hover:bg-zinc-100"
-                )}
-              >
-                <Icon className="size-4" />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
       </aside>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 grid grid-cols-4 border-t border-zinc-200 bg-white p-2 md:hidden">
-        {navItems.map(({ href, label, icon: Icon }) => {
+      <nav className="fixed bottom-3 left-3 right-3 z-50 grid grid-cols-4 rounded-[26px] border border-[color:var(--line)] bg-white/95 p-2 shadow-[0_20px_45px_rgba(15,23,42,0.15)] backdrop-blur md:hidden">
+        {navItems.map(({ href, label, emoji, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "flex flex-col items-center justify-center rounded-md py-1 text-[11px]",
-                active ? "text-[#0f766e]" : "text-zinc-500"
+                "flex flex-col items-center justify-center rounded-2xl py-2 text-[11px] font-semibold",
+                active ? "bg-[color:var(--surface-soft)] text-[color:var(--brand-strong)]" : "text-slate-500"
               )}
             >
+              <span className="text-base">{emoji}</span>
               <Icon className="size-4" />
               {label}
             </Link>
@@ -78,4 +104,3 @@ export function AppNav() {
     </>
   );
 }
-
