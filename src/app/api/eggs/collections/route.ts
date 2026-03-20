@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const parsed = eggCollectionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
       { status: 400 }
     );
   }
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   );
 
   if (!created) {
-    return NextResponse.json({ error: "Grupo n„o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Grupo n√£o encontrado." }, { status: 404 });
   }
 
   return NextResponse.json(created, { status: 201 });

@@ -375,7 +375,7 @@ export async function applyCaseEvent(
           birdId: caseItem.bird.id,
           fromStatus: caseItem.bird.status,
           toStatus: BirdStatus.DEAD,
-          reason: "”bito em tratamento"
+          reason: "√ìbito em tratamento"
         }
       });
     }
@@ -393,7 +393,7 @@ export async function applyCaseEvent(
   });
 
   if (!result) {
-    return { kind: "invalid" as const, message: "OperaÁ„o inv·lida para o caso." };
+    return { kind: "invalid" as const, message: "Opera√ß√£o inv√°lida para o caso." };
   }
 
   await prisma.auditLog.create({
@@ -460,7 +460,7 @@ export async function getHealthMetrics(tenantId: string) {
 
   const diagnosisCount = new Map<string, number>();
   for (const row of diagnosisRows) {
-    const key = row.diagnosis?.trim() || "N„o informado";
+    const key = row.diagnosis?.trim() || "N√£o informado";
     diagnosisCount.set(key, (diagnosisCount.get(key) ?? 0) + 1);
   }
 

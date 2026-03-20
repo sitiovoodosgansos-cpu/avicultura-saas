@@ -15,7 +15,7 @@ export async function PUT(
   const parsed = eggCollectionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
       { status: 400 }
     );
   }
@@ -28,7 +28,7 @@ export async function PUT(
   );
 
   if (!updated) {
-    return NextResponse.json({ error: "Registro n„o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Registro n√£o encontrado." }, { status: 404 });
   }
 
   return NextResponse.json(updated);
@@ -44,7 +44,7 @@ export async function DELETE(
   const { id } = await params;
   const deleted = await deleteEggCollection(auth.session.user.tenantId, auth.session.user.id, id);
   if (!deleted) {
-    return NextResponse.json({ error: "Registro n„o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Registro n√£o encontrado." }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });

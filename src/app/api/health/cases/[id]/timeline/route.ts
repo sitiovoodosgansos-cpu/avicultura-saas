@@ -12,7 +12,7 @@ export async function GET(
   const { id } = await params;
   const timeline = await listCaseTimeline(auth.session.user.tenantId, id);
   if (!timeline) {
-    return NextResponse.json({ error: "Caso n„o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Caso n√£o encontrado." }, { status: 404 });
   }
 
   return NextResponse.json({ timeline });

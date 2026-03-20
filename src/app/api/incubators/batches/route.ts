@@ -19,14 +19,14 @@ export async function POST(request: Request) {
   const parsed = batchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
       { status: 400 }
     );
   }
 
   const created = await createBatch(auth.session.user.tenantId, auth.session.user.id, parsed.data);
   if (!created) {
-    return NextResponse.json({ error: "Chocadeira ou grupo inv·lido." }, { status: 404 });
+    return NextResponse.json({ error: "Chocadeira ou grupo inv√°lido." }, { status: 404 });
   }
 
   return NextResponse.json(created, { status: 201 });

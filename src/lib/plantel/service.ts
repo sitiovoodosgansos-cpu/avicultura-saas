@@ -351,7 +351,7 @@ export async function updateBird(
         birdId: id,
         fromStatus: existing.status,
         toStatus: input.status,
-        reason: "Atualização de cadastro"
+        reason: "AtualizaÃ§Ã£o de cadastro"
       }
     });
   }

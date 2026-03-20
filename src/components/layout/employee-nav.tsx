@@ -33,11 +33,11 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Equipe</p>
-                <h2 className="text-lg font-semibold text-slate-900">Acesso do funcion·rio</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Acesso do funcion√°rio</h2>
               </div>
             </div>
             <div className="mt-4 rounded-2xl bg-[color:var(--surface-soft)] p-3 text-sm text-[color:var(--ink-soft)]">
-              Aqui a equipe lanÁa dados do sÌtio com acesso apenas aos mÛdulos liberados.
+              Aqui a equipe lan√ßa dados do s√≠tio com acesso apenas aos m√≥dulos liberados.
             </div>
           </div>
 

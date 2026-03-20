@@ -15,14 +15,14 @@ export async function POST(
   const parsed = caseEventSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
       { status: 400 }
     );
   }
 
   const result = await applyCaseEvent(auth.session.user.tenantId, auth.session.user.id, id, parsed.data);
   if (result.kind === "not_found") {
-    return NextResponse.json({ error: "Caso n„o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Caso n√£o encontrado." }, { status: 404 });
   }
   if (result.kind === "invalid") {
     return NextResponse.json({ error: result.message }, { status: 400 });

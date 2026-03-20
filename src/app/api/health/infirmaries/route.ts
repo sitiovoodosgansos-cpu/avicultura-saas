@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const parsed = infirmarySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
       { status: 400 }
     );
   }

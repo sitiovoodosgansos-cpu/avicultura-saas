@@ -15,14 +15,14 @@ export async function PUT(
   const parsed = incubatorSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
       { status: 400 }
     );
   }
 
   const updated = await updateIncubator(auth.session.user.tenantId, auth.session.user.id, id, parsed.data);
   if (!updated) {
-    return NextResponse.json({ error: "Chocadeira n„o encontrada." }, { status: 404 });
+    return NextResponse.json({ error: "Chocadeira n√£o encontrada." }, { status: 404 });
   }
 
   return NextResponse.json(updated);
@@ -38,7 +38,7 @@ export async function DELETE(
   const { id } = await params;
   const deleted = await deleteIncubator(auth.session.user.tenantId, auth.session.user.id, id);
   if (!deleted) {
-    return NextResponse.json({ error: "Chocadeira n„o encontrada." }, { status: 404 });
+    return NextResponse.json({ error: "Chocadeira n√£o encontrada." }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });

@@ -15,14 +15,14 @@ export async function POST(
   const parsed = batchEventSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
       { status: 400 }
     );
   }
 
   const created = await addBatchEvent(auth.session.user.tenantId, auth.session.user.id, id, parsed.data);
   if (!created) {
-    return NextResponse.json({ error: "Lote n„o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Lote n√£o encontrado." }, { status: 404 });
   }
 
   return NextResponse.json(created, { status: 201 });

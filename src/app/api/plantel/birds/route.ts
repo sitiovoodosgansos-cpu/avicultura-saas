@@ -10,19 +10,19 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const parsed = birdSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." }, { status: 400 });
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." }, { status: 400 });
   }
 
   try {
     const created = await createBird(auth.session.user.tenantId, auth.session.user.id, parsed.data);
     if (!created) {
-      return NextResponse.json({ error: "Grupo n„o encontrado." }, { status: 404 });
+      return NextResponse.json({ error: "Grupo n√£o encontrado." }, { status: 404 });
     }
 
     return NextResponse.json(created, { status: 201 });
   } catch {
     return NextResponse.json(
-      { error: "Falha ao salvar ave. Verifique se a anilha j· existe." },
+      { error: "Falha ao salvar ave. Verifique se a anilha j√° existe." },
       { status: 400 }
     );
   }

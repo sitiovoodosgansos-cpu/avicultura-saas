@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 const employeeObjectSchema = z.object({
-  name: z.string().trim().min(2, "Informe o nome do funcionário."),
-  email: z.string().trim().email("Informe um e-mail válido."),
+  name: z.string().trim().min(2, "Informe o nome do funcionÃ¡rio."),
+  email: z.string().trim().email("Informe um e-mail vÃ¡lido."),
   password: z.string().min(6, "A senha precisa ter pelo menos 6 caracteres."),
   isActive: z.boolean().optional(),
   allowPlantel: z.boolean().optional(),
@@ -23,7 +23,7 @@ function hasAtLeastOneModule(value: ModuleShape) {
 }
 
 export const employeeSchema = employeeObjectSchema.refine(hasAtLeastOneModule, {
-  message: "Libere ao menos um módulo para o funcionário."
+  message: "Libere ao menos um mÃ³dulo para o funcionÃ¡rio."
 });
 
 export const employeeUpdateSchema = employeeObjectSchema
@@ -31,11 +31,11 @@ export const employeeUpdateSchema = employeeObjectSchema
     password: z.string().min(6, "A senha precisa ter pelo menos 6 caracteres.").optional()
   })
   .refine(hasAtLeastOneModule, {
-    message: "Libere ao menos um módulo para o funcionário."
+    message: "Libere ao menos um mÃ³dulo para o funcionÃ¡rio."
   });
 
 export const employeeLoginSchema = z.object({
-  email: z.string().trim().email("Informe um e-mail válido."),
+  email: z.string().trim().email("Informe um e-mail vÃ¡lido."),
   password: z.string().min(1, "Informe a senha.")
 });
 

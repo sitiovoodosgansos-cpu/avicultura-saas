@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const parsed = flockGroupSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." }, { status: 400 });
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." }, { status: 400 });
   }
 
   const created = await createFlockGroup(auth.session.user.tenantId, parsed.data);

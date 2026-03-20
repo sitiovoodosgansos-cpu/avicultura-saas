@@ -29,7 +29,7 @@ export default function EmployeeLoginPage() {
     setLoading(false);
 
     if (!response.ok || !payload.redirectTo) {
-      setError(payload.error ?? "Não foi possível entrar com este acesso.");
+      setError(payload.error ?? "NÃ£o foi possÃ­vel entrar com este acesso.");
       return;
     }
 
@@ -46,12 +46,12 @@ export default function EmployeeLoginPage() {
           </div>
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900">Acesso da equipe</h1>
-            <p className="mt-1 text-sm text-zinc-500">Login do funcionário para lançar dados do sítio.</p>
+            <p className="mt-1 text-sm text-zinc-500">Login do funcionÃ¡rio para lanÃ§ar dados do sÃ­tio.</p>
           </div>
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail do funcionário" />
+          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail do funcionÃ¡rio" />
           <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha" />
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <Button className="w-full" type="submit" disabled={loading}>
@@ -60,11 +60,11 @@ export default function EmployeeLoginPage() {
         </form>
 
         <div className="mt-4 rounded-2xl bg-[color:var(--surface-soft)] p-4 text-sm text-slate-600">
-          Este acesso não entra no financeiro nem na assinatura. Ele serve apenas para os módulos liberados pelo titular.
+          Este acesso nÃ£o entra no financeiro nem na assinatura. Ele serve apenas para os mÃ³dulos liberados pelo titular.
         </div>
 
         <p className="mt-4 text-sm text-zinc-500">
-          Você é o titular da conta?{" "}
+          VocÃª Ã© o titular da conta?{" "}
           <Link href="/login" className="font-semibold text-[#0f766e] hover:underline">
             Entrar como administrador
           </Link>

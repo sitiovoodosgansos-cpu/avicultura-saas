@@ -68,7 +68,7 @@ export function EmployeesManager() {
   const [form, setForm] = useState<EmployeeForm>(emptyForm);
 
   const modalTitle = useMemo(
-    () => (editingEmployeeId ? "Editar funcionário" : "Novo funcionário"),
+    () => (editingEmployeeId ? "Editar funcionÃ¡rio" : "Novo funcionÃ¡rio"),
     [editingEmployeeId]
   );
 
@@ -78,7 +78,7 @@ export function EmployeesManager() {
     const response = await fetch("/api/employees", { cache: "no-store" });
     if (!response.ok) {
       const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      setError(payload.error ?? "Não foi possível carregar os funcionários.");
+      setError(payload.error ?? "NÃ£o foi possÃ­vel carregar os funcionÃ¡rios.");
       setLoading(false);
       return;
     }
@@ -138,7 +138,7 @@ export function EmployeesManager() {
 
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) {
-      setError(payload.error ?? "Não foi possível salvar o funcionário.");
+      setError(payload.error ?? "NÃ£o foi possÃ­vel salvar o funcionÃ¡rio.");
       setSaving(false);
       return;
     }
@@ -147,7 +147,7 @@ export function EmployeesManager() {
     setIsModalOpen(false);
     setForm(emptyForm);
     setEditingEmployeeId(null);
-    setSuccess(editingEmployeeId ? "Funcionário atualizado com sucesso." : "Funcionário criado com sucesso.");
+    setSuccess(editingEmployeeId ? "FuncionÃ¡rio atualizado com sucesso." : "FuncionÃ¡rio criado com sucesso.");
     await loadEmployees();
   }
 
@@ -157,7 +157,7 @@ export function EmployeesManager() {
   }
 
   async function disableEmployee(id: string) {
-    const confirmed = window.confirm("Deseja desativar este funcionário agora?");
+    const confirmed = window.confirm("Deseja desativar este funcionÃ¡rio agora?");
     if (!confirmed) return;
 
     setError(null);
@@ -166,11 +166,11 @@ export function EmployeesManager() {
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
 
     if (!response.ok) {
-      setError(payload.error ?? "Não foi possível desativar o funcionário.");
+      setError(payload.error ?? "NÃ£o foi possÃ­vel desativar o funcionÃ¡rio.");
       return;
     }
 
-    setSuccess("Funcionário desativado.");
+    setSuccess("FuncionÃ¡rio desativado.");
     await loadEmployees();
   }
 
@@ -179,18 +179,18 @@ export function EmployeesManager() {
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-base font-semibold text-zinc-900">Funcionários com login e senha</h3>
+            <h3 className="text-base font-semibold text-zinc-900">FuncionÃ¡rios com login e senha</h3>
             <p className="mt-1 text-sm text-zinc-600">
-              Cadastre acessos da equipe com permissões por módulo. O funcionário pode criar, editar e excluir apenas dentro das áreas liberadas.
+              Cadastre acessos da equipe com permissÃµes por mÃ³dulo. O funcionÃ¡rio pode criar, editar e excluir apenas dentro das Ã¡reas liberadas.
             </p>
-            <p className="mt-2 text-xs text-zinc-500">A equipe entra pelo endereço `/equipe/login` com e-mail e senha definidos pelo titular.</p>
+            <p className="mt-2 text-xs text-zinc-500">A equipe entra pelo endereÃ§o `/equipe/login` com e-mail e senha definidos pelo titular.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="outline" onClick={copyEmployeeLoginLink}>
               Copiar link da equipe
             </Button>
             <Button type="button" onClick={openCreateModal}>
-              Adicionar funcionário
+              Adicionar funcionÃ¡rio
             </Button>
           </div>
         </div>
@@ -198,11 +198,11 @@ export function EmployeesManager() {
         {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
         {success ? <p className="mt-4 text-sm text-emerald-700">{success}</p> : null}
 
-        {loading ? <p className="mt-4 text-sm text-zinc-500">Carregando funcionários...</p> : null}
+        {loading ? <p className="mt-4 text-sm text-zinc-500">Carregando funcionÃ¡rios...</p> : null}
 
         {!loading && employees.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed border-[color:var(--line)] bg-[color:var(--surface-soft)] px-4 py-6 text-sm text-zinc-600">
-            Nenhum funcionário cadastrado ainda. Crie o primeiro acesso da equipe para liberar o lançamento com login próprio.
+            Nenhum funcionÃ¡rio cadastrado ainda. Crie o primeiro acesso da equipe para liberar o lanÃ§amento com login prÃ³prio.
           </div>
         ) : null}
 
@@ -220,7 +220,7 @@ export function EmployeesManager() {
                     </div>
                     <p className="mt-1 text-sm text-slate-600">{employee.email}</p>
                     <p className="mt-2 text-xs text-slate-500">
-                      Último acesso: {employee.lastLoginAt ? new Date(employee.lastLoginAt).toLocaleString("pt-BR") : "ainda não acessou"}
+                      Ãšltimo acesso: {employee.lastLoginAt ? new Date(employee.lastLoginAt).toLocaleString("pt-BR") : "ainda nÃ£o acessou"}
                     </p>
                   </div>
 
@@ -252,7 +252,7 @@ export function EmployeesManager() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-xl font-semibold text-slate-900">{modalTitle}</h3>
-                <p className="mt-1 text-sm text-slate-500">Defina login, senha inicial e quais módulos o funcionário pode usar.</p>
+                <p className="mt-1 text-sm text-slate-500">Defina login, senha inicial e quais mÃ³dulos o funcionÃ¡rio pode usar.</p>
               </div>
               <button type="button" onClick={() => setIsModalOpen(false)} className="rounded-2xl border border-[color:var(--line)] px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">
                 Fechar
@@ -261,14 +261,14 @@ export function EmployeesManager() {
 
             <form className="mt-6 grid gap-4" onSubmit={submitEmployee}>
               <div className="grid gap-4 md:grid-cols-2">
-                <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Nome do funcionário" />
+                <Input value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} placeholder="Nome do funcionÃ¡rio" />
                 <Input value={form.email} onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))} placeholder="email@equipe.com" type="email" />
               </div>
 
               <Input
                 value={form.password}
                 onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                placeholder={editingEmployeeId ? "Nova senha (deixe em branco para manter)" : "Senha inicial do funcionário"}
+                placeholder={editingEmployeeId ? "Nova senha (deixe em branco para manter)" : "Senha inicial do funcionÃ¡rio"}
                 type="password"
               />
 
@@ -288,7 +288,7 @@ export function EmployeesManager() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Salvando..." : editingEmployeeId ? "Salvar alterações" : "Criar funcionário"}
+                  {saving ? "Salvando..." : editingEmployeeId ? "Salvar alteraÃ§Ãµes" : "Criar funcionÃ¡rio"}
                 </Button>
               </div>
             </form>

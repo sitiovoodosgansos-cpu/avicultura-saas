@@ -20,7 +20,7 @@ export async function getApiSessionOr401(options?: {
         return {
           ok: false as const,
           response: NextResponse.json(
-            { error: "Acesso bloqueado. Regularize sua assinatura na p·gina Perfil." },
+            { error: "Acesso bloqueado. Regularize sua assinatura na p√°gina Perfil." },
             { status: 402 }
           )
         };
@@ -46,7 +46,7 @@ export async function getApiSessionOr401(options?: {
   if (!employeeSession) {
     return {
       ok: false as const,
-      response: NextResponse.json({ error: "N„o autenticado." }, { status: 401 })
+      response: NextResponse.json({ error: "N√£o autenticado." }, { status: 401 })
     };
   }
 
@@ -63,7 +63,7 @@ export async function getApiSessionOr401(options?: {
       return {
         ok: false as const,
         response: NextResponse.json(
-          { error: "Acesso bloqueado. Regularize sua assinatura na p·gina Perfil." },
+          { error: "Acesso bloqueado. Regularize sua assinatura na p√°gina Perfil." },
           { status: 402 }
         )
       };
@@ -80,7 +80,7 @@ export async function getApiSessionOr401(options?: {
     if (!allowed) {
       return {
         ok: false as const,
-        response: NextResponse.json({ error: "Sem permiss„o para este mÛdulo." }, { status: 403 })
+        response: NextResponse.json({ error: "Sem permiss√£o para este m√≥dulo." }, { status: 403 })
       };
     }
   }
