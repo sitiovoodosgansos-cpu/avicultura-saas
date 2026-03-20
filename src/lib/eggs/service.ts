@@ -1,4 +1,4 @@
-﻿import { prisma } from "@/lib/db/prisma";
+import { prisma } from "@/lib/db/prisma";
 
 function startOfDay(date: Date) {
   const next = new Date(date);
@@ -59,7 +59,7 @@ export async function listEggCollections(tenantId: string, opts?: { from?: strin
 
 export async function createEggCollection(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   input: {
     date: string;
     flockGroupId: string;
@@ -88,7 +88,7 @@ export async function createEggCollection(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "EGG_COLLECTION_CREATE",
       entity: "EggCollection",
       entityId: created.id,
@@ -105,7 +105,7 @@ export async function createEggCollection(
 
 export async function updateEggCollection(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   id: string,
   input: {
     date: string;
@@ -135,7 +135,7 @@ export async function updateEggCollection(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "EGG_COLLECTION_UPDATE",
       entity: "EggCollection",
       entityId: id,
@@ -155,7 +155,7 @@ export async function updateEggCollection(
   return updated;
 }
 
-export async function deleteEggCollection(tenantId: string, userId: string, id: string) {
+export async function deleteEggCollection(tenantId: string, userId: string | null, id: string) {
   const existing = await prisma.eggCollection.findFirst({ where: { id, tenantId } });
   if (!existing) return false;
 
@@ -164,7 +164,7 @@ export async function deleteEggCollection(tenantId: string, userId: string, id: 
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "EGG_COLLECTION_DELETE",
       entity: "EggCollection",
       entityId: id
@@ -339,3 +339,4 @@ export async function getEggMetrics(tenantId: string) {
     groupCards
   };
 }
+

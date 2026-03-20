@@ -119,6 +119,7 @@ model Tenant {
   infirmaryCaseEvents InfirmaryCaseEvent[]
   entries        FinancialEntry[]
   expenses       FinancialExpense[]
+  workerLinks    WorkerAccessLink[]
   reports        Report[]
   auditLogs      AuditLog[]
 }
@@ -424,4 +425,19 @@ model AuditLog {
   createdAt DateTime @default(now())
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model WorkerAccessLink {
+  id              String   @id @default(cuid())
+  tenantId        String
+  label           String
+  token           String   @unique
+  isActive        Boolean  @default(true)
+  allowPlantel    Boolean  @default(true)
+  allowEggs       Boolean  @default(true)
+  allowIncubators Boolean  @default(true)
+  allowHealth     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }

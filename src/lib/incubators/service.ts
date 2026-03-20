@@ -1,4 +1,4 @@
-﻿import { prisma } from "@/lib/db/prisma";
+import { prisma } from "@/lib/db/prisma";
 
 function ratio(num: number, den: number) {
   if (!den) return 0;
@@ -63,7 +63,7 @@ export async function listIncubatorContext(tenantId: string) {
 
 export async function createIncubator(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   input: { name: string; description?: string; notes?: string; status: "ACTIVE" | "INACTIVE" | "MAINTENANCE" }
 ) {
   const created = await prisma.incubator.create({
@@ -79,7 +79,7 @@ export async function createIncubator(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INCUBATOR_CREATE",
       entity: "Incubator",
       entityId: created.id,
@@ -92,7 +92,7 @@ export async function createIncubator(
 
 export async function updateIncubator(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   id: string,
   input: { name: string; description?: string; notes?: string; status: "ACTIVE" | "INACTIVE" | "MAINTENANCE" }
 ) {
@@ -112,7 +112,7 @@ export async function updateIncubator(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INCUBATOR_UPDATE",
       entity: "Incubator",
       entityId: id,
@@ -124,7 +124,7 @@ export async function updateIncubator(
   return updated;
 }
 
-export async function deleteIncubator(tenantId: string, userId: string, id: string) {
+export async function deleteIncubator(tenantId: string, userId: string | null, id: string) {
   const existing = await prisma.incubator.findFirst({ where: { id, tenantId } });
   if (!existing) return false;
 
@@ -133,7 +133,7 @@ export async function deleteIncubator(tenantId: string, userId: string, id: stri
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INCUBATOR_DELETE",
       entity: "Incubator",
       entityId: id
@@ -145,7 +145,7 @@ export async function deleteIncubator(tenantId: string, userId: string, id: stri
 
 export async function createBatch(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   input: {
     incubatorId: string;
     flockGroupId: string;
@@ -188,7 +188,7 @@ export async function createBatch(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "BATCH_CREATE",
       entity: "IncubatorBatch",
       entityId: created.id,
@@ -201,7 +201,7 @@ export async function createBatch(
 
 export async function updateBatch(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   id: string,
   input: {
     incubatorId: string;
@@ -232,7 +232,7 @@ export async function updateBatch(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "BATCH_UPDATE",
       entity: "IncubatorBatch",
       entityId: id,
@@ -244,7 +244,7 @@ export async function updateBatch(
   return updated;
 }
 
-export async function deleteBatch(tenantId: string, userId: string, id: string) {
+export async function deleteBatch(tenantId: string, userId: string | null, id: string) {
   const existing = await prisma.incubatorBatch.findFirst({ where: { id, tenantId } });
   if (!existing) return false;
 
@@ -253,7 +253,7 @@ export async function deleteBatch(tenantId: string, userId: string, id: string) 
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "BATCH_DELETE",
       entity: "IncubatorBatch",
       entityId: id
@@ -265,7 +265,7 @@ export async function deleteBatch(tenantId: string, userId: string, id: string) 
 
 export async function addBatchEvent(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   batchId: string,
   input: {
     type: "HATCHED" | "INFERTILE" | "EMBRYO_LOSS" | "PIPPED_DIED" | "IN_PROGRESS" | "OTHER";
@@ -291,7 +291,7 @@ export async function addBatchEvent(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "BATCH_EVENT_CREATE",
       entity: "IncubatorBatchEvent",
       entityId: created.id,
@@ -388,3 +388,4 @@ export async function getIncubatorMetrics(tenantId: string) {
 
   return { summary, performanceByIncubator, periodSeries };
 }
+

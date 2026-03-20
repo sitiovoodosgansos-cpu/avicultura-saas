@@ -1,4 +1,4 @@
-ï»¿import { BirdStatus, Prisma } from "@prisma/client";
+import { BirdStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 export type PlantelFilters = {
@@ -252,7 +252,7 @@ export async function deleteFlockGroup(tenantId: string, id: string) {
 
 export async function createBird(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   input: {
     flockGroupId: string;
     ringNumber: string;
@@ -295,7 +295,7 @@ export async function createBird(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "BIRD_CREATE",
       entity: "Bird",
       entityId: bird.id,
@@ -311,7 +311,7 @@ export async function createBird(
 
 export async function updateBird(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   id: string,
   input: {
     flockGroupId: string;
@@ -351,7 +351,7 @@ export async function updateBird(
         birdId: id,
         fromStatus: existing.status,
         toStatus: input.status,
-        reason: "AtualizaÃ§Ã£o de cadastro"
+        reason: "Atualização de cadastro"
       }
     });
   }
@@ -359,7 +359,7 @@ export async function updateBird(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "BIRD_UPDATE",
       entity: "Bird",
       entityId: id,
@@ -373,7 +373,7 @@ export async function updateBird(
   return updated;
 }
 
-export async function deleteBird(tenantId: string, userId: string, id: string) {
+export async function deleteBird(tenantId: string, userId: string | null, id: string) {
   const existing = await prisma.bird.findFirst({ where: { id, tenantId }, select: { id: true } });
   if (!existing) return false;
 
@@ -382,7 +382,7 @@ export async function deleteBird(tenantId: string, userId: string, id: string) {
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "BIRD_DELETE",
       entity: "Bird",
       entityId: id
@@ -394,7 +394,7 @@ export async function deleteBird(tenantId: string, userId: string, id: string) {
 
 export async function changeBirdStatus(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   id: string,
   status: BirdStatus,
   reason?: string
@@ -421,7 +421,7 @@ export async function changeBirdStatus(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "BIRD_STATUS_CHANGE",
       entity: "Bird",
       entityId: id,
@@ -442,3 +442,4 @@ export async function listBirdHistory(tenantId: string, birdId: string) {
     orderBy: { createdAt: "desc" }
   });
 }
+

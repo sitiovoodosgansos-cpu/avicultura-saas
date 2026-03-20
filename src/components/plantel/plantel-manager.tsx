@@ -76,6 +76,14 @@ type PlantelResponse = {
   groups: PlantelGroup[];
 };
 
+type WorkerLink = {
+  id: string;
+  label: string;
+  token: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
 const selectClass =
   "h-11 w-full rounded-2xl border border-[color:var(--line)] bg-white/90 px-4 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[color:var(--brand)]/20";
 
@@ -178,6 +186,7 @@ export function PlantelManager() {
   const [filterVariety, setFilterVariety] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [ringSearch, setRingSearch] = useState("");
+  const [workerLinks, setWorkerLinks] = useState<WorkerLink[]>([]);
 
   const canSubmitBird = useMemo(() => Boolean(birdForm.flockGroupId), [birdForm.flockGroupId]);
 
@@ -192,15 +201,21 @@ export function PlantelManager() {
     if (filterStatus) params.set("status", filterStatus);
     if (ringSearch) params.set("ring", ringSearch);
 
-    const response = await fetch(`/api/plantel/groups?${params.toString()}`, { cache: "no-store" });
-    if (!response.ok) {
+    const [response, workerLinksRes] = await Promise.all([
+      fetch(`/api/plantel/groups?${params.toString()}`, { cache: "no-store" }),
+      fetch("/api/worker-links", { cache: "no-store" })
+    ]);
+
+    if (!response.ok || !workerLinksRes.ok) {
       setError("Nao foi possivel carregar o plantel.");
       setLoading(false);
       return;
     }
 
     const data: PlantelResponse = await response.json();
+    const linksData = (await workerLinksRes.json()) as { links: WorkerLink[] };
     setGroups(data.groups);
+    setWorkerLinks(linksData.links);
     setLoading(false);
 
     if (!birdForm.flockGroupId && data.groups.length > 0) {
@@ -333,6 +348,39 @@ export function PlantelManager() {
     setHistoryByBird((prev) => ({ ...prev, [id]: data.history }));
   }
 
+  async function createWorkerLink() {
+    const response = await fetch("/api/worker-links", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: "Link da equipe" })
+    });
+
+    if (!response.ok) {
+      setError("Nao foi possivel criar o link da equipe.");
+      return;
+    }
+
+    await loadData();
+  }
+
+  async function disableWorkerLink(id: string) {
+    const ok = window.confirm("Desativar este link da equipe?");
+    if (!ok) return;
+
+    const response = await fetch(`/api/worker-links/${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setError("Nao foi possivel desativar o link.");
+      return;
+    }
+
+    await loadData();
+  }
+
+  async function copyWorkerLink(token: string) {
+    const url = `${window.location.origin}/funcionario/${token}`;
+    await navigator.clipboard.writeText(url);
+  }
+
   const totals = useMemo(() => {
     return groups.reduce(
       (acc, group) => {
@@ -365,6 +413,53 @@ export function PlantelManager() {
         <StatChip emoji="🤒" label="Doentes" value={totals.sick} />
         <StatChip emoji="🕊️" label="Mortas" value={totals.dead} />
       </section>
+
+      <Card>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">🔗 Link da equipe</h3>
+            <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
+              Gere um link para funcionário lançar plantel, coleta, chocadeiras e sanidade sem acessar o financeiro.
+            </p>
+          </div>
+          <Button type="button" onClick={createWorkerLink}>
+            Gerar novo link
+          </Button>
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          {workerLinks.length === 0 ? (
+            <p className="text-sm text-[color:var(--ink-soft)]">Nenhum link criado ainda.</p>
+          ) : (
+            workerLinks.map((link) => (
+              <div
+                key={link.id}
+                className="flex flex-col gap-3 rounded-2xl border border-[color:var(--line)] bg-slate-50/70 px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{link.label}</p>
+                  <p className="text-xs text-slate-500">
+                    {link.isActive ? "Ativo" : "Inativo"} • criado em{" "}
+                    {new Date(link.createdAt).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {link.isActive ? (
+                    <>
+                      <Button type="button" variant="outline" onClick={() => copyWorkerLink(link.token)}>
+                        Copiar link
+                      </Button>
+                      <Button type="button" variant="danger" onClick={() => disableWorkerLink(link.id)}>
+                        Desativar
+                      </Button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </Card>
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>

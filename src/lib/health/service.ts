@@ -1,4 +1,4 @@
-Ôªøimport { BirdStatus, InfirmaryCaseStatus } from "@prisma/client";
+import { BirdStatus, InfirmaryCaseStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 function toDate(value: string) {
@@ -45,7 +45,7 @@ export async function listHealthContext(tenantId: string) {
 
 export async function createInfirmary(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   input: { name: string; notes?: string; status: "ACTIVE" | "INACTIVE" }
 ) {
   const created = await prisma.infirmary.create({
@@ -60,7 +60,7 @@ export async function createInfirmary(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INFIRMARY_CREATE",
       entity: "Infirmary",
       entityId: created.id,
@@ -73,7 +73,7 @@ export async function createInfirmary(
 
 export async function updateInfirmary(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   id: string,
   input: { name: string; notes?: string; status: "ACTIVE" | "INACTIVE" }
 ) {
@@ -88,7 +88,7 @@ export async function updateInfirmary(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INFIRMARY_UPDATE",
       entity: "Infirmary",
       entityId: id,
@@ -100,7 +100,7 @@ export async function updateInfirmary(
   return updated;
 }
 
-export async function deleteInfirmary(tenantId: string, userId: string, id: string) {
+export async function deleteInfirmary(tenantId: string, userId: string | null, id: string) {
   const existing = await prisma.infirmary.findFirst({ where: { id, tenantId } });
   if (!existing) return false;
 
@@ -109,7 +109,7 @@ export async function deleteInfirmary(tenantId: string, userId: string, id: stri
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INFIRMARY_DELETE",
       entity: "Infirmary",
       entityId: id
@@ -121,7 +121,7 @@ export async function deleteInfirmary(tenantId: string, userId: string, id: stri
 
 export async function createInfirmaryCase(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   input: {
     birdId: string;
     infirmaryId: string;
@@ -186,7 +186,7 @@ export async function createInfirmaryCase(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INFIRMARY_CASE_CREATE",
       entity: "InfirmaryCase",
       entityId: created.id,
@@ -199,7 +199,7 @@ export async function createInfirmaryCase(
 
 export async function updateInfirmaryCase(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   id: string,
   input: {
     birdId: string;
@@ -234,7 +234,7 @@ export async function updateInfirmaryCase(
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INFIRMARY_CASE_UPDATE",
       entity: "InfirmaryCase",
       entityId: id,
@@ -245,7 +245,7 @@ export async function updateInfirmaryCase(
   return updated;
 }
 
-export async function deleteInfirmaryCase(tenantId: string, userId: string, id: string) {
+export async function deleteInfirmaryCase(tenantId: string, userId: string | null, id: string) {
   const existing = await prisma.infirmaryCase.findFirst({ where: { id, tenantId } });
   if (!existing) return false;
 
@@ -254,7 +254,7 @@ export async function deleteInfirmaryCase(tenantId: string, userId: string, id: 
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INFIRMARY_CASE_DELETE",
       entity: "InfirmaryCase",
       entityId: id
@@ -266,7 +266,7 @@ export async function deleteInfirmaryCase(tenantId: string, userId: string, id: 
 
 export async function applyCaseEvent(
   tenantId: string,
-  userId: string,
+  userId: string | null,
   id: string,
   input: {
     action: "CONTINUE" | "CURE" | "DEATH" | "TRANSFER";
@@ -375,7 +375,7 @@ export async function applyCaseEvent(
           birdId: caseItem.bird.id,
           fromStatus: caseItem.bird.status,
           toStatus: BirdStatus.DEAD,
-          reason: "√ìbito em tratamento"
+          reason: "”bito em tratamento"
         }
       });
     }
@@ -393,13 +393,13 @@ export async function applyCaseEvent(
   });
 
   if (!result) {
-    return { kind: "invalid" as const, message: "Opera√ß√£o inv√°lida para o caso." };
+    return { kind: "invalid" as const, message: "OperaÁ„o inv·lida para o caso." };
   }
 
   await prisma.auditLog.create({
     data: {
       tenantId,
-      userId,
+      userId: userId ?? undefined,
       action: "INFIRMARY_CASE_EVENT",
       entity: "InfirmaryCase",
       entityId: id,
@@ -460,7 +460,7 @@ export async function getHealthMetrics(tenantId: string) {
 
   const diagnosisCount = new Map<string, number>();
   for (const row of diagnosisRows) {
-    const key = row.diagnosis?.trim() || "N√£o informado";
+    const key = row.diagnosis?.trim() || "N„o informado";
     diagnosisCount.set(key, (diagnosisCount.get(key) ?? 0) + 1);
   }
 
@@ -494,3 +494,4 @@ export async function getHealthMetrics(tenantId: string) {
     evolution
   };
 }
+
