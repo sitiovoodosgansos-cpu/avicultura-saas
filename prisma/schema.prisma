@@ -119,6 +119,8 @@ model Tenant {
   infirmaryCaseEvents InfirmaryCaseEvent[]
   entries        FinancialEntry[]
   expenses       FinancialExpense[]
+  employeeAccounts EmployeeAccount[]
+  employeeSessions EmployeeSession[]
   workerLinks    WorkerAccessLink[]
   reports        Report[]
   auditLogs      AuditLog[]
@@ -440,4 +442,35 @@ model WorkerAccessLink {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model EmployeeAccount {
+  id              String   @id @default(cuid())
+  tenantId        String
+  name            String
+  email           String
+  passwordHash    String
+  isActive        Boolean  @default(true)
+  allowPlantel    Boolean  @default(true)
+  allowEggs       Boolean  @default(true)
+  allowIncubators Boolean  @default(true)
+  allowHealth     Boolean  @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions        EmployeeSession[]
+
+  @@unique([tenantId, email])
+}
+
+model EmployeeSession {
+  id         String          @id @default(cuid())
+  tenantId   String
+  employeeId String
+  token      String          @unique
+  expiresAt  DateTime
+  createdAt  DateTime        @default(now())
+  tenant     Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee   EmployeeAccount @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }

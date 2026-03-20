@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { EmployeesManager } from "@/components/employees/employees-manager";
 
 type BillingStatus = {
   tenant: {
@@ -216,6 +217,8 @@ export function BillingProfileManager() {
           </div>
         ) : null}
       </Card>
+
+      <EmployeesManager />
 
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Dados da conta</h3>

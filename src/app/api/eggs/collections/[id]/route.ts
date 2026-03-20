@@ -1,4 +1,4 @@
-Ôªøimport { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { eggCollectionSchema } from "@/lib/validators/eggs";
 import { deleteEggCollection, updateEggCollection } from "@/lib/eggs/service";
@@ -7,7 +7,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await getApiSessionOr401();
+  const auth = await getApiSessionOr401({ employeePermission: 'eggs' });
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -15,7 +15,7 @@ export async function PUT(
   const parsed = eggCollectionSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
       { status: 400 }
     );
   }
@@ -28,7 +28,7 @@ export async function PUT(
   );
 
   if (!updated) {
-    return NextResponse.json({ error: "Registro n√£o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Registro n„o encontrado." }, { status: 404 });
   }
 
   return NextResponse.json(updated);
@@ -38,14 +38,15 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await getApiSessionOr401();
+  const auth = await getApiSessionOr401({ employeePermission: 'eggs' });
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
   const deleted = await deleteEggCollection(auth.session.user.tenantId, auth.session.user.id, id);
   if (!deleted) {
-    return NextResponse.json({ error: "Registro n√£o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Registro n„o encontrado." }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });
 }
+

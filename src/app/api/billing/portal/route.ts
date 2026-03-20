@@ -1,16 +1,16 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { prisma } from "@/lib/db/prisma";
 import { getStripe } from "@/lib/billing/stripe";
 
 export async function POST() {
-  const auth = await getApiSessionOr401({ allowBlocked: true });
+  const auth = await getApiSessionOr401({ allowBlocked: true, ownerOnly: true });
   if (!auth.ok) return auth.response;
 
   const tenantId = auth.session.user.tenantId;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
   if (!appUrl) {
-    return NextResponse.json({ error: "APP_URL nÃ£o configurada." }, { status: 500 });
+    return NextResponse.json({ error: "APP_URL não configurada." }, { status: 500 });
   }
 
   const subscription = await prisma.subscription.findFirst({
@@ -20,7 +20,7 @@ export async function POST() {
 
   if (!subscription?.providerCustomerId) {
     return NextResponse.json(
-      { error: "Conta de cobranÃ§a ainda nÃ£o criada. Inicie uma assinatura primeiro." },
+      { error: "Conta de cobrança ainda não criada. Inicie uma assinatura primeiro." },
       { status: 400 }
     );
   }
@@ -33,5 +33,6 @@ export async function POST() {
 
   return NextResponse.json({ url: portal.url });
 }
+
 
 

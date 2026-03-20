@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ReportType } from "@prisma/client";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { getReportData, ReportPreset, resolvePeriod } from "@/lib/reports/service";
@@ -17,7 +17,7 @@ function parsePreset(value: string | null): ReportPreset {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await getApiSessionOr401();
+  const auth = await getApiSessionOr401({ ownerOnly: true });
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
@@ -30,3 +30,4 @@ export async function GET(request: NextRequest) {
   const data = await getReportData(auth.session.user.tenantId, type, period);
   return NextResponse.json(data);
 }
+

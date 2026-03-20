@@ -1,11 +1,11 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { prisma } from "@/lib/db/prisma";
 import { getStripe } from "@/lib/billing/stripe";
 import { getClientIp, rateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(request: Request) {
-  const auth = await getApiSessionOr401({ allowBlocked: true });
+  const auth = await getApiSessionOr401({ allowBlocked: true, ownerOnly: true });
   if (!auth.ok) return auth.response;
   const ip = getClientIp(request);
   const limited = rateLimit({
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
 
   if (!appUrl || !priceId) {
     return NextResponse.json(
-      { error: "ConfiguraÃ§Ã£o de cobranÃ§a incompleta (APP_URL/PRICE_ID)." },
+      { error: "Configuração de cobrança incompleta (APP_URL/PRICE_ID)." },
       { status: 500 }
     );
   }
@@ -64,5 +64,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ url: session.url });
 }
+
 
 

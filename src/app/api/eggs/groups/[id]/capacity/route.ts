@@ -1,4 +1,4 @@
-Ôªøimport { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { groupCapacitySchema } from "@/lib/validators/eggs";
 import { updateGroupLayCapacity } from "@/lib/eggs/service";
@@ -7,7 +7,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await getApiSessionOr401();
+  const auth = await getApiSessionOr401({ employeePermission: 'eggs' });
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -16,7 +16,7 @@ export async function PATCH(
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inv√°lidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados inv·lidos." },
       { status: 400 }
     );
   }
@@ -28,8 +28,9 @@ export async function PATCH(
   );
 
   if (!updated) {
-    return NextResponse.json({ error: "Grupo n√£o encontrado." }, { status: 404 });
+    return NextResponse.json({ error: "Grupo n„o encontrado." }, { status: 404 });
   }
 
   return NextResponse.json(updated);
 }
+

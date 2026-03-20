@@ -4,7 +4,7 @@ import { financialEntrySchema } from "@/lib/validators/finance";
 import { createEntry, listFinancialEntries } from "@/lib/finance/service";
 
 export async function GET(request: NextRequest) {
-  const auth = await getApiSessionOr401();
+  const auth = await getApiSessionOr401({ ownerOnly: true });
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getApiSessionOr401();
+  const auth = await getApiSessionOr401({ ownerOnly: true });
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
@@ -36,4 +36,5 @@ export async function POST(request: NextRequest) {
   const created = await createEntry(auth.session.user.tenantId, auth.session.user.id, parsed.data);
   return NextResponse.json(created, { status: 201 });
 }
+
 

@@ -169,7 +169,7 @@ function toDateInput(value: string | null | undefined) {
   return `${year}-${month}-${day}`;
 }
 
-export function PlantelManager() {
+export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -201,21 +201,27 @@ export function PlantelManager() {
     if (filterStatus) params.set("status", filterStatus);
     if (ringSearch) params.set("ring", ringSearch);
 
-    const [response, workerLinksRes] = await Promise.all([
-      fetch(`/api/plantel/groups?${params.toString()}`, { cache: "no-store" }),
-      fetch("/api/worker-links", { cache: "no-store" })
-    ]);
+    const requests: Promise<Response>[] = [fetch(`/api/plantel/groups?${params.toString()}`, { cache: "no-store" })];
+    if (showWorkerLinks) {
+      requests.push(fetch("/api/worker-links", { cache: "no-store" }));
+    }
 
-    if (!response.ok || !workerLinksRes.ok) {
+    const [response, workerLinksRes] = await Promise.all(requests);
+
+    if (!response.ok || (showWorkerLinks && !workerLinksRes?.ok)) {
       setError("Nao foi possivel carregar o plantel.");
       setLoading(false);
       return;
     }
 
     const data: PlantelResponse = await response.json();
-    const linksData = (await workerLinksRes.json()) as { links: WorkerLink[] };
     setGroups(data.groups);
-    setWorkerLinks(linksData.links);
+    if (showWorkerLinks && workerLinksRes) {
+      const linksData = (await workerLinksRes.json()) as { links: WorkerLink[] };
+      setWorkerLinks(linksData.links);
+    } else {
+      setWorkerLinks([]);
+    }
     setLoading(false);
 
     if (!birdForm.flockGroupId && data.groups.length > 0) {
@@ -414,6 +420,7 @@ export function PlantelManager() {
         <StatChip emoji="🕊️" label="Mortas" value={totals.dead} />
       </section>
 
+      {showWorkerLinks ? (
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -460,6 +467,7 @@ export function PlantelManager() {
           )}
         </div>
       </Card>
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
         <Card>
