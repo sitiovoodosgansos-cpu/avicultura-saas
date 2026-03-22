@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/layout/page-title";
@@ -108,11 +108,11 @@ function StatTile({
   value: string | number;
 }) {
   return (
-    <Card className="rounded-3xl">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+    <Card className="rounded-2xl p-3 sm:p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-xs">
         {emoji} {label}
       </p>
-      <p className="mt-2 text-3xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{value}</p>
     </Card>
   );
 }
@@ -207,7 +207,6 @@ export function EggCollectionManager() {
     if (!form.flockGroupId && metricsData.groupCards.length > 0) {
       setForm((prev) => ({ ...prev, flockGroupId: metricsData.groupCards[0].groupId }));
     }
-
   }
 
   useEffect(() => {
@@ -334,7 +333,7 @@ export function EggCollectionManager() {
   return (
     <main className="space-y-6">
       <PageTitle
-        title="🥚 Coleta de ovos"
+        title={`${"\u{1F95A}"} Coleta de ovos`}
         description="Visao mensal para acompanhar o sitio sem lotar a tela com listas longas."
       />
 
@@ -344,19 +343,20 @@ export function EggCollectionManager() {
         </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <StatTile emoji="🥚" label="Coletados hoje" value={metrics?.summary.eggsToday ?? 0} />
-        <StatTile emoji="⚠️" label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
-        <StatTile emoji="📈" label="Taxa de bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
-        <StatTile emoji="📆" label="Média diária geral" value={overallAverages.daily.toFixed(1)} />
-        <StatTile emoji="🗓️" label="Média semanal geral" value={overallAverages.weekly.toFixed(1)} />
-        <StatTile emoji="📊" label="Média mensal geral" value={overallAverages.monthly.toFixed(1)} />
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <StatTile emoji={"\u{1F95A}"} label="Hoje" value={metrics?.summary.eggsToday ?? 0} />
+        <StatTile emoji={"\u{26A0}\u{FE0F}"} label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
+        <StatTile emoji={"\u{1F4C8}"} label="Bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
+        <StatTile emoji={"\u{1F4C5}"} label="Media dia" value={overallAverages.daily.toFixed(1)} />
+        <StatTile emoji={"\u{1F5D3}\u{FE0F}"} label="Media sem" value={overallAverages.weekly.toFixed(1)} />
+        <StatTile emoji={"\u{1F4CA}"} label="Media mes" value={overallAverages.monthly.toFixed(1)} />
       </section>
 
       <Card>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="text-xl font-semibold text-slate-900">Calendario do mes</h3>
+            <p className="mt-1 text-sm text-slate-500">Estilo agenda: toque no dia para abrir os registros.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <select className={`${selectClass} sm:w-64`} value={filterGroupId} onChange={(event) => setFilterGroupId(event.target.value)}>
@@ -376,38 +376,45 @@ export function EggCollectionManager() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-3xl bg-[color:var(--surface-soft)] px-5 py-4">
-          <p className="text-lg font-semibold capitalize text-slate-900">{monthName}</p>
+        <div className="mt-5 rounded-2xl bg-[color:var(--surface-soft)] px-4 py-3">
+          <p className="text-base font-semibold capitalize text-slate-900 sm:text-lg">{monthName}</p>
         </div>
 
-        <div className="mt-5 grid grid-cols-7 gap-3 text-center text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">
+        <div className="mt-4 grid grid-cols-7 gap-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 sm:gap-2 sm:text-xs">
           {weekLabels.map((label) => (
             <div key={label}>{label}</div>
           ))}
         </div>
 
-        <div className="mt-3 grid grid-cols-7 gap-3">
+        <div className="mt-2 grid grid-cols-7 gap-1.5 sm:gap-2">
           {monthDays.map((cell) => {
             if (!cell.date || !cell.day) {
-              return <div key={cell.key} className="h-32 rounded-[24px] bg-white/30" />;
+              return <div key={cell.key} className="h-16 rounded-xl bg-white/40 sm:h-24 sm:rounded-2xl" />;
             }
 
             const values = calendarMap.get(cell.date);
+            const total = values?.total ?? 0;
+            const hasRecords = total > 0;
+            const isSelected = selectedDate === cell.date;
+
             return (
               <button
                 key={cell.key}
                 type="button"
                 onClick={() => openDay(cell.date!)}
-                className="h-32 rounded-[24px] border border-[color:var(--line)] bg-white p-3 text-left transition hover:-translate-y-0.5 hover:bg-[color:var(--surface-soft)] hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)]"
+                className={`h-16 rounded-xl border p-1.5 text-left transition sm:h-24 sm:rounded-2xl sm:p-2 ${
+                  isSelected
+                    ? "border-[color:var(--brand)] bg-[color:var(--surface-soft)]"
+                    : "border-[color:var(--line)] bg-white hover:bg-[color:var(--surface-soft)]"
+                }`}
               >
-                <p className="text-base font-semibold text-slate-900">{cell.day}</p>
-                <p className="mt-4 text-xs text-slate-500">Total</p>
-                <p className="text-xl font-semibold text-slate-900">{values?.total ?? 0}</p>
-                <div className="mt-2 flex items-center gap-2 text-[11px] text-slate-500">
-                  <span>Trinc. {values?.cracked ?? 0}</span>
-                  <span>
-                    Taxa {formatPercent(values?.total ? ((values.good / values.total) * 100) : 0)}
-                  </span>
+                <div className="flex items-start justify-between">
+                  <span className="text-xs font-semibold text-slate-800 sm:text-sm">{cell.day}</span>
+                  {hasRecords ? <span className="size-2 rounded-full bg-emerald-500" /> : null}
+                </div>
+                <div className="mt-2 flex items-end gap-1 sm:mt-6">
+                  <span className="text-sm font-semibold text-slate-900 sm:text-lg">{total}</span>
+                  <span className="text-[10px] text-slate-500 sm:text-xs">ovos</span>
                 </div>
               </button>
             );
@@ -415,32 +422,44 @@ export function EggCollectionManager() {
         </div>
       </Card>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {groups.map((group) => {
           const width = Math.min(group.progress, 100);
           return (
-            <Card key={group.groupId}>
-              <div className="flex items-start justify-between gap-3">
+            <Card key={group.groupId} className="rounded-2xl p-4">
+              <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">{group.title}</h3>
+                  <h3 className="text-base font-semibold text-slate-900">{group.title}</h3>
                   <p className="text-xs text-[color:var(--ink-soft)]">
-                    {group.species} • {group.breed}
-                    {group.variety ? ` • ${group.variety}` : ""}
+                    {group.species} - {group.breed}
+                    {group.variety ? ` - ${group.variety}` : ""}
                   </p>
                 </div>
-                <span className="rounded-full bg-[color:var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-strong)]">
+                <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-1 text-[10px] font-semibold text-[color:var(--brand-strong)] sm:text-xs">
                   {formatPerfLabel(group.performance)}
                 </span>
               </div>
 
-              <div className="mt-4 grid gap-2 text-sm text-slate-700">
-                <p>Ultimos 7 dias: {group.eggs7} ovos</p>
-                <p>Ultimos 30 dias: {group.eggs30} ovos</p>
-                <p>Ultimos 365 dias: {group.eggs365} ovos</p>
-                <p>Taxa de ovos bons: {formatPercent(group.goodEggRate)}</p>
+              <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                <div className="rounded-xl bg-slate-50 px-2 py-2">
+                  <p className="text-[10px] text-slate-500">7d</p>
+                  <p className="text-sm font-semibold text-slate-900">{group.eggs7}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-2 py-2">
+                  <p className="text-[10px] text-slate-500">30d</p>
+                  <p className="text-sm font-semibold text-slate-900">{group.eggs30}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-2 py-2">
+                  <p className="text-[10px] text-slate-500">365d</p>
+                  <p className="text-sm font-semibold text-slate-900">{group.eggs365}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 px-2 py-2">
+                  <p className="text-[10px] text-slate-500">bons</p>
+                  <p className="text-sm font-semibold text-slate-900">{formatPercent(group.goodEggRate)}</p>
+                </div>
               </div>
 
-              <div className="mt-5">
+              <div className="mt-4">
                 <Field label="Meta anual por ave matriz (ovos/ano)">
                   <div className="flex gap-2">
                     <Input
@@ -462,14 +481,14 @@ export function EggCollectionManager() {
                   </div>
                 </Field>
 
-                <div className="mt-3 h-3 w-full rounded-full bg-slate-200">
-                  <div className={`h-3 rounded-full ${perfColor(group.performance)}`} style={{ width: `${width}%` }} />
+                <div className="mt-3 h-2.5 w-full rounded-full bg-slate-200">
+                  <div className={`h-2.5 rounded-full ${perfColor(group.performance)}`} style={{ width: `${width}%` }} />
                 </div>
                 <p className="mt-2 text-xs text-[color:var(--ink-soft)]">
-                  Matrizes: {group.matrixCount} • Meta por matriz: {group.expectedLayCapacity || 0} ovos/ano
+                  {"\u{1F95A}"} matrizes {group.matrixCount} - meta/matriz {group.expectedLayCapacity || 0}
                 </p>
-                <p className="mt-2 text-xs text-[color:var(--ink-soft)]">
-                  Real anual {group.eggs365} / Meta anual do grupo {group.expectedGroupAnnual || 0} ({formatPercent(group.progress)})
+                <p className="mt-1 text-xs text-[color:var(--ink-soft)]">
+                  {"\u{1F4CA}"} anual {group.eggs365}/{group.expectedGroupAnnual || 0} ({formatPercent(group.progress)})
                 </p>
               </div>
             </Card>
@@ -548,9 +567,7 @@ export function EggCollectionManager() {
                       form.totalEggs > 0 ? ((Math.max(form.totalEggs - form.crackedEggs, 0) / form.totalEggs) * 100) : 0
                     )}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    O sistema calcula automaticamente: total menos trincados.
-                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Calculo automatico: total menos trincados.</p>
                 </div>
               </div>
 
@@ -592,10 +609,10 @@ export function EggCollectionManager() {
                       <div>
                         <h5 className="text-base font-semibold text-slate-900">{row.flockGroup.title}</h5>
                         <p className="text-sm text-[color:var(--ink-soft)]">
-                          {row.totalEggs} ovos no total • {row.crackedEggs} trincados
+                          {row.totalEggs} ovos no total - {row.crackedEggs} trincados
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          Taxa de ovos bons {formatPercent(row.goodRate)} • Trincados {formatPercent(row.crackedRate)}
+                          Taxa de ovos bons {formatPercent(row.goodRate)} - Trincados {formatPercent(row.crackedRate)}
                         </p>
                         {row.notes ? <p className="mt-2 text-sm text-slate-600">{row.notes}</p> : null}
                       </div>
