@@ -9,6 +9,12 @@ export type PlantelFilters = {
   ring?: string;
 };
 
+type PlantelGrowthPoint = {
+  key: string;
+  label: string;
+  total: number;
+};
+
 async function ensureTaxonomy(tenantId: string, speciesName: string, breedName: string, varietyName?: string) {
   let species = await prisma.species.findFirst({
     where: { tenantId, name: speciesName },
@@ -79,7 +85,14 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
   });
 
   if (groups.length === 0) {
-    return { groups: [], taxonomy: { species: [], breeds: [], varieties: [] } };
+    return {
+      groups: [],
+      growth: {
+        byMonth: [] as PlantelGrowthPoint[],
+        byYear: [] as PlantelGrowthPoint[]
+      },
+      taxonomy: { species: [], breeds: [], varieties: [] }
+    };
   }
 
   const groupIds = groups.map((group) => group.id);
@@ -120,6 +133,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
     .map((group) => {
       const groupAllBirds = allByGroup.get(group.id) ?? [];
       const groupFilteredBirds = filteredByGroup.get(group.id) ?? [];
+      const configuredTotal = group.matrixCount + group.reproducerCount;
       const countByStatus = {
         ACTIVE: groupAllBirds.filter((bird) => bird.status === "ACTIVE").length,
         SICK: groupAllBirds.filter((bird) => bird.status === "SICK").length,
@@ -136,7 +150,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
       return {
         ...group,
         summary: {
-          totalBirds: groupAllBirds.length,
+          totalBirds: Math.max(groupAllBirds.length, configuredTotal),
           females,
           males,
           ...countByStatus
@@ -164,8 +178,39 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
     })
   ]);
 
+  const monthlyMap = new Map<string, number>();
+  const yearlyMap = new Map<string, number>();
+
+  for (const bird of allBirds) {
+    const baseDate = bird.acquisitionDate ?? bird.createdAt;
+    const date = new Date(baseDate);
+    if (Number.isNaN(date.getTime())) continue;
+
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const monthLabel = date.toLocaleDateString("pt-BR", { month: "short", year: "numeric" });
+    const yearKey = String(date.getFullYear());
+
+    monthlyMap.set(`${monthKey}|${monthLabel}`, (monthlyMap.get(`${monthKey}|${monthLabel}`) ?? 0) + 1);
+    yearlyMap.set(yearKey, (yearlyMap.get(yearKey) ?? 0) + 1);
+  }
+
+  const byMonth: PlantelGrowthPoint[] = [...monthlyMap.entries()]
+    .map(([packed, total]) => {
+      const [key, label] = packed.split("|");
+      return { key, label, total };
+    })
+    .sort((a, b) => a.key.localeCompare(b.key));
+
+  const byYear: PlantelGrowthPoint[] = [...yearlyMap.entries()]
+    .map(([key, total]) => ({ key, label: key, total }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+
   return {
     groups: mappedGroups,
+    growth: {
+      byMonth,
+      byYear
+    },
     taxonomy: { species, breeds, varieties }
   };
 }

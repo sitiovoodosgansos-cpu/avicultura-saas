@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
@@ -6,6 +6,7 @@ import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type PlantelGroup = {
   id: string;
@@ -74,6 +75,10 @@ type BirdForm = {
 
 type PlantelResponse = {
   groups: PlantelGroup[];
+  growth: {
+    byMonth: Array<{ key: string; label: string; total: number }>;
+    byYear: Array<{ key: string; label: string; total: number }>;
+  };
 };
 
 type WorkerLink = {
@@ -169,6 +174,34 @@ function toDateInput(value: string | null | undefined) {
   return `${year}-${month}-${day}`;
 }
 
+function AppModal({
+  open,
+  title,
+  onClose,
+  children
+}: {
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4 py-6">
+      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface)] p-5 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -187,6 +220,13 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [filterStatus, setFilterStatus] = useState("");
   const [ringSearch, setRingSearch] = useState("");
   const [workerLinks, setWorkerLinks] = useState<WorkerLink[]>([]);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showBirdModal, setShowBirdModal] = useState(false);
+  const [growthByMonth, setGrowthByMonth] = useState<Array<{ key: string; label: string; total: number }>>([]);
+  const [growthByYear, setGrowthByYear] = useState<Array<{ key: string; label: string; total: number }>>([]);
+  const [growthView, setGrowthView] = useState<"monthly" | "yearly" | "specific-month">("monthly");
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedMonthKey, setSelectedMonthKey] = useState("");
 
   const canSubmitBird = useMemo(() => Boolean(birdForm.flockGroupId), [birdForm.flockGroupId]);
 
@@ -216,6 +256,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
     const data: PlantelResponse = await response.json();
     setGroups(data.groups);
+    setGrowthByMonth(data.growth?.byMonth ?? []);
+    setGrowthByYear(data.growth?.byYear ?? []);
     if (showWorkerLinks && workerLinksRes) {
       const linksData = (await workerLinksRes.json()) as { links: WorkerLink[] };
       setWorkerLinks(linksData.links);
@@ -257,6 +299,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
     setGroupForm(emptyGroupForm);
     setEditingGroupId(null);
+    setShowGroupModal(false);
     setSaving(false);
     await loadData();
   }
@@ -286,6 +329,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
     setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId }));
     setEditingBirdId(null);
+    setShowBirdModal(false);
     setSaving(false);
     await loadData();
   }
@@ -400,10 +444,35 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     );
   }, [groups]);
 
+  const availableYears = useMemo(() => growthByYear.map((item) => item.key), [growthByYear]);
+
+  useEffect(() => {
+    if (!selectedYear && availableYears.length > 0) {
+      setSelectedYear(availableYears[availableYears.length - 1] ?? "");
+    }
+  }, [availableYears, selectedYear]);
+
+  const monthlyOptions = useMemo(
+    () => growthByMonth.filter((point) => (selectedYear ? point.key.startsWith(`${selectedYear}-`) : true)),
+    [growthByMonth, selectedYear]
+  );
+
+  useEffect(() => {
+    if (!selectedMonthKey && monthlyOptions.length > 0) {
+      setSelectedMonthKey(monthlyOptions[monthlyOptions.length - 1]?.key ?? "");
+    }
+  }, [monthlyOptions, selectedMonthKey]);
+
+  const growthChartData = useMemo(() => {
+    if (growthView === "yearly") return growthByYear;
+    if (growthView === "specific-month") return monthlyOptions.filter((item) => item.key === selectedMonthKey);
+    return monthlyOptions;
+  }, [growthView, growthByYear, monthlyOptions, selectedMonthKey]);
+
   return (
     <main className="space-y-6">
       <PageTitle
-        title="🦚 Plantel"
+        title="ðŸ¦š Plantel"
         description="Cadastro do plantel com foco em grupos, anilhas e status das aves."
       />
 
@@ -414,19 +483,19 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-4">
-        <StatChip emoji="🐥" label="Aves totais" value={totals.total} />
-        <StatChip emoji="✅" label="Ativas" value={totals.active} />
-        <StatChip emoji="🤒" label="Doentes" value={totals.sick} />
-        <StatChip emoji="🕊️" label="Mortas" value={totals.dead} />
+        <StatChip emoji="ðŸ¥" label="Aves totais" value={totals.total} />
+        <StatChip emoji="âœ…" label="Ativas" value={totals.active} />
+        <StatChip emoji="ðŸ¤’" label="Doentes" value={totals.sick} />
+        <StatChip emoji="ðŸ•Šï¸" label="Mortas" value={totals.dead} />
       </section>
 
       {showWorkerLinks ? (
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">🔗 Link da equipe</h3>
+            <h3 className="text-xl font-semibold text-slate-900">ðŸ”— Link da equipe</h3>
             <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-              Gere um link para funcionário lançar plantel, coleta, chocadeiras e sanidade sem acessar o financeiro.
+              Gere um link para funcionÃ¡rio lanÃ§ar plantel, coleta, chocadeiras e sanidade sem acessar o financeiro.
             </p>
           </div>
           <Button type="button" onClick={createWorkerLink}>
@@ -446,7 +515,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{link.label}</p>
                   <p className="text-xs text-slate-500">
-                    {link.isActive ? "Ativo" : "Inativo"} • criado em{" "}
+                    {link.isActive ? "Ativo" : "Inativo"} â€¢ criado em{" "}
                     {new Date(link.createdAt).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
@@ -469,273 +538,317 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       </Card>
       ) : null}
 
-      <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-        <Card>
-          <h3 className="text-xl font-semibold text-slate-900">
-            {editingGroupId ? "✏️ Editar grupo" : "➕ Novo grupo de aves"}
-          </h3>
-          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Cadastro do grupo principal.</p>
-
-          <form className="mt-5 grid gap-4" onSubmit={submitGroup}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Input
-                  placeholder="Especie: Galinha, Peru, Faisao"
-                  value={groupForm.species}
-                  onChange={(event) => setGroupForm((prev) => ({ ...prev, species: event.target.value }))}
-                />
-              </div>
-              <div>
-                <Input
-                  placeholder="Raca: Brahma, Gigante Negro, Bronze"
-                  value={groupForm.breed}
-                  onChange={(event) => setGroupForm((prev) => ({ ...prev, breed: event.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Input
-                  placeholder="Variedade ou cor: Dark, Branco, Dourado"
-                  value={groupForm.variety}
-                  onChange={(event) => setGroupForm((prev) => ({ ...prev, variety: event.target.value }))}
-                />
-              </div>
-              <div>
-                <Input
-                  placeholder="Nome do card: Galinha Brahma Dark"
-                  value={groupForm.title}
-                  onChange={(event) => setGroupForm((prev) => ({ ...prev, title: event.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field label="Numero de matrizes">
-                <Input
-                  type="number"
-                  min={0}
-                  value={groupForm.matrixCount}
-                  onChange={(event) => setGroupForm((prev) => ({ ...prev, matrixCount: Number(event.target.value) }))}
-                />
-              </Field>
-              <Field label="Numero de reprodutores">
-                <Input
-                  type="number"
-                  min={0}
-                  value={groupForm.reproducerCount}
-                  onChange={(event) =>
-                    setGroupForm((prev) => ({ ...prev, reproducerCount: Number(event.target.value) }))
-                  }
-                />
-              </Field>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Meta anual por ave matriz">
-                <Input
-                  type="number"
-                  min={0}
-                  max={365}
-                  placeholder="Ex: 200 (max. 365)"
-                  value={groupForm.expectedLayCapacity ?? ""}
-                  onChange={(event) =>
-                    setGroupForm((prev) => ({
-                      ...prev,
-                      expectedLayCapacity: event.target.value ? Number(event.target.value) : undefined
-                    }))
-                  }
-                />
-              </Field>
-              <Field label="Investimento total">
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  placeholder="Ex: 2500"
-                  value={groupForm.purchaseInvestmentTotal ?? ""}
-                  onChange={(event) =>
-                    setGroupForm((prev) => ({
-                      ...prev,
-                      purchaseInvestmentTotal: event.target.value ? Number(event.target.value) : undefined
-                    }))
-                  }
-                />
-              </Field>
-              <div>
-                <Input
-                  type={groupForm.purchaseDate ? "date" : "text"}
-                  placeholder="Data da compra: dd/mm/aaaa"
-                  value={groupForm.purchaseDate}
-                  onFocus={(event) => {
-                    event.currentTarget.type = "date";
-                  }}
-                  onBlur={(event) => {
-                    if (!event.currentTarget.value) event.currentTarget.type = "text";
-                  }}
-                  onChange={(event) => setGroupForm((prev) => ({ ...prev, purchaseDate: event.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div>
-              <textarea
-                className={textareaClass}
-                placeholder="Observacoes: origem, comportamento, detalhes do lote"
-                value={groupForm.notes}
-                onChange={(event) => setGroupForm((prev) => ({ ...prev, notes: event.target.value }))}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={saving}>
-                {saving ? "Salvando..." : editingGroupId ? "Atualizar grupo" : "Cadastrar grupo"}
-              </Button>
-              {editingGroupId ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingGroupId(null);
-                    setGroupForm(emptyGroupForm);
-                  }}
-                >
-                  Cancelar
-                </Button>
-              ) : null}
-            </div>
-          </form>
-        </Card>
-
-        <Card>
-          <h3 className="text-xl font-semibold text-slate-900">
-            {editingBirdId ? "🛠️ Editar ave" : "🐣 Cadastro individual por anilha"}
-          </h3>
-          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Cadastro individual das aves.</p>
-
-          <form className="mt-5 grid gap-4" onSubmit={submitBird}>
-            <div>
-              <select
-                className={selectClass}
-                value={birdForm.flockGroupId}
-                onChange={(event) => setBirdForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
-              >
-                <option value="">Grupo da ave: selecione o grupo</option>
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Input
-                  placeholder="Numero da anilha: 2025-001"
-                  value={birdForm.ringNumber}
-                  onChange={(event) => setBirdForm((prev) => ({ ...prev, ringNumber: event.target.value }))}
-                />
-              </div>
-              <div>
-                <Input
-                  placeholder="Nome ou apelido: Rainha"
-                  value={birdForm.nickname}
-                  onChange={(event) => setBirdForm((prev) => ({ ...prev, nickname: event.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <select
-                  className={selectClass}
-                  value={birdForm.sex}
-                  onChange={(event) => setBirdForm((prev) => ({ ...prev, sex: event.target.value as BirdForm["sex"] }))}
-                >
-                  <option value="UNKNOWN">Sexo: nao informado</option>
-                  <option value="FEMALE">Sexo: matriz</option>
-                  <option value="MALE">Sexo: reprodutor</option>
-                </select>
-              </div>
-              <div>
-                <select
-                  className={selectClass}
-                  value={birdForm.status}
-                  onChange={(event) => setBirdForm((prev) => ({ ...prev, status: event.target.value as BirdStatus }))}
-                >
-                  <option value="ACTIVE">Status atual: ativa</option>
-                  <option value="SICK">Status atual: doente</option>
-                  <option value="DEAD">Status atual: morta</option>
-                  <option value="BROODY">Status atual: choca</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Input
-                  type={birdForm.acquisitionDate ? "date" : "text"}
-                  placeholder="Data de aquisicao: dd/mm/aaaa"
-                  value={birdForm.acquisitionDate}
-                  onFocus={(event) => {
-                    event.currentTarget.type = "date";
-                  }}
-                  onBlur={(event) => {
-                    if (!event.currentTarget.value) event.currentTarget.type = "text";
-                  }}
-                  onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
-                />
-              </div>
-              <Field label="Valor da compra">
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  placeholder="Ex: 350"
-                  value={birdForm.purchaseValue ?? ""}
-                  onChange={(event) =>
-                    setBirdForm((prev) => ({
-                      ...prev,
-                      purchaseValue: event.target.value ? Number(event.target.value) : undefined
-                    }))
-                  }
-                />
-              </Field>
-            </div>
-
-            <div>
-              <Input
-                placeholder="Origem ou fornecedor: Criatorio Exemplo"
-                value={birdForm.origin}
-                onChange={(event) => setBirdForm((prev) => ({ ...prev, origin: event.target.value }))}
-              />
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={saving || !canSubmitBird}>
-                {saving ? "Salvando..." : editingBirdId ? "Atualizar ave" : "Cadastrar ave"}
-              </Button>
-              {editingBirdId ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingBirdId(null);
-                    setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId }));
-                  }}
-                >
-                  Cancelar
-                </Button>
-              ) : null}
-            </div>
-          </form>
-        </Card>
-      </section>
-
       <Card>
-        <h3 className="text-xl font-semibold text-slate-900">🔎 Filtros do plantel</h3>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">Lancamentos do plantel</h3>
+            <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
+              Use botoes para abrir os cadastros em popup e manter a tela principal limpa.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              onClick={() => {
+                setEditingGroupId(null);
+                setGroupForm(emptyGroupForm);
+                setShowGroupModal(true);
+              }}
+            >
+              Insrir Grupo de Aves
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setEditingBirdId(null);
+                setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId || groups[0]?.id || "" }));
+                setShowBirdModal(true);
+              }}
+            >
+              Cadastrar Ave Individual
+            </Button>
+          </div>
+        </div>
+      </Card>
+      <Card>
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold text-slate-900">Evolucao de aves novas</h3>
+            <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
+              Acompanhe novos cadastros por ano, por mes e por um mes especifico.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <select className={selectClass} value={growthView} onChange={(e) => setGrowthView(e.target.value as "monthly" | "yearly" | "specific-month")}>
+              <option value="monthly">Por mes</option>
+              <option value="yearly">Por ano</option>
+              <option value="specific-month">Mes especifico</option>
+            </select>
+            <select className={selectClass} value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} disabled={availableYears.length === 0 || growthView === "yearly"}>
+              {availableYears.length === 0 ? <option value="">Sem dados</option> : null}
+              {availableYears.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+            <select
+              className={selectClass}
+              value={selectedMonthKey}
+              onChange={(e) => setSelectedMonthKey(e.target.value)}
+              disabled={growthView !== "specific-month" || monthlyOptions.length === 0}
+            >
+              {monthlyOptions.length === 0 ? <option value="">Sem meses</option> : null}
+              {monthlyOptions.map((month) => (
+                <option key={month.key} value={month.key}>
+                  {month.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="mt-5 h-72 rounded-2xl bg-[color:var(--surface-soft)] p-3">
+          {growthChartData.length === 0 ? (
+            <div className="grid h-full place-items-center text-sm text-[color:var(--ink-soft)]">Sem dados suficientes ainda.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={growthChartData} margin={{ left: 4, right: 10, top: 8, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="4 4" stroke="#dbe3f2" />
+                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Bar dataKey="total" name="Aves novas" radius={[8, 8, 0, 0]} fill="#0ea5a4" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </Card>
+      <AppModal
+        open={showGroupModal}
+        title={editingGroupId ? "Editar grupo de aves" : "Novo grupo de aves"}
+        onClose={() => {
+          setShowGroupModal(false);
+          setEditingGroupId(null);
+          setGroupForm(emptyGroupForm);
+        }}
+      >
+        <form className="grid gap-4" onSubmit={submitGroup}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              placeholder="Especie: Galinha, Peru, Faisao"
+              value={groupForm.species}
+              onChange={(event) => setGroupForm((prev) => ({ ...prev, species: event.target.value }))}
+            />
+            <Input
+              placeholder="Raca: Brahma, Gigante Negro, Bronze"
+              value={groupForm.breed}
+              onChange={(event) => setGroupForm((prev) => ({ ...prev, breed: event.target.value }))}
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              placeholder="Variedade ou cor: Dark, Branco, Dourado"
+              value={groupForm.variety}
+              onChange={(event) => setGroupForm((prev) => ({ ...prev, variety: event.target.value }))}
+            />
+            <Input
+              placeholder="Nome do card: Galinha Brahma Dark"
+              value={groupForm.title}
+              onChange={(event) => setGroupForm((prev) => ({ ...prev, title: event.target.value }))}
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Numero de matrizes">
+              <Input
+                type="number"
+                min={0}
+                value={groupForm.matrixCount}
+                onChange={(event) => setGroupForm((prev) => ({ ...prev, matrixCount: Number(event.target.value) }))}
+              />
+            </Field>
+            <Field label="Numero de reprodutores">
+              <Input
+                type="number"
+                min={0}
+                value={groupForm.reproducerCount}
+                onChange={(event) => setGroupForm((prev) => ({ ...prev, reproducerCount: Number(event.target.value) }))}
+              />
+            </Field>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Meta anual por ave matriz">
+              <Input
+                type="number"
+                min={0}
+                max={365}
+                value={groupForm.expectedLayCapacity ?? ""}
+                onChange={(event) =>
+                  setGroupForm((prev) => ({
+                    ...prev,
+                    expectedLayCapacity: event.target.value ? Number(event.target.value) : undefined
+                  }))
+                }
+              />
+            </Field>
+            <Field label="Investimento total">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={groupForm.purchaseInvestmentTotal ?? ""}
+                onChange={(event) =>
+                  setGroupForm((prev) => ({
+                    ...prev,
+                    purchaseInvestmentTotal: event.target.value ? Number(event.target.value) : undefined
+                  }))
+                }
+              />
+            </Field>
+            <Input
+              type={groupForm.purchaseDate ? "date" : "text"}
+              placeholder="Data da compra: dd/mm/aaaa"
+              value={groupForm.purchaseDate}
+              onFocus={(event) => {
+                event.currentTarget.type = "date";
+              }}
+              onBlur={(event) => {
+                if (!event.currentTarget.value) event.currentTarget.type = "text";
+              }}
+              onChange={(event) => setGroupForm((prev) => ({ ...prev, purchaseDate: event.target.value }))}
+            />
+          </div>
+          <textarea
+            className={textareaClass}
+            placeholder="Observacoes: origem, comportamento, detalhes do lote"
+            value={groupForm.notes}
+            onChange={(event) => setGroupForm((prev) => ({ ...prev, notes: event.target.value }))}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={saving}>
+              {saving ? "Salvando..." : editingGroupId ? "Atualizar grupo" : "Cadastrar grupo"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowGroupModal(false);
+                setEditingGroupId(null);
+                setGroupForm(emptyGroupForm);
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </AppModal>
+      <AppModal
+        open={showBirdModal}
+        title={editingBirdId ? "Editar ave por anilha" : "Cadastro individual por anilha"}
+        onClose={() => {
+          setShowBirdModal(false);
+          setEditingBirdId(null);
+          setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId }));
+        }}
+      >
+        <form className="grid gap-4" onSubmit={submitBird}>
+          <select
+            className={selectClass}
+            value={birdForm.flockGroupId}
+            onChange={(event) => setBirdForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
+          >
+            <option value="">Grupo da ave: selecione o grupo</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.title}
+              </option>
+            ))}
+          </select>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              placeholder="Numero da anilha: 2025-001"
+              value={birdForm.ringNumber}
+              onChange={(event) => setBirdForm((prev) => ({ ...prev, ringNumber: event.target.value }))}
+            />
+            <Input
+              placeholder="Nome ou apelido: Rainha"
+              value={birdForm.nickname}
+              onChange={(event) => setBirdForm((prev) => ({ ...prev, nickname: event.target.value }))}
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <select
+              className={selectClass}
+              value={birdForm.sex}
+              onChange={(event) => setBirdForm((prev) => ({ ...prev, sex: event.target.value as BirdForm["sex"] }))}
+            >
+              <option value="UNKNOWN">Sexo: nao informado</option>
+              <option value="FEMALE">Sexo: matriz</option>
+              <option value="MALE">Sexo: reprodutor</option>
+            </select>
+            <select
+              className={selectClass}
+              value={birdForm.status}
+              onChange={(event) => setBirdForm((prev) => ({ ...prev, status: event.target.value as BirdStatus }))}
+            >
+              <option value="ACTIVE">Status atual: ativa</option>
+              <option value="SICK">Status atual: doente</option>
+              <option value="DEAD">Status atual: morta</option>
+              <option value="BROODY">Status atual: choca</option>
+            </select>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              type={birdForm.acquisitionDate ? "date" : "text"}
+              placeholder="Data de aquisicao: dd/mm/aaaa"
+              value={birdForm.acquisitionDate}
+              onFocus={(event) => {
+                event.currentTarget.type = "date";
+              }}
+              onBlur={(event) => {
+                if (!event.currentTarget.value) event.currentTarget.type = "text";
+              }}
+              onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
+            />
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="Valor da compra: 350"
+              value={birdForm.purchaseValue ?? ""}
+              onChange={(event) =>
+                setBirdForm((prev) => ({
+                  ...prev,
+                  purchaseValue: event.target.value ? Number(event.target.value) : undefined
+                }))
+              }
+            />
+          </div>
+          <Input
+            placeholder="Origem ou fornecedor: Criatorio Exemplo"
+            value={birdForm.origin}
+            onChange={(event) => setBirdForm((prev) => ({ ...prev, origin: event.target.value }))}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={saving || !canSubmitBird}>
+              {saving ? "Salvando..." : editingBirdId ? "Atualizar ave" : "Cadastrar ave"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowBirdModal(false);
+                setEditingBirdId(null);
+                setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId }));
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </AppModal>
+      <Card>
+        <h3 className="text-xl font-semibold text-slate-900">Filtros do plantel</h3>
         <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
           Use os filtros para encontrar especie, raca, variedade, status ou uma anilha especifica.
         </p>
@@ -777,18 +890,18 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   </div>
 
                   <p className="mt-2 text-sm text-[color:var(--ink-soft)]">
-                    {group.species.name} • {group.breed.name}
-                    {group.variety?.name ? ` • ${group.variety.name}` : ""}
+                    {group.species.name} â€¢ {group.breed.name}
+                    {group.variety?.name ? ` â€¢ ${group.variety.name}` : ""}
                   </p>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatChip emoji="🐥" label="Total" value={group.summary.totalBirds} />
-                    <StatChip emoji="🥚" label="Matrizes" value={group.matrixCount} />
-                    <StatChip emoji="🐓" label="Reprodutores" value={group.reproducerCount} />
-                    <StatChip emoji="✅" label="Ativas" value={group.summary.ACTIVE} />
-                    <StatChip emoji="🤒" label="Doentes" value={group.summary.SICK} />
-                    <StatChip emoji="🕊️" label="Mortas" value={group.summary.DEAD} />
-                    <StatChip emoji="🥚" label="Chocas" value={group.summary.BROODY} />
+                    <StatChip emoji="ðŸ¥" label="Total" value={group.summary.totalBirds} />
+                    <StatChip emoji="ðŸ¥š" label="Matrizes" value={group.matrixCount} />
+                    <StatChip emoji="ðŸ“" label="Reprodutores" value={group.reproducerCount} />
+                    <StatChip emoji="âœ…" label="Ativas" value={group.summary.ACTIVE} />
+                    <StatChip emoji="ðŸ¤’" label="Doentes" value={group.summary.SICK} />
+                    <StatChip emoji="ðŸ•Šï¸" label="Mortas" value={group.summary.DEAD} />
+                    <StatChip emoji="ðŸ¥š" label="Chocas" value={group.summary.BROODY} />
                   </div>
 
                   {group.notes ? (
@@ -804,6 +917,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     type="button"
                     onClick={() => {
                       setEditingGroupId(group.id);
+                      setShowGroupModal(true);
                       setGroupForm({
                         species: group.species.name,
                         breed: group.breed.name,
@@ -860,6 +974,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                                   type="button"
                                   onClick={() => {
                                     setEditingBirdId(bird.id);
+                                    setShowBirdModal(true);
                                     setBirdForm({
                                       flockGroupId: bird.flockGroupId,
                                       ringNumber: bird.ringNumber,
@@ -910,9 +1025,9 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                                   <ul className="space-y-1">
                                     {historyByBird[bird.id].map((event) => (
                                       <li key={event.id}>
-                                        {new Date(event.createdAt).toLocaleString("pt-BR")} •{" "}
+                                        {new Date(event.createdAt).toLocaleString("pt-BR")} â€¢{" "}
                                         {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para {statusLabel[event.toStatus]}
-                                        {event.reason ? ` • ${event.reason}` : ""}
+                                        {event.reason ? ` â€¢ ${event.reason}` : ""}
                                       </li>
                                     ))}
                                   </ul>
@@ -933,3 +1048,5 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     </main>
   );
 }
+
+
