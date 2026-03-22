@@ -59,10 +59,6 @@ export default function EmployeeLoginPage() {
           </Button>
         </form>
 
-        <div className="mt-4 rounded-2xl bg-[color:var(--surface-soft)] p-4 text-sm text-slate-600">
-          Este acesso nao entra no financeiro nem na assinatura. Ele serve apenas para os modulos liberados pelo titular.
-        </div>
-
         <p className="mt-4 text-sm text-zinc-500">
           Voce e o titular da conta?{" "}
           <Link href="/login" className="font-semibold text-[#0f766e] hover:underline">
