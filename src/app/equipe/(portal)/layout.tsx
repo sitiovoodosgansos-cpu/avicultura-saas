@@ -24,7 +24,7 @@ export default async function EmployeePortalLayout({
         }}
       />
       <div className="flex-1 pb-24 md:pb-0">
-        <header className="sticky top-0 z-40 px-4 py-3 md:px-8">
+        <header className="px-4 py-3 md:px-8">
           <div className="flex items-center justify-between gap-4 rounded-[26px] border border-[color:var(--line)] bg-white/90 px-4 py-3 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Equipe ativa</p>

@@ -222,6 +222,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [workerLinks, setWorkerLinks] = useState<WorkerLink[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showBirdModal, setShowBirdModal] = useState(false);
+  const [lockedBirdGroupId, setLockedBirdGroupId] = useState<string | null>(null);
   const [growthByMonth, setGrowthByMonth] = useState<Array<{ key: string; label: string; total: number }>>([]);
   const [growthByYear, setGrowthByYear] = useState<Array<{ key: string; label: string; total: number }>>([]);
   const [growthView, setGrowthView] = useState<"monthly" | "yearly" | "specific-month">("monthly");
@@ -472,7 +473,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   return (
     <main className="space-y-6">
       <PageTitle
-        title="ðŸ¦š Plantel"
+        title={`${"\u{1F99A}"} Plantel`}
         description="Cadastro do plantel com foco em grupos, anilhas e status das aves."
       />
 
@@ -483,19 +484,19 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       ) : null}
 
       <section className="grid gap-4 md:grid-cols-4">
-        <StatChip emoji="ðŸ¥" label="Aves totais" value={totals.total} />
-        <StatChip emoji="âœ…" label="Ativas" value={totals.active} />
-        <StatChip emoji="ðŸ¤’" label="Doentes" value={totals.sick} />
-        <StatChip emoji="ðŸ•Šï¸" label="Mortas" value={totals.dead} />
+        <StatChip emoji={"\u{1F425}"} label="Aves totais" value={totals.total} />
+        <StatChip emoji={"\u{2705}"} label="Ativas" value={totals.active} />
+        <StatChip emoji={"\u{1F922}"} label="Doentes" value={totals.sick} />
+        <StatChip emoji={"\u{1F5D1}\u{FE0F}"} label="Mortas" value={totals.dead} />
       </section>
 
       {showWorkerLinks ? (
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">ðŸ”— Link da equipe</h3>
+            <h3 className="text-xl font-semibold text-slate-900">{`${"\u{1F517}"} Link da equipe`}</h3>
             <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-              Gere um link para funcionÃ¡rio lanÃ§ar plantel, coleta, chocadeiras e sanidade sem acessar o financeiro.
+              Gere um link para funcionario lancar plantel, coleta, chocadeiras e sanidade sem acessar o financeiro.
             </p>
           </div>
           <Button type="button" onClick={createWorkerLink}>
@@ -515,7 +516,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 <div>
                   <p className="text-sm font-semibold text-slate-900">{link.label}</p>
                   <p className="text-xs text-slate-500">
-                    {link.isActive ? "Ativo" : "Inativo"} â€¢ criado em{" "}
+                    {link.isActive ? "Ativo" : "Inativo"} - criado em{" "}
                     {new Date(link.createdAt).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
@@ -553,6 +554,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 setEditingGroupId(null);
                 setGroupForm(emptyGroupForm);
                 setShowGroupModal(true);
+                setLockedBirdGroupId(null);
               }}
             >
               Insrir Grupo de Aves
@@ -564,6 +566,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 setEditingBirdId(null);
                 setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId || groups[0]?.id || "" }));
                 setShowBirdModal(true);
+                setLockedBirdGroupId(null);
               }}
             >
               Cadastrar Ave Individual
@@ -749,21 +752,29 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           setShowBirdModal(false);
           setEditingBirdId(null);
           setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId }));
+          setLockedBirdGroupId(null);
         }}
       >
         <form className="grid gap-4" onSubmit={submitBird}>
-          <select
-            className={selectClass}
-            value={birdForm.flockGroupId}
-            onChange={(event) => setBirdForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
-          >
-            <option value="">Grupo da ave: selecione o grupo</option>
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.title}
-              </option>
-            ))}
-          </select>
+          {lockedBirdGroupId ? (
+            <Input
+              value={`Grupo da ave: ${groups.find((group) => group.id === lockedBirdGroupId)?.title ?? "grupo selecionado"}`}
+              readOnly
+            />
+          ) : (
+            <select
+              className={selectClass}
+              value={birdForm.flockGroupId}
+              onChange={(event) => setBirdForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
+            >
+              <option value="">Grupo da ave: selecione o grupo</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.title}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <Input
               placeholder="Numero da anilha: 2025-001"
@@ -890,18 +901,18 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   </div>
 
                   <p className="mt-2 text-sm text-[color:var(--ink-soft)]">
-                    {group.species.name} â€¢ {group.breed.name}
-                    {group.variety?.name ? ` â€¢ ${group.variety.name}` : ""}
+                    {group.species.name} - {group.breed.name}
+                    {group.variety?.name ? ` - ${group.variety.name}` : ""}
                   </p>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <StatChip emoji="ðŸ¥" label="Total" value={group.summary.totalBirds} />
-                    <StatChip emoji="ðŸ¥š" label="Matrizes" value={group.matrixCount} />
-                    <StatChip emoji="ðŸ“" label="Reprodutores" value={group.reproducerCount} />
-                    <StatChip emoji="âœ…" label="Ativas" value={group.summary.ACTIVE} />
-                    <StatChip emoji="ðŸ¤’" label="Doentes" value={group.summary.SICK} />
-                    <StatChip emoji="ðŸ•Šï¸" label="Mortas" value={group.summary.DEAD} />
-                    <StatChip emoji="ðŸ¥š" label="Chocas" value={group.summary.BROODY} />
+                    <StatChip emoji={"\u{1F425}"} label="Total" value={group.summary.totalBirds} />
+                    <StatChip emoji={"\u{1F95A}"} label="Matrizes" value={group.matrixCount} />
+                    <StatChip emoji={"\u{1F413}"} label="Reprodutores" value={group.reproducerCount} />
+                    <StatChip emoji={"\u{2705}"} label="Ativas" value={group.summary.ACTIVE} />
+                    <StatChip emoji={"\u{1F922}"} label="Doentes" value={group.summary.SICK} />
+                    <StatChip emoji={"\u{1F5D1}\u{FE0F}"} label="Mortas" value={group.summary.DEAD} />
+                    <StatChip emoji={"\u{1F95A}"} label="Chocas" value={group.summary.BROODY} />
                   </div>
 
                   {group.notes ? (
@@ -934,6 +945,18 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   </Button>
                   <Button variant="danger" type="button" onClick={() => removeGroup(group.id)}>
                     Excluir grupo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => {
+                      setEditingBirdId(null);
+                      setLockedBirdGroupId(group.id);
+                      setBirdForm({ ...emptyBirdForm, flockGroupId: group.id });
+                      setShowBirdModal(true);
+                    }}
+                  >
+                    Cadastrar ave
                   </Button>
                   <Button variant="outline" type="button" onClick={() => setExpandedGroupId(expanded ? null : group.id)}>
                     {expanded ? "Fechar aves" : "Abrir aves"}
@@ -1025,9 +1048,9 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                                   <ul className="space-y-1">
                                     {historyByBird[bird.id].map((event) => (
                                       <li key={event.id}>
-                                        {new Date(event.createdAt).toLocaleString("pt-BR")} â€¢{" "}
+                                        {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
                                         {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para {statusLabel[event.toStatus]}
-                                        {event.reason ? ` â€¢ ${event.reason}` : ""}
+                                        {event.reason ? ` - ${event.reason}` : ""}
                                       </li>
                                     ))}
                                   </ul>

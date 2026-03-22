@@ -1,18 +1,18 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", emoji: "🏠" },
-  { href: "/plantel", label: "Plantel", emoji: "🦚" },
-  { href: "/coleta-ovos", label: "Coleta", emoji: "🥚" },
-  { href: "/chocadeiras", label: "Chocadeiras", emoji: "🐣" },
-  { href: "/sanidade", label: "Sanidade", emoji: "💊" },
-  { href: "/financeiro", label: "Financeiro", emoji: "💰" },
-  { href: "/relatorios", label: "Relatorios", emoji: "📊" },
-  { href: "/perfil", label: "Perfil", emoji: "⚙️" }
+  { href: "/dashboard", label: "Dashboard", emoji: "\u{1F3E0}" },
+  { href: "/plantel", label: "Plantel", emoji: "\u{1F99A}" },
+  { href: "/coleta-ovos", label: "Coleta", emoji: "\u{1F95A}" },
+  { href: "/chocadeiras", label: "Chocadeiras", emoji: "\u{1F423}" },
+  { href: "/sanidade", label: "Sanidade", emoji: "\u{1F48A}" },
+  { href: "/financeiro", label: "Financeiro", emoji: "\u{1F4B0}" },
+  { href: "/relatorios", label: "Relatorios", emoji: "\u{1F4CA}" },
+  { href: "/perfil", label: "Perfil", emoji: "\u{2699}\u{FE0F}" }
 ];
 
 export function AppNav() {
@@ -25,17 +25,12 @@ export function AppNav() {
           <div className="mb-8">
             <div className="flex items-center gap-3">
               <div className="flex size-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-2xl shadow-[0_12px_30px_rgba(15,157,138,0.22)]">
-                🪿
+                {"\u{1FABF}"}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  Gestao Avicola
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Gestao Avicola</p>
                 <h2 className="text-lg font-semibold text-slate-900">Sitio em foco</h2>
               </div>
-            </div>
-            <div className="mt-4 rounded-2xl bg-[color:var(--surface-soft)] p-3 text-sm text-[color:var(--ink-soft)]">
-              Menu rapido com icones para acompanhar o sitio sem se perder.
             </div>
           </div>
 
