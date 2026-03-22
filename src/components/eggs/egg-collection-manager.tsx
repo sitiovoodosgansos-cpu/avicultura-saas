@@ -36,7 +36,9 @@ type MetricsResponse = {
     species: string;
     breed: string;
     variety: string | null;
+    matrixCount: number;
     expectedLayCapacity: number;
+    expectedGroupAnnual: number;
     eggs7: number;
     eggs30: number;
     eggs365: number;
@@ -439,11 +441,13 @@ export function EggCollectionManager() {
               </div>
 
               <div className="mt-5">
-                <Field label="Meta de ovos">
+                <Field label="Meta anual por ave matriz (ovos/ano)">
                   <div className="flex gap-2">
                     <Input
                       type="number"
                       min={0}
+                      max={365}
+                      placeholder="0 a 365"
                       value={capacityDraft[group.groupId] ?? 0}
                       onChange={(event) =>
                         setCapacityDraft((prev) => ({
@@ -462,7 +466,10 @@ export function EggCollectionManager() {
                   <div className={`h-3 rounded-full ${perfColor(group.performance)}`} style={{ width: `${width}%` }} />
                 </div>
                 <p className="mt-2 text-xs text-[color:var(--ink-soft)]">
-                  Real {group.eggs30} / Meta {group.expectedLayCapacity || 0} ({formatPercent(group.progress)})
+                  Matrizes: {group.matrixCount} • Meta por matriz: {group.expectedLayCapacity || 0} ovos/ano
+                </p>
+                <p className="mt-2 text-xs text-[color:var(--ink-soft)]">
+                  Real anual {group.eggs365} / Meta anual do grupo {group.expectedGroupAnnual || 0} ({formatPercent(group.progress)})
                 </p>
               </div>
             </Card>

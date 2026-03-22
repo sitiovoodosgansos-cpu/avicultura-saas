@@ -29,7 +29,7 @@ export default function EmployeeLoginPage() {
     setLoading(false);
 
     if (!response.ok || !payload.redirectTo) {
-      setError(payload.error ?? "Não foi possível entrar com este acesso.");
+      setError(payload.error ?? "Nao foi possivel entrar com este acesso.");
       return;
     }
 
@@ -42,16 +42,16 @@ export default function EmployeeLoginPage() {
       <Card className="w-full max-w-md p-6">
         <div className="flex items-center gap-3">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-2xl text-white shadow-[0_16px_34px_rgba(15,157,138,0.28)]">
-            ?????
+            {"\u{1FABA}"}
           </div>
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900">Acesso da equipe</h1>
-            <p className="mt-1 text-sm text-zinc-500">Login do funcionário para lançar dados do sítio.</p>
+            <p className="mt-1 text-sm text-zinc-500">Login do funcionario para lancar dados do sitio.</p>
           </div>
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail do funcionário" />
+          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail do funcionario" />
           <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha" />
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <Button className="w-full" type="submit" disabled={loading}>
@@ -60,11 +60,11 @@ export default function EmployeeLoginPage() {
         </form>
 
         <div className="mt-4 rounded-2xl bg-[color:var(--surface-soft)] p-4 text-sm text-slate-600">
-          Este acesso não entra no financeiro nem na assinatura. Ele serve apenas para os módulos liberados pelo titular.
+          Este acesso nao entra no financeiro nem na assinatura. Ele serve apenas para os modulos liberados pelo titular.
         </div>
 
         <p className="mt-4 text-sm text-zinc-500">
-          Você é o titular da conta?{" "}
+          Voce e o titular da conta?{" "}
           <Link href="/login" className="font-semibold text-[#0f766e] hover:underline">
             Entrar como administrador
           </Link>

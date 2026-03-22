@@ -19,7 +19,7 @@ export const eggCollectionSchema = z
   });
 
 export const groupCapacitySchema = z.object({
-  expectedLayCapacity: z.coerce.number().min(0).max(100000)
+  expectedLayCapacity: z.coerce.number().min(0).max(365)
 });
 
 export type EggCollectionInput = z.infer<typeof eggCollectionSchema>;

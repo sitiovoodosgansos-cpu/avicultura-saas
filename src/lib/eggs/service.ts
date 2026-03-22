@@ -197,6 +197,7 @@ export async function getEggMetrics(tenantId: string) {
       select: {
         id: true,
         title: true,
+        matrixCount: true,
         expectedLayCapacity: true,
         species: { select: { name: true } },
         breed: { select: { name: true } },
@@ -295,12 +296,13 @@ export async function getEggMetrics(tenantId: string) {
     const averageWeekly = Number((averageDaily * 7).toFixed(2));
     const averageMonthly = Number((averageDaily * 30).toFixed(2));
 
-    const expected = group.expectedLayCapacity ? Number(group.expectedLayCapacity) : 0;
-    const progress = expected > 0 ? Number(((bucket.eggs30 / expected) * 100).toFixed(2)) : 0;
+    const expectedPerMatrixAnnual = group.expectedLayCapacity ? Number(group.expectedLayCapacity) : 0;
+    const expectedGroupAnnual = Number((expectedPerMatrixAnnual * group.matrixCount).toFixed(2));
+    const progress = expectedGroupAnnual > 0 ? Number(((bucket.eggs365 / expectedGroupAnnual) * 100).toFixed(2)) : 0;
 
     let performance: "below" | "on_track" | "above" = "on_track";
-    if (expected > 0 && progress < 85) performance = "below";
-    if (expected > 0 && progress > 105) performance = "above";
+    if (expectedGroupAnnual > 0 && progress < 85) performance = "below";
+    if (expectedGroupAnnual > 0 && progress > 105) performance = "above";
 
     return {
       groupId: group.id,
@@ -308,7 +310,9 @@ export async function getEggMetrics(tenantId: string) {
       species: group.species.name,
       breed: group.breed.name,
       variety: group.variety?.name ?? null,
-      expectedLayCapacity: expected,
+      matrixCount: group.matrixCount,
+      expectedLayCapacity: expectedPerMatrixAnnual,
+      expectedGroupAnnual,
       eggs7: bucket.eggs7,
       eggs30: bucket.eggs30,
       eggs365: bucket.eggs365,

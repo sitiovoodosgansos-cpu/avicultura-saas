@@ -533,12 +533,12 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-              <Field label="Meta de postura">
+              <Field label="Meta anual por ave matriz">
                 <Input
                   type="number"
                   min={0}
-                  max={100}
-                  placeholder="Ex: 80"
+                  max={365}
+                  placeholder="Ex: 200 (max. 365)"
                   value={groupForm.expectedLayCapacity ?? ""}
                   onChange={(event) =>
                     setGroupForm((prev) => ({

@@ -7,7 +7,8 @@ export const flockGroupSchema = z.object({
   title: z.string().trim().min(3, "Informe o título do grupo."),
   matrixCount: z.coerce.number().int().min(0),
   reproducerCount: z.coerce.number().int().min(0),
-  expectedLayCapacity: z.coerce.number().min(0).max(100).optional(),
+  // Meta anual por ave matriz (ovos/ano), limite máximo de 1 ovo por dia.
+  expectedLayCapacity: z.coerce.number().min(0).max(365).optional(),
   purchaseInvestmentTotal: z.coerce.number().min(0).optional(),
   purchaseDate: z.string().optional(),
   notes: z.string().trim().optional()
