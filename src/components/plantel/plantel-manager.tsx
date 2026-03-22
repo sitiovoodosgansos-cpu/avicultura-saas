@@ -155,11 +155,11 @@ function StatChip({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl bg-[color:var(--surface-soft)] px-3 py-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+    <div className="rounded-2xl bg-[color:var(--surface-soft)] px-3 py-3 sm:px-4 sm:py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-xs">
         {emoji} {label}
       </p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-2xl font-semibold text-slate-900 sm:text-3xl">{value}</p>
     </div>
   );
 }
@@ -905,7 +905,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     {group.variety?.name ? ` - ${group.variety.name}` : ""}
                   </p>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
                     <StatChip emoji={"\u{1F425}"} label="Total" value={group.summary.totalBirds} />
                     <StatChip emoji={"\u{1F95A}"} label="Matrizes" value={group.matrixCount} />
                     <StatChip emoji={"\u{1F413}"} label="Reprodutores" value={group.reproducerCount} />
