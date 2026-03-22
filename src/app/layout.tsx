@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Gestão de Aves SaaS",
-  description: "SaaS de gestão para criatórios de aves ornamentais"
+  title: "ORNEXA - Gestao de Criatorios Ornamentais",
+  description: "Sistema ORNEXA para gestao de criatorios de aves ornamentais"
 };
 
 export default function RootLayout({

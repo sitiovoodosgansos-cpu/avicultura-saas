@@ -32,7 +32,7 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
                 {"\u{1FABA}"}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Equipe</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">ORNEXA Equipe</p>
                 <h2 className="text-lg font-semibold text-slate-900">Acesso do funcionario</h2>
               </div>
             </div>

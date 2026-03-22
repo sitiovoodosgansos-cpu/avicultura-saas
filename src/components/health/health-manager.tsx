@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -6,6 +6,7 @@ import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AppModal } from "@/components/ui/app-modal";
 
 type Infirmary = {
   id: string;
@@ -142,6 +143,8 @@ export function HealthManager() {
   const [caseForm, setCaseForm] = useState<CaseForm>(emptyCase);
   const [editingInfirmaryId, setEditingInfirmaryId] = useState<string | null>(null);
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
+  const [showInfirmaryModal, setShowInfirmaryModal] = useState(false);
+  const [showCaseModal, setShowCaseModal] = useState(false);
 
   const [timelineByCase, setTimelineByCase] = useState<Record<string, TimelineEvent[]>>({});
   const [eventByCase, setEventByCase] = useState<Record<string, EventDraft>>({});
@@ -215,6 +218,7 @@ export function HealthManager() {
 
     setInfirmaryForm(emptyInfirmary);
     setEditingInfirmaryId(null);
+    setShowInfirmaryModal(false);
     setSaving(false);
     await loadData();
   }
@@ -252,6 +256,7 @@ export function HealthManager() {
 
     setCaseForm((p) => ({ ...emptyCase, birdId: p.birdId, infirmaryId: p.infirmaryId }));
     setEditingCaseId(null);
+    setShowCaseModal(false);
     setSaving(false);
     await loadData();
   }
@@ -348,26 +353,37 @@ export function HealthManager() {
         </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
-          <p className="text-sm text-zinc-500">Aves em tratamento</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🏥 Em tratamento</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.inTreatment ?? 0}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Taxa de cura</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">✅ Taxa cura</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatPercent(metrics?.summary.cureRate ?? 0)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Taxa de mortalidade</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">⚠️ Mortalidade</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatPercent(metrics?.summary.mortalityRate ?? 0)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Média recuperação (dias)</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">⏱️ Recuperacao</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.avgRecoveryDays ?? 0}</p>
         </Card>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <Card>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" onClick={() => { setEditingInfirmaryId(null); setInfirmaryForm(emptyInfirmary); setShowInfirmaryModal(true); }}>
+            Cadastro de enfermaria
+          </Button>
+          <Button type="button" variant="outline" onClick={() => { setEditingCaseId(null); setShowCaseModal(true); }}>
+            Novo caso clinico
+          </Button>
+        </div>
+      </Card>
+
+      <section className="hidden grid gap-4 lg:grid-cols-2">
         <Card>
           <h3 className="text-base font-semibold text-zinc-900">Cadastro de enfermaria</h3>
           <form className="mt-4 grid gap-3" onSubmit={saveInfirmary}>
@@ -482,7 +498,7 @@ export function HealthManager() {
                     <td className="py-2 pr-3">{inf.notes || "-"}</td>
                     <td className="py-2 pr-3">
                       <div className="flex gap-2">
-                        <Button variant="outline" type="button" onClick={() => { setEditingInfirmaryId(inf.id); setInfirmaryForm({ name: inf.name, notes: inf.notes ?? "", status: inf.status }); }}>
+                        <Button variant="outline" type="button" onClick={() => { setEditingInfirmaryId(inf.id); setInfirmaryForm({ name: inf.name, notes: inf.notes ?? "", status: inf.status }); setShowInfirmaryModal(true); }}>
                           Editar
                         </Button>
                         <Button variant="danger" type="button" onClick={() => removeInfirmary(inf.id)}>
@@ -570,6 +586,7 @@ export function HealthManager() {
                                   responsible: item.responsible ?? "",
                                   notes: item.notes ?? ""
                                 });
+                                setShowCaseModal(true);
                               }}
                             >
                               Editar
@@ -628,6 +645,70 @@ export function HealthManager() {
           </div>
         )}
       </Card>
+
+      <AppModal
+        open={showInfirmaryModal}
+        title={editingInfirmaryId ? "Editar enfermaria" : "Cadastro de enfermaria"}
+        onClose={() => {
+          setShowInfirmaryModal(false);
+          setEditingInfirmaryId(null);
+          setInfirmaryForm(emptyInfirmary);
+        }}
+      >
+        <form className="grid gap-3" onSubmit={saveInfirmary}>
+          <Input placeholder="Nome/identificação" value={infirmaryForm.name} onChange={(e) => setInfirmaryForm((p) => ({ ...p, name: e.target.value }))} />
+          <Input placeholder="Observações" value={infirmaryForm.notes} onChange={(e) => setInfirmaryForm((p) => ({ ...p, notes: e.target.value }))} />
+          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={infirmaryForm.status} onChange={(e) => setInfirmaryForm((p) => ({ ...p, status: e.target.value as InfirmaryForm["status"] }))}>
+            <option value="ACTIVE">Ativa</option>
+            <option value="INACTIVE">Inativa</option>
+          </select>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingInfirmaryId ? "Atualizar" : "Cadastrar"}</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowInfirmaryModal(false); setEditingInfirmaryId(null); setInfirmaryForm(emptyInfirmary); }}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </AppModal>
+
+      <AppModal
+        open={showCaseModal}
+        title={editingCaseId ? "Editar caso clinico" : "Novo caso clinico"}
+        onClose={() => {
+          setShowCaseModal(false);
+          setEditingCaseId(null);
+        }}
+      >
+        <form className="grid gap-3" onSubmit={saveCase}>
+          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={caseForm.birdId} onChange={(e) => setCaseForm((p) => ({ ...p, birdId: e.target.value }))}>
+            <option value="">Selecione a ave (anilha)</option>
+            {birds.map((bird) => (
+              <option key={bird.id} value={bird.id}>
+                {bird.ringNumber}{bird.nickname ? ` - ${bird.nickname}` : ""}
+              </option>
+            ))}
+          </select>
+          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={caseForm.infirmaryId} onChange={(e) => setCaseForm((p) => ({ ...p, infirmaryId: e.target.value }))}>
+            <option value="">Selecione a enfermaria</option>
+            {infirmaries.map((inf) => (
+              <option key={inf.id} value={inf.id}>{inf.name}</option>
+            ))}
+          </select>
+          <Input type="date" value={caseForm.openedAt} onChange={(e) => setCaseForm((p) => ({ ...p, openedAt: e.target.value }))} />
+          <Input placeholder="Diagnóstico/suspeita" value={caseForm.diagnosis} onChange={(e) => setCaseForm((p) => ({ ...p, diagnosis: e.target.value }))} />
+          <Input placeholder="Sintomas" value={caseForm.symptoms} onChange={(e) => setCaseForm((p) => ({ ...p, symptoms: e.target.value }))} />
+          <Input placeholder="Medicação" value={caseForm.medication} onChange={(e) => setCaseForm((p) => ({ ...p, medication: e.target.value }))} />
+          <Input placeholder="Dosagem" value={caseForm.dosage} onChange={(e) => setCaseForm((p) => ({ ...p, dosage: e.target.value }))} />
+          <Input placeholder="Responsável" value={caseForm.responsible} onChange={(e) => setCaseForm((p) => ({ ...p, responsible: e.target.value }))} />
+          <Input placeholder="Observações" value={caseForm.notes} onChange={(e) => setCaseForm((p) => ({ ...p, notes: e.target.value }))} />
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingCaseId ? "Atualizar" : "Cadastrar"}</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowCaseModal(false); setEditingCaseId(null); }}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </AppModal>
     </main>
   );
 }
@@ -638,3 +719,4 @@ function toDateInput(value: string | null | undefined) {
   if (Number.isNaN(d.getTime())) return "";
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+

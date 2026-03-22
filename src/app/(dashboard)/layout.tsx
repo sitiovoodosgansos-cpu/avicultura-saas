@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentSession } from "@/lib/auth/session";
 import { AppNav } from "@/components/layout/app-nav";
@@ -22,7 +22,7 @@ export default async function AuthenticatedLayout({
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Conta ativa</p>
               <h1 className="text-sm font-semibold text-slate-800">{session.user.name}</h1>
-              <p className="text-xs text-[color:var(--ink-soft)]">Painel moderno para o manejo do sitio.</p>
+              <p className="text-xs text-[color:var(--ink-soft)]">ORNEXA - gestao de criatorios ornamentais.</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden rounded-2xl bg-[color:var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--brand-strong)] md:block">

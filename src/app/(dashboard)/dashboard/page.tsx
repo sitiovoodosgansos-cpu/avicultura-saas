@@ -66,21 +66,25 @@ export default async function DashboardPage() {
         <KpiCard
           title="Aves ativas"
           value={String(data.kpis.activeBirds)}
+          emoji="🐥"
           hint={`Total: ${data.kpis.totalBirds} | Doentes: ${data.kpis.sickBirds} | Mortas: ${data.kpis.deadBirds}`}
         />
         <KpiCard
           title="Matrizes / Reprodutores"
           value={`${data.kpis.matrixBirds} / ${data.kpis.reproducerBirds}`}
+          emoji="🥚"
           hint={`Chocas: ${data.kpis.broodyBirds}`}
         />
         <KpiCard
           title="Ovos coletados hoje"
           value={String(data.kpis.eggsToday)}
+          emoji="🧺"
           hint={`Bons: ${data.kpis.goodEggsToday} | Trincados: ${data.kpis.crackedEggsToday} | Taxa bons: ${formatPercent(data.kpis.goodEggRateToday)}`}
         />
         <KpiCard
           title="Financeiro do mês"
           value={formatCurrency(data.kpis.monthNet)}
+          emoji="💰"
           hint={`Entradas: ${formatCurrency(data.kpis.monthIncome)} | Saídas: ${formatCurrency(data.kpis.monthExpenses)}`}
         />
       </section>
@@ -89,21 +93,25 @@ export default async function DashboardPage() {
         <KpiCard
           title="Lotes ativos"
           value={String(data.kpis.activeBatches)}
+          emoji="🐣"
           hint={`Taxa eclosão: ${formatPercent(data.kpis.hatchRate)} | Infertilidade: ${formatPercent(data.kpis.infertilityRate)}`}
         />
         <KpiCard
           title="Aves em enfermaria"
           value={String(data.kpis.birdsInInfirmary)}
+          emoji="🏥"
           hint={`Taxa recuperação: ${formatPercent(data.kpis.recoveryRate)}`}
         />
         <KpiCard
           title="Resumo 7 dias"
           value={`${data.periodSummary.days7.eggs} ovos`}
+          emoji="📅"
           hint={`Resultado: ${formatCurrency(data.periodSummary.days7.net)} | Casos: ${data.periodSummary.days7.healthCases}`}
         />
         <KpiCard
           title="Resumo 30 / 365 dias"
           value={`${data.periodSummary.days30.eggs} / ${data.periodSummary.days365.eggs} ovos`}
+          emoji="📈"
           hint={`Resultado 30d: ${formatCurrency(data.periodSummary.days30.net)} | 365d: ${formatCurrency(data.periodSummary.days365.net)}`}
         />
       </section>

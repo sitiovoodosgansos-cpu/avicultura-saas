@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,8 +28,8 @@ export function AppNav() {
                 {"\u{1FABF}"}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Gestao Avicola</p>
-                <h2 className="text-lg font-semibold text-slate-900">Sitio em foco</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">ORNEXA</p>
+                <h2 className="text-lg font-semibold text-slate-900">Gestao de Criatorios</h2>
               </div>
             </div>
           </div>

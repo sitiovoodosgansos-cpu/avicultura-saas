@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -6,6 +6,7 @@ import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AppModal } from "@/components/ui/app-modal";
 
 type Incubator = {
   id: string;
@@ -154,6 +155,9 @@ export function IncubatorsManager() {
 
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [showEventModal, setShowEventModal] = useState(false);
 
   const activeBatches = useMemo(() => batches.filter((b) => b.status === "ACTIVE"), [batches]);
 
@@ -226,6 +230,7 @@ export function IncubatorsManager() {
 
     setDeviceForm(emptyDevice);
     setEditingDeviceId(null);
+    setShowDeviceModal(false);
     setSaving(false);
     await loadData();
   }
@@ -263,6 +268,7 @@ export function IncubatorsManager() {
 
     setBatchForm((p) => ({ ...emptyBatch, incubatorId: p.incubatorId, flockGroupId: p.flockGroupId }));
     setEditingBatchId(null);
+    setShowBatchModal(false);
     setSaving(false);
     await loadData();
   }
@@ -301,6 +307,7 @@ export function IncubatorsManager() {
     }
 
     setEventForm((p) => ({ ...emptyEvent, batchId: p.batchId }));
+    setShowEventModal(false);
     setSaving(false);
     await loadData();
   }
@@ -318,89 +325,41 @@ export function IncubatorsManager() {
         </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Card>
-          <p className="text-sm text-zinc-500">Chocadeiras ativas</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🐣 Chocadeiras</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.activeIncubators ?? 0}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Lotes ativos</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">📦 Lotes ativos</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.activeBatches ?? 0}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Lotes finalizados</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">✅ Finalizados</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.finalizedBatches ?? 0}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Taxa de eclosão</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">📈 Eclosao</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatPercent(metrics?.summary.hatchRate ?? 0)}</p>
         </Card>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h3 className="text-base font-semibold text-zinc-900">
-            {editingDeviceId ? "Editar chocadeira" : "Nova chocadeira"}
-          </h3>
-          <form className="mt-4 grid gap-3" onSubmit={saveDevice}>
-            <Input placeholder="Nome/identificação" value={deviceForm.name} onChange={(e) => setDeviceForm((p) => ({ ...p, name: e.target.value }))} />
-            <Input placeholder="Descrição" value={deviceForm.description} onChange={(e) => setDeviceForm((p) => ({ ...p, description: e.target.value }))} />
-            <Input placeholder="Observações" value={deviceForm.notes} onChange={(e) => setDeviceForm((p) => ({ ...p, notes: e.target.value }))} />
-            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={deviceForm.status} onChange={(e) => setDeviceForm((p) => ({ ...p, status: e.target.value as DeviceForm["status"] }))}>
-              <option value="ACTIVE">Ativa</option>
-              <option value="INACTIVE">Inativa</option>
-              <option value="MAINTENANCE">Manutenção</option>
-            </select>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingDeviceId ? "Atualizar" : "Cadastrar"}</Button>
-              {editingDeviceId ? (
-                <Button type="button" variant="outline" onClick={() => { setEditingDeviceId(null); setDeviceForm(emptyDevice); }}>
-                  Cancelar
-                </Button>
-              ) : null}
-            </div>
-          </form>
-        </Card>
-
-        <Card>
-          <h3 className="text-base font-semibold text-zinc-900">
-            {editingBatchId ? "Editar lote" : "Novo lote"}
-          </h3>
-          <form className="mt-4 grid gap-3" onSubmit={saveBatch}>
-            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.incubatorId} onChange={(e) => setBatchForm((p) => ({ ...p, incubatorId: e.target.value }))}>
-              <option value="">Selecione a chocadeira</option>
-              {devices.map((device) => <option key={device.id} value={device.id}>{device.name}</option>)}
-            </select>
-            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.flockGroupId} onChange={(e) => setBatchForm((p) => ({ ...p, flockGroupId: e.target.value }))}>
-              <option value="">Selecione o grupo de origem</option>
-              {flockGroups.map((group) => <option key={group.id} value={group.id}>{group.title}</option>)}
-            </select>
-            <div className="grid grid-cols-2 gap-3">
-              <Input type="date" value={batchForm.entryDate} onChange={(e) => setBatchForm((p) => ({ ...p, entryDate: e.target.value }))} />
-              <Input type="date" value={batchForm.expectedHatchDate} onChange={(e) => setBatchForm((p) => ({ ...p, expectedHatchDate: e.target.value }))} />
-            </div>
-            <Input type="number" min={1} value={batchForm.eggsSet} onChange={(e) => setBatchForm((p) => ({ ...p, eggsSet: Number(e.target.value) }))} placeholder="Quantidade de ovos" />
-            <Input placeholder="Observações" value={batchForm.notes} onChange={(e) => setBatchForm((p) => ({ ...p, notes: e.target.value }))} />
-            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.status} onChange={(e) => setBatchForm((p) => ({ ...p, status: e.target.value as BatchForm["status"] }))}>
-              <option value="ACTIVE">Ativo</option>
-              <option value="HATCHED">Finalizado com eclosão</option>
-              <option value="FAILED">Falhou</option>
-              <option value="CANCELED">Cancelado</option>
-            </select>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingBatchId ? "Atualizar" : "Cadastrar"}</Button>
-              {editingBatchId ? (
-                <Button type="button" variant="outline" onClick={() => { setEditingBatchId(null); setBatchForm((p) => ({ ...emptyBatch, incubatorId: p.incubatorId, flockGroupId: p.flockGroupId })); }}>
-                  Cancelar
-                </Button>
-              ) : null}
-            </div>
-          </form>
-        </Card>
-      </section>
+      <Card>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" onClick={() => { setEditingDeviceId(null); setDeviceForm(emptyDevice); setShowDeviceModal(true); }}>
+            Nova chocadeira
+          </Button>
+          <Button type="button" variant="outline" onClick={() => { setEditingBatchId(null); setShowBatchModal(true); }}>
+            Novo lote
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setShowEventModal(true)}>
+            Registrar evento do lote
+          </Button>
+        </div>
+      </Card>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <Card>
+        <Card className="hidden">
           <h3 className="text-base font-semibold text-zinc-900">Registrar evento do lote</h3>
           <form className="mt-4 grid gap-3" onSubmit={createEvent}>
             <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
@@ -473,7 +432,7 @@ export function IncubatorsManager() {
                     <td className="py-2 pr-3">{device.description || "-"}</td>
                     <td className="py-2 pr-3">
                       <div className="flex gap-2">
-                        <Button variant="outline" type="button" onClick={() => { setEditingDeviceId(device.id); setDeviceForm({ name: device.name, description: device.description ?? "", notes: device.notes ?? "", status: device.status }); }}>
+                        <Button variant="outline" type="button" onClick={() => { setEditingDeviceId(device.id); setDeviceForm({ name: device.name, description: device.description ?? "", notes: device.notes ?? "", status: device.status }); setShowDeviceModal(true); }}>
                           Editar
                         </Button>
                         <Button variant="danger" type="button" onClick={() => removeDevice(device.id)}>
@@ -537,6 +496,7 @@ export function IncubatorsManager() {
                               notes: batch.notes ?? "",
                               status: batch.status
                             });
+                            setShowBatchModal(true);
                           }}
                         >
                           Editar
@@ -563,6 +523,103 @@ export function IncubatorsManager() {
           </div>
         ) : null}
       </Card>
+
+      <AppModal
+        open={showDeviceModal}
+        title={editingDeviceId ? "Editar chocadeira" : "Nova chocadeira"}
+        onClose={() => {
+          setShowDeviceModal(false);
+          setEditingDeviceId(null);
+          setDeviceForm(emptyDevice);
+        }}
+      >
+        <form className="grid gap-3" onSubmit={saveDevice}>
+          <Input placeholder="Nome/identificação" value={deviceForm.name} onChange={(e) => setDeviceForm((p) => ({ ...p, name: e.target.value }))} />
+          <Input placeholder="Descrição" value={deviceForm.description} onChange={(e) => setDeviceForm((p) => ({ ...p, description: e.target.value }))} />
+          <Input placeholder="Observações" value={deviceForm.notes} onChange={(e) => setDeviceForm((p) => ({ ...p, notes: e.target.value }))} />
+          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={deviceForm.status} onChange={(e) => setDeviceForm((p) => ({ ...p, status: e.target.value as DeviceForm["status"] }))}>
+            <option value="ACTIVE">Ativa</option>
+            <option value="INACTIVE">Inativa</option>
+            <option value="MAINTENANCE">Manutenção</option>
+          </select>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingDeviceId ? "Atualizar" : "Cadastrar"}</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowDeviceModal(false); setEditingDeviceId(null); setDeviceForm(emptyDevice); }}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </AppModal>
+
+      <AppModal
+        open={showBatchModal}
+        title={editingBatchId ? "Editar lote" : "Novo lote"}
+        onClose={() => {
+          setShowBatchModal(false);
+          setEditingBatchId(null);
+        }}
+      >
+        <form className="grid gap-3" onSubmit={saveBatch}>
+          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.incubatorId} onChange={(e) => setBatchForm((p) => ({ ...p, incubatorId: e.target.value }))}>
+            <option value="">Selecione a chocadeira</option>
+            {devices.map((device) => <option key={device.id} value={device.id}>{device.name}</option>)}
+          </select>
+          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.flockGroupId} onChange={(e) => setBatchForm((p) => ({ ...p, flockGroupId: e.target.value }))}>
+            <option value="">Selecione o grupo de origem</option>
+            {flockGroups.map((group) => <option key={group.id} value={group.id}>{group.title}</option>)}
+          </select>
+          <div className="grid grid-cols-2 gap-3">
+            <Input type="date" value={batchForm.entryDate} onChange={(e) => setBatchForm((p) => ({ ...p, entryDate: e.target.value }))} />
+            <Input type="date" value={batchForm.expectedHatchDate} onChange={(e) => setBatchForm((p) => ({ ...p, expectedHatchDate: e.target.value }))} />
+          </div>
+          <Input type="number" min={1} value={batchForm.eggsSet} onChange={(e) => setBatchForm((p) => ({ ...p, eggsSet: Number(e.target.value) }))} placeholder="Quantidade de ovos" />
+          <Input placeholder="Observações" value={batchForm.notes} onChange={(e) => setBatchForm((p) => ({ ...p, notes: e.target.value }))} />
+          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.status} onChange={(e) => setBatchForm((p) => ({ ...p, status: e.target.value as BatchForm["status"] }))}>
+            <option value="ACTIVE">Ativo</option>
+            <option value="HATCHED">Finalizado com eclosão</option>
+            <option value="FAILED">Falhou</option>
+            <option value="CANCELED">Cancelado</option>
+          </select>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingBatchId ? "Atualizar" : "Cadastrar"}</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowBatchModal(false); setEditingBatchId(null); }}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </AppModal>
+
+      <AppModal
+        open={showEventModal}
+        title="Registrar evento do lote"
+        onClose={() => setShowEventModal(false)}
+      >
+        <form className="grid gap-3" onSubmit={createEvent}>
+          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
+            <option value="">Selecione o lote</option>
+            {activeBatches.map((batch) => (
+              <option key={batch.id} value={batch.id}>
+                {batch.incubator.name} - {batch.flockGroup.title} - {new Date(batch.entryDate).toLocaleDateString("pt-BR")}
+              </option>
+            ))}
+          </select>
+          <div className="grid grid-cols-2 gap-3">
+            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.type} onChange={(e) => setEventForm((p) => ({ ...p, type: e.target.value as EventForm["type"] }))}>
+              <option value="HATCHED">Nasceram</option>
+              <option value="INFERTILE">Inférteis</option>
+              <option value="EMBRYO_LOSS">Perda embrionária</option>
+              <option value="PIPPED_DIED">Bicou e morreu</option>
+              <option value="IN_PROGRESS">Em andamento</option>
+              <option value="OTHER">Outro</option>
+            </select>
+            <Input type="number" min={0} value={eventForm.quantity} onChange={(e) => setEventForm((p) => ({ ...p, quantity: Number(e.target.value) }))} />
+          </div>
+          <Input type="date" value={eventForm.eventDate} onChange={(e) => setEventForm((p) => ({ ...p, eventDate: e.target.value }))} />
+          <Input placeholder="Observações" value={eventForm.notes} onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))} />
+          <Button type="submit" disabled={saving}>{saving ? "Registrando..." : "Registrar evento"}</Button>
+        </form>
+      </AppModal>
     </main>
   );
 }
+

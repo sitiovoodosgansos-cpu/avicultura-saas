@@ -180,19 +180,19 @@ export function ReportsManager() {
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Card>
-              <p className="text-sm text-zinc-500">Total de aves</p>
+              <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🐥 Total de aves</p>
               <p className="mt-2 text-2xl font-semibold text-zinc-900">{data.kpis.totalBirds}</p>
             </Card>
             <Card>
-              <p className="text-sm text-zinc-500">Ovos no período</p>
+              <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🥚 Ovos no periodo</p>
               <p className="mt-2 text-2xl font-semibold text-zinc-900">{data.kpis.eggsTotal}</p>
             </Card>
             <Card>
-              <p className="text-sm text-zinc-500">Taxa de eclosão</p>
+              <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🐣 Taxa de eclosao</p>
               <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatPercent(data.kpis.hatchRate)}</p>
             </Card>
             <Card>
-              <p className="text-sm text-zinc-500">Resultado financeiro</p>
+              <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">💰 Resultado financeiro</p>
               <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(data.kpis.monthNet)}</p>
             </Card>
           </section>
