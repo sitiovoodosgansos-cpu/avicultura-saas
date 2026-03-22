@@ -5,10 +5,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const baseItems = [
-  { href: "/equipe/plantel", label: "Plantel", emoji: "??", key: "allowPlantel" },
-  { href: "/equipe/coleta-ovos", label: "Coleta", emoji: "??", key: "allowEggs" },
-  { href: "/equipe/chocadeiras", label: "Chocadeiras", emoji: "??", key: "allowIncubators" },
-  { href: "/equipe/sanidade", label: "Sanidade", emoji: "??", key: "allowHealth" }
+  { href: "/equipe/plantel", label: "Plantel", emoji: "\u{1F9DA}", key: "allowPlantel" },
+  { href: "/equipe/coleta-ovos", label: "Coleta", emoji: "\u{1F95A}", key: "allowEggs" },
+  { href: "/equipe/chocadeiras", label: "Chocadeiras", emoji: "\u{1F423}", key: "allowIncubators" },
+  { href: "/equipe/sanidade", label: "Sanidade", emoji: "\u{1F48A}", key: "allowHealth" }
 ] as const;
 
 type Permissions = {
@@ -29,15 +29,15 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
           <div className="mb-8">
             <div className="flex items-center gap-3">
               <div className="flex size-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-2xl shadow-[0_12px_30px_rgba(15,157,138,0.22)]">
-                ?????
+                {"\u{1FABA}"}
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Equipe</p>
-                <h2 className="text-lg font-semibold text-slate-900">Acesso do funcionário</h2>
+                <h2 className="text-lg font-semibold text-slate-900">Acesso do funcionario</h2>
               </div>
             </div>
             <div className="mt-4 rounded-2xl bg-[color:var(--surface-soft)] p-3 text-sm text-[color:var(--ink-soft)]">
-              Aqui a equipe lança dados do sítio com acesso apenas aos módulos liberados.
+              Aqui a equipe lanca dados do sitio com acesso apenas aos modulos liberados.
             </div>
           </div>
 

@@ -11,6 +11,59 @@ export async function getApiSessionOr401(options?: {
   ownerOnly?: boolean;
   employeePermission?: EmployeePermission;
 }) {
+  // For employee module routes, prefer employee session first to avoid
+  // accidentally using an owner session from another open tab/account.
+  if (options?.employeePermission) {
+    const employeeSession = await getCurrentEmployeeSession();
+    if (employeeSession) {
+      if (!options?.allowBlocked) {
+        const billing = await getTenantBilling(employeeSession.tenantId);
+        if (!billing?.isAccessAllowed) {
+          return {
+            ok: false as const,
+            response: NextResponse.json(
+              { error: "Acesso bloqueado. Regularize sua assinatura na página Perfil." },
+              { status: 402 }
+            )
+          };
+        }
+      }
+
+      const allowed =
+        (options.employeePermission === "plantel" && employeeSession.employee.allowPlantel) ||
+        (options.employeePermission === "eggs" && employeeSession.employee.allowEggs) ||
+        (options.employeePermission === "incubators" && employeeSession.employee.allowIncubators) ||
+        (options.employeePermission === "health" && employeeSession.employee.allowHealth);
+
+      if (!allowed) {
+        return {
+          ok: false as const,
+          response: NextResponse.json({ error: "Sem permissão para este módulo." }, { status: 403 })
+        };
+      }
+
+      return {
+        ok: true as const,
+        session: {
+          user: {
+            id: employeeSession.employee.id,
+            tenantId: employeeSession.tenantId,
+            role: "EMPLOYEE",
+            name: employeeSession.employee.name,
+            email: employeeSession.employee.email,
+            kind: "employee" as const,
+            permissions: {
+              allowPlantel: employeeSession.employee.allowPlantel,
+              allowEggs: employeeSession.employee.allowEggs,
+              allowIncubators: employeeSession.employee.allowIncubators,
+              allowHealth: employeeSession.employee.allowHealth
+            }
+          }
+        }
+      };
+    }
+  }
+
   const session = await getServerSession(authOptions);
 
   if (session?.user?.id && session.user.tenantId) {

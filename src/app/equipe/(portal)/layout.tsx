@@ -29,11 +29,11 @@ export default async function EmployeePortalLayout({
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Equipe ativa</p>
               <h1 className="text-sm font-semibold text-slate-800">{session.employee.name}</h1>
-              <p className="text-xs text-[color:var(--ink-soft)]">{session.tenant.name} • acesso controlado pelo titular</p>
+              <p className="text-xs text-[color:var(--ink-soft)]">{session.tenant.name} � acesso controlado pelo titular</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden rounded-2xl bg-[color:var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--brand-strong)] md:block">
-                ?? Lançamentos com segurança
+                {"\u{1F9FE}"} Lancamentos com seguranca
               </div>
               <Link
                 href="/equipe/auth/logout"
