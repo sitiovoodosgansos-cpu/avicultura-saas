@@ -28,7 +28,7 @@ export function AppNav() {
                 {"\u{1F426}"}
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">ORNABIRD</p>
+                <p className="text-xs font-semibold tracking-[0.2em] text-slate-400">Ornabird</p>
                 <h2 className="text-sm font-semibold leading-tight text-slate-900">
                   Gestão de Criatórios Ornamentais
                 </h2>
