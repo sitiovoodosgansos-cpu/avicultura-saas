@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -210,7 +210,10 @@ export function FinanceManager() {
 
   const [entries, setEntries] = useState<Entry[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [monthEntries, setMonthEntries] = useState<Entry[]>([]);
+  const [monthExpenses, setMonthExpenses] = useState<Expense[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(today.slice(0, 7));
 
   const [entryForm, setEntryForm] = useState<EntryForm>(emptyEntry);
   const [expenseForm, setExpenseForm] = useState<ExpenseForm>(emptyExpense);
@@ -298,26 +301,39 @@ export function FinanceManager() {
     };
   }, [entries, expenses]);
 
-  const periodEvolution = useMemo(
-    () => [
-      {
-        period: "7d",
-        income: metrics?.periods.days7.income ?? 0,
-        expenses: metrics?.periods.days7.expenses ?? 0
-      },
-      {
-        period: "30d",
-        income: metrics?.periods.days30.income ?? 0,
-        expenses: metrics?.periods.days30.expenses ?? 0
-      },
-      {
-        period: "365d",
-        income: metrics?.periods.days365.income ?? 0,
-        expenses: metrics?.periods.days365.expenses ?? 0
+  const dailyEvolution = useMemo(() => {
+    const [yearText, monthText] = selectedMonth.split("-");
+    const year = Number(yearText);
+    const month = Number(monthText);
+    if (!year || !month) return [];
+
+    const lastDay = new Date(year, month, 0).getDate();
+    const days = Array.from({ length: lastDay }, (_, index) => {
+      const day = index + 1;
+      return {
+        day: String(day).padStart(2, "0"),
+        income: 0,
+        expenses: 0
+      };
+    });
+
+    for (const row of monthEntries) {
+      const d = new Date(row.date);
+      const day = d.getDate();
+      if (day >= 1 && day <= lastDay) {
+        days[day - 1].income = Number((days[day - 1].income + row.amount).toFixed(2));
       }
-    ],
-    [metrics]
-  );
+    }
+    for (const row of monthExpenses) {
+      const d = new Date(row.date);
+      const day = d.getDate();
+      if (day >= 1 && day <= lastDay) {
+        days[day - 1].expenses = Number((days[day - 1].expenses + row.amount).toFixed(2));
+      }
+    }
+
+    return days;
+  }, [monthEntries, monthExpenses, selectedMonth]);
 
   async function loadData() {
     setLoading(true);
@@ -329,13 +345,23 @@ export function FinanceManager() {
     if (filterCategory) params.set("category", filterCategory);
     if (filterQuery) params.set("q", filterQuery);
 
-    const [entriesRes, expensesRes, metricsRes] = await Promise.all([
+    const [selectedYear, selectedMonthNumber] = selectedMonth.split("-").map(Number);
+    const monthStart = `${selectedYear}-${String(selectedMonthNumber).padStart(2, "0")}-01`;
+    const monthEndDate = new Date(selectedYear, selectedMonthNumber, 0).getDate();
+    const monthEnd = `${selectedYear}-${String(selectedMonthNumber).padStart(2, "0")}-${String(monthEndDate).padStart(2, "0")}`;
+    const monthParams = new URLSearchParams();
+    monthParams.set("from", monthStart);
+    monthParams.set("to", monthEnd);
+
+    const [entriesRes, expensesRes, metricsRes, monthEntriesRes, monthExpensesRes] = await Promise.all([
       fetch(`/api/finance/entries?${params.toString()}`, { cache: "no-store" }),
       fetch(`/api/finance/expenses?${params.toString()}`, { cache: "no-store" }),
-      fetch("/api/finance/metrics", { cache: "no-store" })
+      fetch("/api/finance/metrics", { cache: "no-store" }),
+      fetch(`/api/finance/entries?${monthParams.toString()}`, { cache: "no-store" }),
+      fetch(`/api/finance/expenses?${monthParams.toString()}`, { cache: "no-store" })
     ]);
 
-    if (!entriesRes.ok || !expensesRes.ok || !metricsRes.ok) {
+    if (!entriesRes.ok || !expensesRes.ok || !metricsRes.ok || !monthEntriesRes.ok || !monthExpensesRes.ok) {
       setError("Nao foi possivel carregar dados do financeiro.");
       setLoading(false);
       return;
@@ -344,9 +370,13 @@ export function FinanceManager() {
     const entriesPayload = (await entriesRes.json()) as { entries: Entry[] };
     const expensesPayload = (await expensesRes.json()) as { expenses: Expense[] };
     const metricsPayload = (await metricsRes.json()) as Metrics;
+    const monthEntriesPayload = (await monthEntriesRes.json()) as { entries: Entry[] };
+    const monthExpensesPayload = (await monthExpensesRes.json()) as { expenses: Expense[] };
 
     setEntries(entriesPayload.entries);
     setExpenses(expensesPayload.expenses);
+    setMonthEntries(monthEntriesPayload.entries);
+    setMonthExpenses(monthExpensesPayload.expenses);
     setMetrics(metricsPayload);
     setLoading(false);
   }
@@ -354,7 +384,7 @@ export function FinanceManager() {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterFrom, filterTo, filterCategory, filterQuery]);
+  }, [filterFrom, filterTo, filterCategory, filterQuery, selectedMonth]);
 
   function openCategoryModal(
     target: "entryCategory" | "expenseCategory" | "filterCategory" | "entryItem" | "expenseItem"
@@ -640,17 +670,25 @@ export function FinanceManager() {
 
       <section className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Evolucao entradas x saidas por periodo</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-zinc-900">Evolucao diaria de entradas e saidas</h3>
+            <Input
+              type="month"
+              className="w-[180px]"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+            />
+          </div>
           <div className="mt-4 h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={periodEvolution}>
+              <LineChart data={dailyEvolution}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
-                <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(value) => formatMoney(Number(value ?? 0))} />
-                <Bar dataKey="income" fill="#0f766e" name="Entradas" />
-                <Bar dataKey="expenses" fill="#dc2626" name="Saidas" />
-              </BarChart>
+                <Line type="monotone" dataKey="income" stroke="#0f766e" strokeWidth={3} dot={false} name="Entradas" />
+                <Line type="monotone" dataKey="expenses" stroke="#dc2626" strokeWidth={3} dot={false} name="Saidas" />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </Card>
