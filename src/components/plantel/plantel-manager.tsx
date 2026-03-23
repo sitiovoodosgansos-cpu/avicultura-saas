@@ -557,7 +557,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 setLockedBirdGroupId(null);
               }}
             >
-              Insrir Grupo de Aves
+              Inserir Grupo de Aves
             </Button>
             <Button
               type="button"
