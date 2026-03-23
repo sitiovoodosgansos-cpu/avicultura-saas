@@ -134,7 +134,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const days365 = addDays(today, -364);
 
   const [
-    totalBirds,
+    flockGroupsForTotal,
     activeBirds,
     flockGroups,
     sickBirds,
@@ -156,7 +156,14 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     healthCuredLast12,
     birdsLast12Rows
   ] = await Promise.all([
-    prisma.bird.count({ where: { tenantId } }),
+    prisma.flockGroup.findMany({
+      where: { tenantId },
+      select: {
+        matrixCount: true,
+        reproducerCount: true,
+        _count: { select: { birds: true } }
+      }
+    }),
     prisma.bird.count({ where: { tenantId, status: BirdStatus.ACTIVE } }),
     prisma.flockGroup.count({ where: { tenantId } }),
     prisma.bird.count({ where: { tenantId, status: BirdStatus.SICK } }),
@@ -224,6 +231,11 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       select: { acquisitionDate: true, createdAt: true }
     })
   ]);
+
+  const totalBirds = flockGroupsForTotal.reduce((sum, group) => {
+    const configuredTotal = group.matrixCount + group.reproducerCount;
+    return sum + Math.max(group._count.birds, configuredTotal);
+  }, 0);
 
   const eggsToday = eggsTodayAgg._sum.totalEggs ?? 0;
   const goodEggsToday = eggsTodayAgg._sum.goodEggs ?? 0;
