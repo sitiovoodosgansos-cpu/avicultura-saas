@@ -29,7 +29,9 @@ export function AppNav() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">ORNABIRD</p>
-                <h2 className="text-lg font-semibold text-slate-900">Gestao de Criatorios</h2>
+                <h2 className="text-sm font-semibold leading-tight text-slate-900">
+                  Gestão de Criatórios Ornamentais
+                </h2>
               </div>
             </div>
           </div>
