@@ -15,6 +15,11 @@ type CategoryOption = {
   label: string;
 };
 
+type ItemOption = {
+  value: string;
+  label: string;
+};
+
 type Entry = {
   id: string;
   date: string;
@@ -71,15 +76,19 @@ type ExpenseForm = {
   notes: string;
 };
 
-const defaultCategories: CategoryOption[] = [
+const defaultEntryCategories: CategoryOption[] = [
   { value: "EGG_SALE", label: "Venda de ovos" },
   { value: "CHICK_SALE", label: "Venda de filhotes" },
   { value: "ADULT_BIRD_SALE", label: "Venda de aves adultas" },
+  { value: "OTHER_INCOME", label: "Outras entradas" }
+];
+
+const defaultExpenseCategories: CategoryOption[] = [
   { value: "FEED", label: "Racao" },
   { value: "MEDICATION", label: "Medicamentos" },
   { value: "STRUCTURE", label: "Estrutura" },
   { value: "MAINTENANCE", label: "Manutencao" },
-  { value: "OTHER", label: "Outros" }
+  { value: "OTHER_EXPENSE", label: "Outras saidas" }
 ];
 
 const today = (() => {
@@ -90,7 +99,7 @@ const today = (() => {
 const emptyEntry: EntryForm = {
   date: today,
   category: "EGG_SALE",
-  item: "",
+  item: "Venda geral",
   amount: 0,
   description: "",
   customer: "",
@@ -100,7 +109,7 @@ const emptyEntry: EntryForm = {
 const emptyExpense: ExpenseForm = {
   date: today,
   category: "FEED",
-  item: "",
+  item: "Racao",
   amount: 0,
   description: "",
   supplier: "",
@@ -118,7 +127,9 @@ function toDateInput(value: string) {
 }
 
 function formatCategoryLabel(value: string) {
-  const fromDefault = defaultCategories.find((category) => category.value === value);
+  const fromDefault = [...defaultEntryCategories, ...defaultExpenseCategories].find(
+    (category) => category.value === value
+  );
   if (fromDefault) return fromDefault.label;
   return value;
 }
@@ -127,12 +138,14 @@ function CategorySelect({
   value,
   options,
   onChange,
-  onCreate
+  onCreate,
+  createLabel = "+ Nova categoria"
 }: {
   value: string;
   options: CategoryOption[];
   onChange: (value: string) => void;
   onCreate: () => void;
+  createLabel?: string;
 }) {
   return (
     <select
@@ -151,7 +164,41 @@ function CategorySelect({
           {category.label}
         </option>
       ))}
-      <option value="__new__">+ Nova categoria</option>
+      <option value="__new__">{createLabel}</option>
+    </select>
+  );
+}
+
+function ItemSelect({
+  value,
+  options,
+  onChange,
+  onCreate
+}: {
+  value: string;
+  options: ItemOption[];
+  onChange: (value: string) => void;
+  onCreate: () => void;
+}) {
+  return (
+    <select
+      className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+      value={value}
+      onChange={(event) => {
+        if (event.target.value === "__new_item__") {
+          onCreate();
+          return;
+        }
+        onChange(event.target.value);
+      }}
+    >
+      <option value="">Selecione o item</option>
+      {options.map((item) => (
+        <option key={item.value} value={item.value}>
+          {item.label}
+        </option>
+      ))}
+      <option value="__new_item__">+ Novo item</option>
     </select>
   );
 }
@@ -175,32 +222,71 @@ export function FinanceManager() {
   const [filterCategory, setFilterCategory] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
 
-  const [customCategories, setCustomCategories] = useState<CategoryOption[]>([]);
+  const [customEntryCategories, setCustomEntryCategories] = useState<CategoryOption[]>([]);
+  const [customExpenseCategories, setCustomExpenseCategories] = useState<CategoryOption[]>([]);
+  const [customEntryItems, setCustomEntryItems] = useState<ItemOption[]>([]);
+  const [customExpenseItems, setCustomExpenseItems] = useState<ItemOption[]>([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [categoryTarget, setCategoryTarget] = useState<"entry" | "expense" | "filter">("entry");
+  const [categoryTarget, setCategoryTarget] = useState<
+    "entryCategory" | "expenseCategory" | "filterCategory" | "entryItem" | "expenseItem"
+  >("entryCategory");
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
 
-  const categoryOptions = useMemo(() => {
+  const entryCategoryOptions = useMemo(() => {
     const map = new Map<string, CategoryOption>();
 
-    for (const option of defaultCategories) {
+    for (const option of defaultEntryCategories) {
       map.set(option.value, option);
     }
 
-    for (const option of customCategories) {
+    for (const option of customEntryCategories) {
       map.set(option.value, option);
     }
 
-    for (const value of [...entries.map((row) => row.category), ...expenses.map((row) => row.category)]) {
+    for (const value of entries.map((row) => row.category)) {
       if (!map.has(value)) {
         map.set(value, { value, label: formatCategoryLabel(value) });
       }
     }
 
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
-  }, [customCategories, entries, expenses]);
+  }, [customEntryCategories, entries]);
+
+  const expenseCategoryOptions = useMemo(() => {
+    const map = new Map<string, CategoryOption>();
+    for (const option of defaultExpenseCategories) map.set(option.value, option);
+    for (const option of customExpenseCategories) map.set(option.value, option);
+    for (const value of expenses.map((row) => row.category)) {
+      if (!map.has(value)) map.set(value, { value, label: formatCategoryLabel(value) });
+    }
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [customExpenseCategories, expenses]);
+
+  const filterCategoryOptions = useMemo(() => {
+    const map = new Map<string, CategoryOption>();
+    [...entryCategoryOptions, ...expenseCategoryOptions].forEach((opt) => map.set(opt.value, opt));
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [entryCategoryOptions, expenseCategoryOptions]);
+
+  const entryItemOptions = useMemo(() => {
+    const map = new Map<string, ItemOption>();
+    customEntryItems.forEach((item) => map.set(item.value, item));
+    entries.forEach((row) => {
+      if (!map.has(row.item)) map.set(row.item, { value: row.item, label: row.item });
+    });
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [customEntryItems, entries]);
+
+  const expenseItemOptions = useMemo(() => {
+    const map = new Map<string, ItemOption>();
+    customExpenseItems.forEach((item) => map.set(item.value, item));
+    expenses.forEach((row) => {
+      if (!map.has(row.item)) map.set(row.item, { value: row.item, label: row.item });
+    });
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [customExpenseItems, expenses]);
 
   const totals = useMemo(() => {
     const income = entries.reduce((sum, row) => sum + row.amount, 0);
@@ -249,7 +335,9 @@ export function FinanceManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterFrom, filterTo, filterCategory, filterQuery]);
 
-  function openCategoryModal(target: "entry" | "expense" | "filter") {
+  function openCategoryModal(
+    target: "entryCategory" | "expenseCategory" | "filterCategory" | "entryItem" | "expenseItem"
+  ) {
     setCategoryTarget(target);
     setNewCategoryName("");
     setShowCategoryModal(true);
@@ -259,23 +347,55 @@ export function FinanceManager() {
     const value = newCategoryName.trim();
     if (!value) return;
 
-    const option = { value, label: value };
-    setCustomCategories((prev) => {
-      if (prev.some((item) => item.value.toLowerCase() === value.toLowerCase())) return prev;
-      return [...prev, option];
-    });
-
-    if (categoryTarget === "entry") {
-      setEntryForm((prev) => ({ ...prev, category: value }));
-    }
-    if (categoryTarget === "expense") {
+    if (categoryTarget === "entryCategory" || categoryTarget === "filterCategory") {
+      const option = { value, label: value };
+      setCustomEntryCategories((prev) => {
+        if (prev.some((item) => item.value.toLowerCase() === value.toLowerCase())) return prev;
+        return [...prev, option];
+      });
+      if (categoryTarget === "entryCategory") {
+        setEntryForm((prev) => ({ ...prev, category: value }));
+      } else {
+        setFilterCategory(value);
+      }
+    } else if (categoryTarget === "expenseCategory") {
+      const option = { value, label: value };
+      setCustomExpenseCategories((prev) => {
+        if (prev.some((item) => item.value.toLowerCase() === value.toLowerCase())) return prev;
+        return [...prev, option];
+      });
       setExpenseForm((prev) => ({ ...prev, category: value }));
-    }
-    if (categoryTarget === "filter") {
-      setFilterCategory(value);
+    } else if (categoryTarget === "entryItem") {
+      const option = { value, label: value };
+      setCustomEntryItems((prev) => {
+        if (prev.some((item) => item.value.toLowerCase() === value.toLowerCase())) return prev;
+        return [...prev, option];
+      });
+      setEntryForm((prev) => ({ ...prev, item: value }));
+    } else if (categoryTarget === "expenseItem") {
+      const option = { value, label: value };
+      setCustomExpenseItems((prev) => {
+        if (prev.some((item) => item.value.toLowerCase() === value.toLowerCase())) return prev;
+        return [...prev, option];
+      });
+      setExpenseForm((prev) => ({ ...prev, item: value }));
     }
 
     setShowCategoryModal(false);
+  }
+
+  function removeCustomEntryItem(item: string) {
+    if (!item) return;
+    if (!window.confirm("Excluir este item de entrada da lista?")) return;
+    setCustomEntryItems((prev) => prev.filter((row) => row.value !== item));
+    setEntryForm((prev) => ({ ...prev, item: "" }));
+  }
+
+  function removeCustomExpenseItem(item: string) {
+    if (!item) return;
+    if (!window.confirm("Excluir este item de saida da lista?")) return;
+    setCustomExpenseItems((prev) => prev.filter((row) => row.value !== item));
+    setExpenseForm((prev) => ({ ...prev, item: "" }));
   }
 
   async function saveEntry(event: React.FormEvent<HTMLFormElement>) {
@@ -398,7 +518,7 @@ export function FinanceManager() {
         <Card>
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-zinc-900">Nova entrada</h3>
-            <Button type="button" variant="outline" onClick={() => openCategoryModal("entry")}>
+            <Button type="button" variant="outline" onClick={() => openCategoryModal("entryCategory")}>
               Nova categoria
             </Button>
           </div>
@@ -407,13 +527,19 @@ export function FinanceManager() {
               <Input type="date" value={entryForm.date} onChange={(e) => setEntryForm((p) => ({ ...p, date: e.target.value }))} />
               <CategorySelect
                 value={entryForm.category}
-                options={categoryOptions}
+                options={entryCategoryOptions}
                 onChange={(value) => setEntryForm((p) => ({ ...p, category: value }))}
-                onCreate={() => openCategoryModal("entry")}
+                onCreate={() => openCategoryModal("entryCategory")}
               />
             </div>
-            <Input placeholder="Item vendido" value={entryForm.item} onChange={(e) => setEntryForm((p) => ({ ...p, item: e.target.value }))} />
-            <Input type="number" min={0} step="0.01" placeholder="Valor" value={entryForm.amount} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
+              <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">🗑</Button>
+            </div>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
+              <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            </div>
             <Input placeholder="Descricao" value={entryForm.description} onChange={(e) => setEntryForm((p) => ({ ...p, description: e.target.value }))} />
             <Input placeholder="Cliente (opcional)" value={entryForm.customer} onChange={(e) => setEntryForm((p) => ({ ...p, customer: e.target.value }))} />
             <Input placeholder="Observacoes" value={entryForm.notes} onChange={(e) => setEntryForm((p) => ({ ...p, notes: e.target.value }))} />
@@ -431,7 +557,7 @@ export function FinanceManager() {
         <Card>
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-base font-semibold text-zinc-900">Nova saida</h3>
-            <Button type="button" variant="outline" onClick={() => openCategoryModal("expense")}>
+            <Button type="button" variant="outline" onClick={() => openCategoryModal("expenseCategory")}>
               Nova categoria
             </Button>
           </div>
@@ -440,13 +566,19 @@ export function FinanceManager() {
               <Input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm((p) => ({ ...p, date: e.target.value }))} />
               <CategorySelect
                 value={expenseForm.category}
-                options={categoryOptions}
+                options={expenseCategoryOptions}
                 onChange={(value) => setExpenseForm((p) => ({ ...p, category: value }))}
-                onCreate={() => openCategoryModal("expense")}
+                onCreate={() => openCategoryModal("expenseCategory")}
               />
             </div>
-            <Input placeholder="Item comprado/despesa" value={expenseForm.item} onChange={(e) => setExpenseForm((p) => ({ ...p, item: e.target.value }))} />
-            <Input type="number" min={0} step="0.01" placeholder="Valor" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <ItemSelect value={expenseForm.item} options={expenseItemOptions} onChange={(value) => setExpenseForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("expenseItem")} />
+              <Button type="button" variant="outline" onClick={() => removeCustomExpenseItem(expenseForm.item)} title="Excluir item selecionado">🗑</Button>
+            </div>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
+              <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            </div>
             <Input placeholder="Descricao" value={expenseForm.description} onChange={(e) => setExpenseForm((p) => ({ ...p, description: e.target.value }))} />
             <Input placeholder="Fornecedor (opcional)" value={expenseForm.supplier} onChange={(e) => setExpenseForm((p) => ({ ...p, supplier: e.target.value }))} />
             <Input placeholder="Observacoes" value={expenseForm.notes} onChange={(e) => setExpenseForm((p) => ({ ...p, notes: e.target.value }))} />
@@ -465,7 +597,7 @@ export function FinanceManager() {
       <Card>
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-base font-semibold text-zinc-900">Filtros e totalizadores</h3>
-          <Button type="button" variant="outline" onClick={() => openCategoryModal("filter")}>
+          <Button type="button" variant="outline" onClick={() => openCategoryModal("filterCategory")}>
             Nova categoria
           </Button>
         </div>
@@ -474,7 +606,7 @@ export function FinanceManager() {
           <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
             <option value="">Todas categorias</option>
-            {categoryOptions.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
+            {filterCategoryOptions.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
           </select>
           <Input placeholder="Busca textual" value={filterQuery} onChange={(e) => setFilterQuery(e.target.value)} />
         </div>
@@ -512,6 +644,7 @@ export function FinanceManager() {
         </Card>
       </section>
 
+      <section className="grid gap-4 lg:grid-cols-2">
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Lancamentos de entradas</h3>
         {loading ? <p className="mt-4 text-sm text-zinc-500">Carregando...</p> : null}
@@ -612,6 +745,7 @@ export function FinanceManager() {
           </div>
         ) : null}
       </Card>
+      </section>
 
       <AppModal
         open={showEntryModal}
@@ -623,17 +757,23 @@ export function FinanceManager() {
         }}
       >
         <div className="mb-3">
-          <Button type="button" variant="outline" onClick={() => openCategoryModal("entry")}>
+          <Button type="button" variant="outline" onClick={() => openCategoryModal("entryCategory")}>
             Nova categoria
           </Button>
         </div>
         <form className="grid gap-3" onSubmit={saveEntry}>
           <div className="grid grid-cols-2 gap-3">
             <Input type="date" value={entryForm.date} onChange={(e) => setEntryForm((p) => ({ ...p, date: e.target.value }))} />
-            <CategorySelect value={entryForm.category} options={categoryOptions} onChange={(value) => setEntryForm((p) => ({ ...p, category: value }))} onCreate={() => openCategoryModal("entry")} />
+            <CategorySelect value={entryForm.category} options={entryCategoryOptions} onChange={(value) => setEntryForm((p) => ({ ...p, category: value }))} onCreate={() => openCategoryModal("entryCategory")} />
           </div>
-          <Input placeholder="Item vendido" value={entryForm.item} onChange={(e) => setEntryForm((p) => ({ ...p, item: e.target.value }))} />
-          <Input type="number" min={0} step="0.01" placeholder="Valor" value={entryForm.amount} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
+            <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">🗑</Button>
+          </div>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
+            <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+          </div>
           <Input placeholder="Descricao" value={entryForm.description} onChange={(e) => setEntryForm((p) => ({ ...p, description: e.target.value }))} />
           <Input placeholder="Cliente (opcional)" value={entryForm.customer} onChange={(e) => setEntryForm((p) => ({ ...p, customer: e.target.value }))} />
           <Input placeholder="Observacoes" value={entryForm.notes} onChange={(e) => setEntryForm((p) => ({ ...p, notes: e.target.value }))} />
@@ -654,17 +794,23 @@ export function FinanceManager() {
         }}
       >
         <div className="mb-3">
-          <Button type="button" variant="outline" onClick={() => openCategoryModal("expense")}>
+          <Button type="button" variant="outline" onClick={() => openCategoryModal("expenseCategory")}>
             Nova categoria
           </Button>
         </div>
         <form className="grid gap-3" onSubmit={saveExpense}>
           <div className="grid grid-cols-2 gap-3">
             <Input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm((p) => ({ ...p, date: e.target.value }))} />
-            <CategorySelect value={expenseForm.category} options={categoryOptions} onChange={(value) => setExpenseForm((p) => ({ ...p, category: value }))} onCreate={() => openCategoryModal("expense")} />
+            <CategorySelect value={expenseForm.category} options={expenseCategoryOptions} onChange={(value) => setExpenseForm((p) => ({ ...p, category: value }))} onCreate={() => openCategoryModal("expenseCategory")} />
           </div>
-          <Input placeholder="Item comprado/despesa" value={expenseForm.item} onChange={(e) => setExpenseForm((p) => ({ ...p, item: e.target.value }))} />
-          <Input type="number" min={0} step="0.01" placeholder="Valor" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <ItemSelect value={expenseForm.item} options={expenseItemOptions} onChange={(value) => setExpenseForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("expenseItem")} />
+            <Button type="button" variant="outline" onClick={() => removeCustomExpenseItem(expenseForm.item)} title="Excluir item selecionado">🗑</Button>
+          </div>
+          <div className="relative">
+            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
+            <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+          </div>
           <Input placeholder="Descricao" value={expenseForm.description} onChange={(e) => setExpenseForm((p) => ({ ...p, description: e.target.value }))} />
           <Input placeholder="Fornecedor (opcional)" value={expenseForm.supplier} onChange={(e) => setExpenseForm((p) => ({ ...p, supplier: e.target.value }))} />
           <Input placeholder="Observacoes" value={expenseForm.notes} onChange={(e) => setExpenseForm((p) => ({ ...p, notes: e.target.value }))} />
@@ -678,18 +824,28 @@ export function FinanceManager() {
       {showCategoryModal ? (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[28px] border border-zinc-200 bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.25)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">Categoria personalizada</p>
-            <h3 className="mt-2 text-2xl font-semibold text-zinc-900">Nova categoria</h3>
-            <p className="mt-2 text-sm text-zinc-500">Crie uma categoria nova para entradas, saidas ou filtro.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
+              {categoryTarget === "entryItem" || categoryTarget === "expenseItem" ? "Item personalizado" : "Categoria personalizada"}
+            </p>
+            <h3 className="mt-2 text-2xl font-semibold text-zinc-900">
+              {categoryTarget === "entryItem" || categoryTarget === "expenseItem" ? "Novo item" : "Nova categoria"}
+            </h3>
+            <p className="mt-2 text-sm text-zinc-500">
+              {categoryTarget === "entryItem" || categoryTarget === "expenseItem"
+                ? "Crie um item para aparecer no menu dropdown."
+                : "Crie uma categoria nova para entradas, saidas ou filtro."}
+            </p>
             <div className="mt-5">
               <Input
-                placeholder="Ex.: Vacinas, Frete, Equipamentos"
+                placeholder={categoryTarget === "entryItem" || categoryTarget === "expenseItem" ? "Ex.: Venda de ovos jumbo, Consulta veterinaria" : "Ex.: Vacinas, Frete, Equipamentos"}
                 value={newCategoryName}
                 onChange={(event) => setNewCategoryName(event.target.value)}
               />
             </div>
             <div className="mt-5 flex gap-2">
-              <Button type="button" onClick={saveNewCategory}>Salvar categoria</Button>
+              <Button type="button" onClick={saveNewCategory}>
+                {categoryTarget === "entryItem" || categoryTarget === "expenseItem" ? "Salvar item" : "Salvar categoria"}
+              </Button>
               <Button type="button" variant="outline" onClick={() => setShowCategoryModal(false)}>Cancelar</Button>
             </div>
           </div>
