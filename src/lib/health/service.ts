@@ -11,7 +11,7 @@ function ratio(num: number, den: number) {
 }
 
 export async function listHealthContext(tenantId: string) {
-  const [infirmaries, cases, birds] = await Promise.all([
+  const [infirmaries, cases, birds, quarantineTemplates, quarantineCases] = await Promise.all([
     prisma.infirmary.findMany({
       where: { tenantId },
       orderBy: { createdAt: "desc" }
@@ -37,10 +37,113 @@ export async function listHealthContext(tenantId: string) {
       where: { tenantId },
       select: { id: true, ringNumber: true, nickname: true, status: true },
       orderBy: { ringNumber: "asc" }
+    }),
+    prisma.quarantineChecklistTemplate.findMany({
+      where: { tenantId },
+      orderBy: { name: "asc" }
+    }),
+    prisma.quarantineCase.findMany({
+      where: { tenantId },
+      include: {
+        bird: {
+          select: {
+            id: true,
+            ringNumber: true,
+            nickname: true,
+            status: true,
+            flockGroup: { select: { title: true } }
+          }
+        },
+        infirmary: { select: { id: true, name: true, status: true } },
+        treatments: {
+          include: { template: { select: { id: true, name: true } } },
+          orderBy: { startDate: "asc" }
+        }
+      },
+      orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }]
     })
   ]);
 
-  return { infirmaries, cases, birds };
+  return { infirmaries, cases, birds, quarantineTemplates, quarantineCases };
+}
+
+export async function createQuarantineTemplate(
+  tenantId: string,
+  userId: string | null,
+  input: { name: string }
+) {
+  const created = await prisma.quarantineChecklistTemplate.create({
+    data: {
+      tenantId,
+      name: input.name.trim()
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      tenantId,
+      userId: userId ?? undefined,
+      action: "QUARANTINE_TEMPLATE_CREATE",
+      entity: "QuarantineChecklistTemplate",
+      entityId: created.id,
+      after: { name: created.name }
+    }
+  });
+
+  return created;
+}
+
+export async function createQuarantineCase(
+  tenantId: string,
+  userId: string | null,
+  input: {
+    birdId: string;
+    infirmaryId: string;
+    entryDate: string;
+    expectedExitDate: string;
+    notes?: string;
+    treatments: Array<{ label: string; startDate: string; notes?: string; templateId?: string }>;
+  }
+) {
+  const [bird, infirmary] = await Promise.all([
+    prisma.bird.findFirst({ where: { id: input.birdId, tenantId } }),
+    prisma.infirmary.findFirst({ where: { id: input.infirmaryId, tenantId } })
+  ]);
+
+  if (!bird || !infirmary) return null;
+
+  const created = await prisma.quarantineCase.create({
+    data: {
+      tenantId,
+      birdId: input.birdId,
+      infirmaryId: input.infirmaryId,
+      entryDate: toDate(input.entryDate),
+      expectedExitDate: toDate(input.expectedExitDate),
+      notes: input.notes,
+      treatments: {
+        create: input.treatments.map((item) => ({
+          tenantId,
+          label: item.label.trim(),
+          startDate: toDate(item.startDate),
+          notes: item.notes,
+          templateId: item.templateId
+        }))
+      }
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      tenantId,
+      userId: userId ?? undefined,
+      action: "QUARANTINE_CASE_CREATE",
+      entity: "QuarantineCase",
+      entityId: created.id,
+      after: { birdId: created.birdId, infirmaryId: created.infirmaryId }
+    }
+  });
+
+  return created;
 }
 
 export async function createInfirmary(

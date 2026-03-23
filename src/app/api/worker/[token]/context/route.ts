@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { getWorkerLinkOr401 } from "@/lib/worker-links/auth";
 import { listPlantel } from "@/lib/plantel/service";
 import { listIncubatorContext } from "@/lib/incubators/service";
@@ -43,21 +43,21 @@ export async function GET(
           incubators: incubators.incubators.map((item) => ({ id: item.id, name: item.name })),
           batches: incubators.batches.map((item) => ({
             id: item.id,
-            label: `${item.incubator.name} • ${item.flockGroup.title} • ${item.eggsSet} ovos`
+            label: `${item.incubator.name} - ${item.flockGroup.title} - ${item.eggsSet} ovos`
           })),
           flockGroups: incubators.flockGroups
         }
       : null,
     health: health
       ? {
-          infirmaries: health.infirmaries.map((item) => ({ id: item.id, name: item.name })),
-          birds: health.birds.map((item) => ({
+          infirmaries: health.infirmaries.map((item: { id: string; name: string }) => ({ id: item.id, name: item.name })),
+          birds: health.birds.map((item: { id: string; ringNumber: string; nickname: string | null }) => ({
             id: item.id,
-            label: `${item.ringNumber}${item.nickname ? ` • ${item.nickname}` : ""}`
+            label: `${item.ringNumber}${item.nickname ? ` - ${item.nickname}` : ""}`
           })),
-          cases: health.cases.map((item) => ({
+          cases: health.cases.map((item: { id: string; bird: { ringNumber: string }; infirmary: { name: string }; status: string }) => ({
             id: item.id,
-            label: `${item.bird.ringNumber} • ${item.infirmary.name} • ${item.status}`
+            label: `${item.bird.ringNumber} - ${item.infirmary.name} - ${item.status}`
           }))
         }
       : null

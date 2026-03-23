@@ -68,6 +68,12 @@ enum InfirmaryCaseStatus {
   TRANSFERRED
 }
 
+enum QuarantineCaseStatus {
+  ACTIVE
+  COMPLETED
+  CANCELED
+}
+
 enum ReportType {
   GENERAL
   FLOCK
@@ -117,6 +123,9 @@ model Tenant {
   infirmaries    Infirmary[]
   infirmaryCases InfirmaryCase[]
   infirmaryCaseEvents InfirmaryCaseEvent[]
+  quarantineTemplates QuarantineChecklistTemplate[]
+  quarantineCases QuarantineCase[]
+  quarantineTreatments QuarantineTreatment[]
   entries        FinancialEntry[]
   expenses       FinancialExpense[]
   employeeAccounts EmployeeAccount[]
@@ -249,6 +258,7 @@ model Bird {
   flockGroup      FlockGroup          @relation(fields: [flockGroupId], references: [id], onDelete: Cascade)
   statusHistory   BirdStatusHistory[]
   infirmaryCases  InfirmaryCase[]
+  quarantineCases QuarantineCase[]
 
   @@unique([tenantId, ringNumber])
 }
@@ -334,6 +344,7 @@ model Infirmary {
   updatedAt DateTime        @updatedAt
   tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   cases     InfirmaryCase[]
+  quarantineCases QuarantineCase[]
 }
 
 model InfirmaryCase {
@@ -369,6 +380,50 @@ model InfirmaryCaseEvent {
   createdAt       DateTime @default(now())
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   case            InfirmaryCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model QuarantineChecklistTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  treatments QuarantineTreatment[]
+
+  @@unique([tenantId, name])
+}
+
+model QuarantineCase {
+  id              String              @id @default(cuid())
+  tenantId        String
+  birdId          String
+  infirmaryId     String
+  entryDate       DateTime
+  expectedExitDate DateTime
+  notes           String?
+  status          QuarantineCaseStatus @default(ACTIVE)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bird            Bird                 @relation(fields: [birdId], references: [id], onDelete: Restrict)
+  infirmary       Infirmary            @relation(fields: [infirmaryId], references: [id], onDelete: Restrict)
+  treatments      QuarantineTreatment[]
+}
+
+model QuarantineTreatment {
+  id               String   @id @default(cuid())
+  tenantId         String
+  quarantineCaseId String
+  templateId       String?
+  label            String
+  startDate        DateTime
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quarantineCase   QuarantineCase @relation(fields: [quarantineCaseId], references: [id], onDelete: Cascade)
+  template         QuarantineChecklistTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 }
 
 model FinancialEntry {
