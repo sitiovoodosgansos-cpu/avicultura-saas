@@ -160,15 +160,15 @@ export function EggCollectionManager() {
   const [showDayModal, setShowDayModal] = useState(false);
 
   const groups = useMemo(() => metrics?.groupCards ?? [], [metrics]);
-  const overallAverages = useMemo(() => {
+  const overallTotals = useMemo(() => {
     return groups.reduce(
       (acc, group) => {
-        acc.daily += group.averageDaily;
-        acc.weekly += group.averageWeekly;
-        acc.monthly += group.averageMonthly;
+        acc.week += group.eggs7;
+        acc.month += group.eggs30;
+        acc.year += group.eggs365;
         return acc;
       },
-      { daily: 0, weekly: 0, monthly: 0 }
+      { week: 0, month: 0, year: 0 }
     );
   }, [groups]);
 
@@ -347,9 +347,9 @@ export function EggCollectionManager() {
         <StatTile emoji={"\u{1F95A}"} label="Hoje" value={metrics?.summary.eggsToday ?? 0} />
         <StatTile emoji={"\u{26A0}\u{FE0F}"} label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
         <StatTile emoji={"\u{1F4C8}"} label="Bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
-        <StatTile emoji={"\u{1F4C5}"} label="Media dia" value={overallAverages.daily.toFixed(1)} />
-        <StatTile emoji={"\u{1F5D3}\u{FE0F}"} label="Media sem" value={overallAverages.weekly.toFixed(1)} />
-        <StatTile emoji={"\u{1F4CA}"} label="Media mes" value={overallAverages.monthly.toFixed(1)} />
+        <StatTile emoji={"\u{1F4C5}"} label="Semana" value={overallTotals.week} />
+        <StatTile emoji={"\u{1F5D3}\u{FE0F}"} label="Mes" value={overallTotals.month} />
+        <StatTile emoji={"\u{1F4CA}"} label="Ano" value={overallTotals.year} />
       </section>
 
       <Card>
