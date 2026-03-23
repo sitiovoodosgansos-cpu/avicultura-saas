@@ -822,7 +822,7 @@ export function FinanceManager() {
       </AppModal>
 
       {showCategoryModal ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[28px] border border-zinc-200 bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.25)]">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-400">
               {categoryTarget === "entryItem" || categoryTarget === "expenseItem" ? "Item personalizado" : "Categoria personalizada"}
