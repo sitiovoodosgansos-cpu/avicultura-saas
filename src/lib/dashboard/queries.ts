@@ -5,6 +5,7 @@ export type DashboardData = {
   kpis: {
     totalBirds: number;
     activeBirds: number;
+    flockGroups: number;
     sickBirds: number;
     deadBirds: number;
     broodyBirds: number;
@@ -30,7 +31,7 @@ export type DashboardData = {
   };
   charts: {
     eggCollection: Array<{ label: string; total: number }>;
-    goodEggRate: Array<{ label: string; rate: number }>;
+    aviaryGrowth: Array<{ label: string; arrivals: number }>;
     incubatorPerformance: Array<{ label: string; hatchRate: number }>;
     financialEvolution: Array<{ label: string; income: number; expenses: number; net: number }>;
     healthEvolution: Array<{ label: string; openCases: number; curedCases: number }>;
@@ -135,6 +136,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const [
     totalBirds,
     activeBirds,
+    flockGroups,
     sickBirds,
     deadBirds,
     broodyBirds,
@@ -151,10 +153,12 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     entriesLast12,
     expensesLast12,
     healthOpenLast12,
-    healthCuredLast12
+    healthCuredLast12,
+    birdsLast12Rows
   ] = await Promise.all([
     prisma.bird.count({ where: { tenantId } }),
     prisma.bird.count({ where: { tenantId, status: BirdStatus.ACTIVE } }),
+    prisma.flockGroup.count({ where: { tenantId } }),
     prisma.bird.count({ where: { tenantId, status: BirdStatus.SICK } }),
     prisma.bird.count({ where: { tenantId, status: BirdStatus.DEAD } }),
     prisma.bird.count({ where: { tenantId, status: BirdStatus.BROODY } }),
@@ -208,6 +212,16 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         closedAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) }
       },
       select: { closedAt: true }
+    }),
+    prisma.bird.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { acquisitionDate: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) } },
+          { createdAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) } }
+        ]
+      },
+      select: { acquisitionDate: true, createdAt: true }
     })
   ]);
 
@@ -251,11 +265,6 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     label: bucket.label,
     total: eggsByDayMap.get(bucket.key)?.total ?? 0
   }));
-
-  const goodEggRate = dayBuckets.map((bucket) => {
-    const day = eggsByDayMap.get(bucket.key) ?? { total: 0, good: 0 };
-    return { label: bucket.label, rate: ratio(day.good, day.total) };
-  });
 
   const monthBuckets = monthBucketLastMonths(12);
   const financialMap = new Map<string, { income: number; expenses: number }>();
@@ -320,6 +329,18 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     };
   });
 
+  const birdsArrivalsMap = new Map<string, number>();
+  for (const row of birdsLast12Rows) {
+    const baseDate = row.acquisitionDate ?? row.createdAt;
+    const keyDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1).toISOString();
+    birdsArrivalsMap.set(keyDate, (birdsArrivalsMap.get(keyDate) ?? 0) + 1);
+  }
+
+  const aviaryGrowth = monthBuckets.map((bucket) => ({
+    label: bucket.label,
+    arrivals: birdsArrivalsMap.get(bucket.key) ?? 0
+  }));
+
   const eggsRange7 = await sumEggsForRange(tenantId, days7);
   const eggsRange30 = await sumEggsForRange(tenantId, days30);
   const eggsRange365 = await sumEggsForRange(tenantId, days365);
@@ -334,6 +355,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     kpis: {
       totalBirds,
       activeBirds,
+      flockGroups,
       sickBirds,
       deadBirds,
       broodyBirds,
@@ -359,7 +381,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     },
     charts: {
       eggCollection,
-      goodEggRate,
+      aviaryGrowth,
       incubatorPerformance,
       financialEvolution,
       healthEvolution
@@ -375,6 +397,7 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
       kpis: {
         totalBirds: 0,
         activeBirds: 0,
+        flockGroups: 0,
         sickBirds: 0,
         deadBirds: 0,
         broodyBirds: 0,
@@ -400,7 +423,7 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
       },
       charts: {
         eggCollection: [],
-        goodEggRate: [],
+        aviaryGrowth: [],
         incubatorPerformance: [],
         financialEvolution: [],
         healthEvolution: []

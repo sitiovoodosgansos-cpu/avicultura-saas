@@ -45,7 +45,10 @@ export default async function DashboardPage() {
   const data = await getDashboardDataSafe(tenantId);
 
   const chartEggs = data.charts.eggCollection.map((row) => ({ label: row.label, value: row.total }));
-  const chartGoodRate = data.charts.goodEggRate.map((row) => ({ label: row.label, value: row.rate }));
+  const chartAviaryGrowth = data.charts.aviaryGrowth.map((row) => ({
+    label: row.label,
+    value: row.arrivals
+  }));
   const chartIncubator = data.charts.incubatorPerformance.map((row) => ({ label: row.label, value: row.hatchRate }));
   const chartHealthOpen = data.charts.healthEvolution.map((row) => ({ label: row.label, value: row.openCases }));
 
@@ -64,15 +67,15 @@ export default async function DashboardPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          title="Aves ativas"
-          value={String(data.kpis.activeBirds)}
+          title="Aves totais"
+          value={String(data.kpis.totalBirds)}
           emoji="🐥"
-          hint={`Total: ${data.kpis.totalBirds} | Doentes: ${data.kpis.sickBirds} | Mortas: ${data.kpis.deadBirds}`}
+          hint={`Ativas: ${data.kpis.activeBirds} | Doentes: ${data.kpis.sickBirds} | Mortas: ${data.kpis.deadBirds}`}
         />
         <KpiCard
-          title="Matrizes / Reprodutores"
-          value={`${data.kpis.matrixBirds} / ${data.kpis.reproducerBirds}`}
-          emoji="🥚"
+          title="Grupos de aves"
+          value={String(data.kpis.flockGroups)}
+          emoji="🦚"
           hint={`Chocas: ${data.kpis.broodyBirds}`}
         />
         <KpiCard
@@ -123,10 +126,10 @@ export default async function DashboardPage() {
           data={chartEggs}
         />
         <LineChartCard
-          title="Evolução da taxa de ovos bons"
-          subtitle="Percentual diário de ovos bons"
-          data={chartGoodRate}
-          color="#0369a1"
+          title="Evolução do criatório"
+          subtitle="Novas aves por mês (últimos 12 meses)"
+          data={chartAviaryGrowth}
+          color="#0f766e"
         />
       </section>
 
