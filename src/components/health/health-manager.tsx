@@ -137,15 +137,6 @@ type OptionalTreatmentState = {
   notes: string;
 };
 
-type FixedTreatmentState = {
-  key: string;
-  label: string;
-  startDate: string;
-  notes: string;
-};
-
-const fixedTreatmentLabels = ["Piolho", "Vermifugo", "Antibiotico"];
-
 const today = (() => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -177,15 +168,6 @@ const emptyQuarantine: QuarantineForm = {
   expectedExitDate: addDays(today, 21),
   notes: ""
 };
-
-function defaultFixedTreatments(date: string): FixedTreatmentState[] {
-  return fixedTreatmentLabels.map((label) => ({
-    key: `fixed-${label.toLowerCase()}`,
-    label,
-    startDate: date,
-    notes: ""
-  }));
-}
 
 function formatPercent(value: number) {
   return `${value.toFixed(2)}%`;
@@ -245,7 +227,6 @@ export function HealthManager() {
   const [eventByCase, setEventByCase] = useState<Record<string, EventDraft>>({});
 
   const [quarantineForm, setQuarantineForm] = useState<QuarantineForm>(emptyQuarantine);
-  const [fixedTreatments, setFixedTreatments] = useState<FixedTreatmentState[]>(defaultFixedTreatments(today));
   const [optionalTreatments, setOptionalTreatments] = useState<Record<string, OptionalTreatmentState>>({});
   const [newTemplateName, setNewTemplateName] = useState("");
   const [creatingTemplate, setCreatingTemplate] = useState(false);
@@ -280,7 +261,6 @@ export function HealthManager() {
       expectedExitDate: addDays(entryDate, 21),
       notes: ""
     });
-    setFixedTreatments(defaultFixedTreatments(entryDate));
     setOptionalTreatments(ensureOptionalTreatmentMap(quarantineTemplates));
     setNewTemplateName("");
   }
@@ -521,9 +501,6 @@ export function HealthManager() {
       entryDate: nextDate,
       expectedExitDate: prev.expectedExitDate || addDays(nextDate, 21)
     }));
-    setFixedTreatments((prev) =>
-      prev.map((item) => ({ ...item, startDate: item.startDate || nextDate }))
-    );
     setOptionalTreatments((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((key) => {
@@ -551,15 +528,9 @@ export function HealthManager() {
         templateId: item.tpl.id
       }));
 
-    const fixedPayload = fixedTreatments.map((item) => ({
-      label: item.label,
-      startDate: item.startDate || quarantineForm.entryDate,
-      notes: item.notes
-    }));
-
     const payload = {
       ...quarantineForm,
-      treatments: [...fixedPayload, ...optionalPayload]
+      treatments: optionalPayload
     };
 
     const res = await fetch("/api/health/quarantine/cases", {
@@ -1001,38 +972,6 @@ export function HealthManager() {
             <Input type="date" value={quarantineForm.expectedExitDate} onChange={(e) => setQuarantineForm((p) => ({ ...p, expectedExitDate: e.target.value }))} />
           </div>
           <Input placeholder="Observacoes gerais da quarentena" value={quarantineForm.notes} onChange={(e) => setQuarantineForm((p) => ({ ...p, notes: e.target.value }))} />
-
-          <div className="rounded-lg border border-zinc-200 p-3">
-            <p className="text-sm font-semibold text-zinc-900">Tratamentos fixos da quarentena</p>
-            <p className="text-xs text-zinc-500">Piolho, Vermifugo e Antibiotico sempre entram para toda nova ave.</p>
-            <div className="mt-3 space-y-3">
-              {fixedTreatments.map((item) => (
-                <div key={item.key} className="rounded-md border border-zinc-200 p-3">
-                  <p className="text-sm font-medium text-zinc-900">{item.label}</p>
-                  <div className="mt-2 grid gap-2 md:grid-cols-2">
-                    <Input
-                      type="date"
-                      value={item.startDate}
-                      onChange={(e) =>
-                        setFixedTreatments((prev) =>
-                          prev.map((row) => (row.key === item.key ? { ...row, startDate: e.target.value } : row))
-                        )
-                      }
-                    />
-                    <Input
-                      placeholder={`Observacoes de ${item.label}`}
-                      value={item.notes}
-                      onChange={(e) =>
-                        setFixedTreatments((prev) =>
-                          prev.map((row) => (row.key === item.key ? { ...row, notes: e.target.value } : row))
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
           <div className="rounded-lg border border-zinc-200 p-3">
             <p className="text-sm font-semibold text-zinc-900">Checklist extra reutilizavel</p>
