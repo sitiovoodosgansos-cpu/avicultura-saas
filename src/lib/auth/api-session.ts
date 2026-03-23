@@ -11,11 +11,15 @@ export async function getApiSessionOr401(options?: {
   ownerOnly?: boolean;
   employeePermission?: EmployeePermission;
 }) {
+  const session = await getServerSession(authOptions);
+
   // For employee module routes, prefer employee session first to avoid
   // accidentally using an owner session from another open tab/account.
   if (options?.employeePermission) {
     const employeeSession = await getCurrentEmployeeSession();
-    if (employeeSession) {
+    // If the owner is logged in, owner session must take precedence.
+    // This avoids blocking the main account when an old employee cookie still exists.
+    if (employeeSession && !(session?.user?.id && session.user.tenantId)) {
       if (!options?.allowBlocked) {
         const billing = await getTenantBilling(employeeSession.tenantId);
         if (!billing?.isAccessAllowed) {
@@ -63,8 +67,6 @@ export async function getApiSessionOr401(options?: {
       };
     }
   }
-
-  const session = await getServerSession(authOptions);
 
   if (session?.user?.id && session.user.tenantId) {
     if (!options?.allowBlocked) {
