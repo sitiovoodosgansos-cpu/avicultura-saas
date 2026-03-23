@@ -80,36 +80,52 @@ export function BillingProfileManager() {
     return () => clearTimeout(timer);
   }, []);
 
+  async function parseApiPayload<T>(res: Response): Promise<T | null> {
+    try {
+      return (await res.json()) as T;
+    } catch {
+      return null;
+    }
+  }
+
   async function startCheckout() {
     setProcessing(true);
     setError(null);
+    try {
+      const res = await fetch("/api/billing/checkout", { method: "POST" });
+      const payload = await parseApiPayload<{ url?: string; error?: string }>(res);
 
-    const res = await fetch("/api/billing/checkout", { method: "POST" });
-    const payload = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !payload?.url) {
+        setError(payload?.error ?? "Nao foi possivel iniciar a assinatura.");
+        return;
+      }
 
-    if (!res.ok || !payload.url) {
-      setError(payload.error ?? "Não foi possível iniciar a assinatura.");
+      window.location.href = payload.url;
+    } catch {
+      setError("Nao foi possivel iniciar a assinatura. Verifique a conexao e tente novamente.");
+    } finally {
       setProcessing(false);
-      return;
     }
-
-    window.location.href = payload.url;
   }
 
   async function openPortal() {
     setProcessing(true);
     setError(null);
+    try {
+      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const payload = await parseApiPayload<{ url?: string; error?: string }>(res);
 
-    const res = await fetch("/api/billing/portal", { method: "POST" });
-    const payload = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !payload?.url) {
+        setError(payload?.error ?? "Nao foi possivel abrir o portal de cobranca.");
+        return;
+      }
 
-    if (!res.ok || !payload.url) {
-      setError(payload.error ?? "Não foi possível abrir o portal de cobrança.");
+      window.location.href = payload.url;
+    } catch {
+      setError("Nao foi possivel abrir o portal de cobranca. Verifique a conexao e tente novamente.");
+    } finally {
       setProcessing(false);
-      return;
     }
-
-    window.location.href = payload.url;
   }
 
   const trialLabel = useMemo(() => {

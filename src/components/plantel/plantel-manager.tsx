@@ -483,7 +483,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <StatChip emoji={"\u{1F425}"} label="Aves totais" value={totals.total} />
         <StatChip emoji={"\u{2705}"} label="Ativas" value={totals.active} />
         <StatChip emoji={"\u{1F922}"} label="Doentes" value={totals.sick} />
