@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,7 +66,7 @@ type Metrics = {
 
 type DeviceForm = {
   name: string;
-  description: string;
+  capacityEggs: number;
   notes: string;
   status: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 };
@@ -95,21 +94,12 @@ type EventForm = {
   notes: string;
 };
 
-type IncubationConfig = {
-  galinha: number;
-  faisao: number;
-  peru: number;
-  pavao: number;
-  marreco: number;
-  padrao: number;
-};
-
 const today = (() => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 })();
 
-const emptyDevice: DeviceForm = { name: "", description: "", notes: "", status: "ACTIVE" };
+const emptyDevice: DeviceForm = { name: "", capacityEggs: 0, notes: "", status: "ACTIVE" };
 const emptyBatch: BatchForm = {
   incubatorId: "",
   entryDate: today,
@@ -119,17 +109,6 @@ const emptyBatch: BatchForm = {
   status: "ACTIVE"
 };
 const emptyEvent: EventForm = { batchId: "", type: "HATCHED", quantity: 0, eventDate: today, notes: "" };
-
-const defaultIncubation: IncubationConfig = {
-  galinha: 21,
-  faisao: 27,
-  peru: 28,
-  pavao: 28,
-  marreco: 28,
-  padrao: 21
-};
-
-const incubationStorageKey = "ornabird-incubation-config";
 
 function formatPercent(v: number) {
   return `${v.toFixed(2)}%`;
@@ -149,33 +128,10 @@ function addDays(base: string, days: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function extractSpecies(label: string) {
-  const normalized = label.toLowerCase();
-  if (normalized.includes("galinha")) return "galinha";
-  if (normalized.includes("fais")) return "faisao";
-  if (normalized.includes("peru")) return "peru";
-  if (normalized.includes("pavao")) return "pavao";
-  if (normalized.includes("marreco")) return "marreco";
-  return "padrao";
-}
-
-function readIncubationConfig(): IncubationConfig {
-  if (typeof window === "undefined") return { ...defaultIncubation };
-  const raw = window.localStorage.getItem(incubationStorageKey);
-  if (!raw) return { ...defaultIncubation };
-  try {
-    const parsed = JSON.parse(raw) as Partial<IncubationConfig>;
-    return {
-      galinha: Number(parsed.galinha ?? defaultIncubation.galinha),
-      faisao: Number(parsed.faisao ?? defaultIncubation.faisao),
-      peru: Number(parsed.peru ?? defaultIncubation.peru),
-      pavao: Number(parsed.pavao ?? defaultIncubation.pavao),
-      marreco: Number(parsed.marreco ?? defaultIncubation.marreco),
-      padrao: Number(parsed.padrao ?? defaultIncubation.padrao)
-    };
-  } catch {
-    return { ...defaultIncubation };
-  }
+function parseCapacityFromDescription(description: string | null) {
+  if (!description) return 0;
+  const match = description.match(/(\d+)/);
+  return match ? Number(match[1]) : 0;
 }
 
 export function IncubatorsManager() {
@@ -192,7 +148,6 @@ export function IncubatorsManager() {
   const [batchForm, setBatchForm] = useState<BatchForm>(emptyBatch);
   const [batchLines, setBatchLines] = useState<BatchSourceLine[]>([{ lineId: "line-1", flockGroupId: "", eggsSet: 1 }]);
   const [eventForm, setEventForm] = useState<EventForm>(emptyEvent);
-  const [incubationConfig, setIncubationConfig] = useState<IncubationConfig>({ ...defaultIncubation });
   const [batchFilter, setBatchFilter] = useState<"ACTIVE" | "FINALIZED">("ACTIVE");
 
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
@@ -208,6 +163,11 @@ export function IncubatorsManager() {
     () => batchLines.reduce((sum, line) => sum + (Number.isFinite(line.eggsSet) ? line.eggsSet : 0), 0),
     [batchLines]
   );
+  const selectedEventBatch = useMemo(
+    () => activeBatches.find((batch) => batch.id === eventForm.batchId) ?? null,
+    [activeBatches, eventForm.batchId]
+  );
+  const maxEventQuantity = selectedEventBatch?.eggsSet ?? 0;
 
   const incubatorStats = useMemo(() => {
     return devices.map((device) => {
@@ -266,24 +226,12 @@ export function IncubatorsManager() {
   }, []);
 
   useEffect(() => {
-    setIncubationConfig(readIncubationConfig());
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(incubationStorageKey, JSON.stringify(incubationConfig));
-  }, [incubationConfig]);
-
-  useEffect(() => {
-    if (!batchForm.entryDate) return;
-    const firstGroup = flockGroups.find((group) => group.id === batchLines[0]?.flockGroupId);
-    const key = extractSpecies(firstGroup?.title ?? "") as keyof IncubationConfig;
-    const incubationDays = incubationConfig[key] ?? incubationConfig.padrao;
-    const expected = addDays(batchForm.entryDate, incubationDays);
-    const lockdown = addDays(expected, -3);
-    setBatchForm((prev) => ({ ...prev, expectedHatchDate: expected, lockdownDate: lockdown }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchForm.entryDate, batchLines[0]?.flockGroupId, incubationConfig]);
+    if (!batchForm.entryDate && !batchForm.lockdownDate) return;
+    const expected = batchForm.lockdownDate
+      ? addDays(batchForm.lockdownDate, 3)
+      : addDays(batchForm.entryDate, 21);
+    setBatchForm((prev) => ({ ...prev, expectedHatchDate: expected }));
+  }, [batchForm.entryDate, batchForm.lockdownDate]);
 
   async function saveDevice(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -296,7 +244,12 @@ export function IncubatorsManager() {
     const res = await fetch(endpoint, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(deviceForm)
+      body: JSON.stringify({
+        name: deviceForm.name,
+        description: deviceForm.capacityEggs > 0 ? `Capacidade: ${deviceForm.capacityEggs} ovos` : "",
+        notes: deviceForm.notes,
+        status: deviceForm.status
+      })
     });
 
     if (!res.ok) {
@@ -364,20 +317,7 @@ export function IncubatorsManager() {
         return;
       }
 
-      const tag = `Lote-${new Date().getTime()}`;
-      for (const [index, line] of lines.entries()) {
-        const selectedGroup = flockGroups.find((group) => group.id === line.flockGroupId);
-        const discardDate = addDays(batchForm.expectedHatchDate, 3);
-        const noteLines = [
-          batchForm.notes?.trim(),
-          `Tag: ${tag}`,
-          `Linha: ${index + 1}/${lines.length}`,
-          `Grupo: ${selectedGroup?.title ?? "-"}`,
-          `Lockdown: ${batchForm.lockdownDate}`,
-          `Eclosao: ${batchForm.expectedHatchDate}`,
-          `Descarte: ${discardDate}`
-        ].filter(Boolean);
-
+      for (const line of lines) {
         const res = await fetch("/api/incubators/batches", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -387,7 +327,7 @@ export function IncubatorsManager() {
             entryDate: batchForm.entryDate,
             eggsSet: line.eggsSet,
             expectedHatchDate: batchForm.expectedHatchDate,
-            notes: noteLines.join(" | "),
+            notes: batchForm.notes,
             status: batchForm.status
           })
         });
@@ -423,6 +363,12 @@ export function IncubatorsManager() {
     event.preventDefault();
     setSaving(true);
     setError(null);
+
+    if (maxEventQuantity > 0 && eventForm.quantity > maxEventQuantity) {
+      setError(`Quantidade invalida. O lote tem no maximo ${maxEventQuantity} ovos.`);
+      setSaving(false);
+      return;
+    }
 
     const res = await fetch(`/api/incubators/batches/${eventForm.batchId}/events`, {
       method: "POST",
@@ -461,10 +407,6 @@ export function IncubatorsManager() {
 
   function updateBatchLine(lineId: string, patch: Partial<BatchSourceLine>) {
     setBatchLines((prev) => prev.map((line) => (line.lineId === lineId ? { ...line, ...patch } : line)));
-  }
-
-  function updateIncubationDays(key: keyof IncubationConfig, value: number) {
-    setIncubationConfig((prev) => ({ ...prev, [key]: Math.max(1, Math.min(365, Number(value) || prev[key])) }));
   }
 
   return (
@@ -506,11 +448,30 @@ export function IncubatorsManager() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-lg font-semibold text-zinc-900">{device.name}</p>
-                <p className="text-sm text-zinc-500">{device.description || "Sem descricao"}</p>
+                <p className="text-sm text-zinc-500">
+                  {parseCapacityFromDescription(device.description) > 0
+                    ? `Capacidade: ${parseCapacityFromDescription(device.description)} ovos`
+                    : "Capacidade nao informada"}
+                </p>
                 <p className="mt-1 text-xs uppercase tracking-[0.14em] text-zinc-400">Status: {device.status}</p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" type="button" onClick={() => { setEditingDeviceId(device.id); setDeviceForm({ name: device.name, description: device.description ?? "", notes: device.notes ?? "", status: device.status }); setShowDeviceModal(true); }}>Editar</Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    setEditingDeviceId(device.id);
+                    setDeviceForm({
+                      name: device.name,
+                      capacityEggs: parseCapacityFromDescription(device.description),
+                      notes: device.notes ?? "",
+                      status: device.status
+                    });
+                    setShowDeviceModal(true);
+                  }}
+                >
+                  Editar
+                </Button>
                 <Button variant="danger" type="button" onClick={() => removeDevice(device.id)}>Excluir</Button>
               </div>
             </div>
@@ -523,28 +484,7 @@ export function IncubatorsManager() {
         ))}
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Desempenho</h3>
-          <div className="mt-3 grid gap-2 text-sm text-zinc-700">
-            <p>Infertilidade: {formatPercent(metrics?.summary.infertilityRate ?? 0)}</p>
-            <p>Perda embrionaria: {formatPercent(metrics?.summary.embryoLossRate ?? 0)}</p>
-            <p>Bicados sem sucesso: {formatPercent(metrics?.summary.pippedDiedRate ?? 0)}</p>
-          </div>
-          <div className="mt-4 h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics?.performanceByIncubator ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="hatchRate" fill="#0f766e" name="Taxa eclosao" />
-                <Bar dataKey="infertilityRate" fill="#ef4444" name="Taxa infertilidade" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
+      <section>
         <Card>
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-base font-semibold text-zinc-900">Registro de lotes</h3>
@@ -590,7 +530,7 @@ export function IncubatorsManager() {
       <AppModal open={showDeviceModal} title={editingDeviceId ? "Editar chocadeira" : "Nova chocadeira"} onClose={() => { setShowDeviceModal(false); setEditingDeviceId(null); setDeviceForm(emptyDevice); }}>
         <form className="grid gap-3" onSubmit={saveDevice}>
           <Input placeholder="Nome da chocadeira" value={deviceForm.name} onChange={(e) => setDeviceForm((p) => ({ ...p, name: e.target.value }))} />
-          <Input placeholder="Descricao" value={deviceForm.description} onChange={(e) => setDeviceForm((p) => ({ ...p, description: e.target.value }))} />
+          <Input type="number" min={1} placeholder="Capacidade de ovos" value={deviceForm.capacityEggs || ""} onChange={(e) => setDeviceForm((p) => ({ ...p, capacityEggs: Number(e.target.value) || 0 }))} />
           <Input placeholder="Observacoes" value={deviceForm.notes} onChange={(e) => setDeviceForm((p) => ({ ...p, notes: e.target.value }))} />
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={deviceForm.status} onChange={(e) => setDeviceForm((p) => ({ ...p, status: e.target.value as DeviceForm["status"] }))}>
             <option value="ACTIVE">Ativa</option><option value="INACTIVE">Inativa</option><option value="MAINTENANCE">Manutencao</option>
@@ -618,29 +558,14 @@ export function IncubatorsManager() {
             {!editingBatchId ? <Button type="button" variant="outline" onClick={addBatchLine}>+ Adicionar ave</Button> : null}
             <p className="text-sm font-medium text-zinc-700">Total de ovos no lote: {totalBatchEggs}</p>
           </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <Input type="date" value={batchForm.entryDate} onChange={(e) => setBatchForm((p) => ({ ...p, entryDate: e.target.value }))} />
             <Input type="date" value={batchForm.lockdownDate} onChange={(e) => setBatchForm((p) => ({ ...p, lockdownDate: e.target.value }))} />
-            <Input type="date" value={batchForm.expectedHatchDate} onChange={(e) => setBatchForm((p) => ({ ...p, expectedHatchDate: e.target.value }))} />
           </div>
-          <p className="text-xs text-zinc-500">Data 1: entrada | Data 2: lockdown | Data 3: eclosao prevista | descarte +3 dias.</p>
           <Input placeholder="Observacoes do lote" value={batchForm.notes} onChange={(e) => setBatchForm((p) => ({ ...p, notes: e.target.value }))} />
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.status} onChange={(e) => setBatchForm((p) => ({ ...p, status: e.target.value as BatchForm["status"] }))}>
             <option value="ACTIVE">Ativo</option><option value="HATCHED">Finalizado com eclosao</option><option value="FAILED">Falhou</option><option value="CANCELED">Cancelado</option>
           </select>
-          {!editingBatchId ? (
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3">
-              <p className="text-sm font-semibold text-zinc-800">Dias por especie (editavel)</p>
-              <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
-                <Input type="number" min={1} max={365} value={incubationConfig.galinha} onChange={(e) => updateIncubationDays("galinha", Number(e.target.value))} placeholder="Galinha" />
-                <Input type="number" min={1} max={365} value={incubationConfig.faisao} onChange={(e) => updateIncubationDays("faisao", Number(e.target.value))} placeholder="Faisao" />
-                <Input type="number" min={1} max={365} value={incubationConfig.peru} onChange={(e) => updateIncubationDays("peru", Number(e.target.value))} placeholder="Peru" />
-                <Input type="number" min={1} max={365} value={incubationConfig.pavao} onChange={(e) => updateIncubationDays("pavao", Number(e.target.value))} placeholder="Pavao" />
-                <Input type="number" min={1} max={365} value={incubationConfig.marreco} onChange={(e) => updateIncubationDays("marreco", Number(e.target.value))} placeholder="Marreco" />
-                <Input type="number" min={1} max={365} value={incubationConfig.padrao} onChange={(e) => updateIncubationDays("padrao", Number(e.target.value))} placeholder="Padrao" />
-              </div>
-            </div>
-          ) : null}
           <div className="flex gap-2"><Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingBatchId ? "Atualizar" : "Cadastrar lote(s)"}</Button><Button type="button" variant="outline" onClick={() => { setShowBatchModal(false); setEditingBatchId(null); }}>Cancelar</Button></div>
         </form>
       </AppModal>
@@ -648,13 +573,13 @@ export function IncubatorsManager() {
       <AppModal open={showEventModal} title="Registrar evento do lote" onClose={() => setShowEventModal(false)}>
         <form className="grid gap-3" onSubmit={createEvent}>
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
-            <option value="">Selecione o lote</option>{activeBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.incubator.name} - {batch.flockGroup.title} - {new Date(batch.entryDate).toLocaleDateString("pt-BR")}</option>)}
+            <option value="">Selecione o lote</option>{activeBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.incubator.name} - {batch.flockGroup.title} - {new Date(batch.entryDate).toLocaleDateString("pt-BR")} - {batch.eggsSet} ovos</option>)}
           </select>
           <div className="grid grid-cols-2 gap-3">
             <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.type} onChange={(e) => setEventForm((p) => ({ ...p, type: e.target.value as EventForm["type"] }))}>
               <option value="HATCHED">Nasceram</option><option value="INFERTILE">Infertis</option><option value="EMBRYO_LOSS">Nao desenvolveram</option><option value="PIPPED_DIED">Bicaram e morreram</option><option value="IN_PROGRESS">Em andamento</option><option value="OTHER">Outro</option>
             </select>
-            <Input type="number" min={0} value={eventForm.quantity} onChange={(e) => setEventForm((p) => ({ ...p, quantity: Number(e.target.value) }))} />
+            <Input type="number" min={0} max={maxEventQuantity || undefined} value={eventForm.quantity} onChange={(e) => setEventForm((p) => ({ ...p, quantity: Math.min(Number(e.target.value) || 0, maxEventQuantity || Number(e.target.value) || 0) }))} />
           </div>
           <Input type="date" value={eventForm.eventDate} onChange={(e) => setEventForm((p) => ({ ...p, eventDate: e.target.value }))} />
           <Input placeholder="Observacoes" value={eventForm.notes} onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))} />
