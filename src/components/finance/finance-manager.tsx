@@ -298,6 +298,27 @@ export function FinanceManager() {
     };
   }, [entries, expenses]);
 
+  const periodEvolution = useMemo(
+    () => [
+      {
+        period: "7d",
+        income: metrics?.periods.days7.income ?? 0,
+        expenses: metrics?.periods.days7.expenses ?? 0
+      },
+      {
+        period: "30d",
+        income: metrics?.periods.days30.income ?? 0,
+        expenses: metrics?.periods.days30.expenses ?? 0
+      },
+      {
+        period: "365d",
+        income: metrics?.periods.days365.income ?? 0,
+        expenses: metrics?.periods.days365.expenses ?? 0
+      }
+    ],
+    [metrics]
+  );
+
   async function loadData() {
     setLoading(true);
     setError(null);
@@ -619,11 +640,18 @@ export function FinanceManager() {
 
       <section className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Comparativo de periodos</h3>
-          <div className="mt-3 space-y-2 text-sm text-zinc-700">
-            <p>7 dias: {formatMoney(metrics?.periods.days7.income ?? 0)} / {formatMoney(metrics?.periods.days7.expenses ?? 0)} / liquido {formatMoney(metrics?.periods.days7.net ?? 0)}</p>
-            <p>30 dias: {formatMoney(metrics?.periods.days30.income ?? 0)} / {formatMoney(metrics?.periods.days30.expenses ?? 0)} / liquido {formatMoney(metrics?.periods.days30.net ?? 0)}</p>
-            <p>365 dias: {formatMoney(metrics?.periods.days365.income ?? 0)} / {formatMoney(metrics?.periods.days365.expenses ?? 0)} / liquido {formatMoney(metrics?.periods.days365.net ?? 0)}</p>
+          <h3 className="text-base font-semibold text-zinc-900">Evolucao entradas x saidas por periodo</h3>
+          <div className="mt-4 h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={periodEvolution}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
+                <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value) => formatMoney(Number(value ?? 0))} />
+                <Bar dataKey="income" fill="#0f766e" name="Entradas" />
+                <Bar dataKey="expenses" fill="#dc2626" name="Saidas" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </Card>
 
