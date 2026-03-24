@@ -188,8 +188,8 @@ function AppModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4 py-6">
-      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface)] p-5 shadow-2xl">
+    <div className="fixed inset-0 z-[90] grid items-start justify-center overflow-y-auto bg-slate-950/35 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 md:items-center md:py-6">
+      <div className="mt-2 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface)] p-5 shadow-2xl md:mt-0">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
           <Button type="button" variant="outline" onClick={onClose}>

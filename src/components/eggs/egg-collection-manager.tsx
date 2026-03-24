@@ -497,8 +497,8 @@ export function EggCollectionManager() {
       </section>
 
       {showDayModal ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-[color:var(--line)] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.25)]">
+        <div className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-slate-950/45 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 backdrop-blur-sm md:items-center md:p-4">
+          <div className="mt-2 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-[color:var(--line)] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.25)] md:mt-0">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Dia selecionado</p>
