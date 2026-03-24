@@ -36,6 +36,9 @@ STRIPE_SECRET_KEY="sk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 STRIPE_PRICE_ID_MONTHLY="price_..."
 STRIPE_PRICE_ID_YEARLY="price_..."
+RESEND_API_KEY="re_..."
+EMAIL_FROM="Ornabird <no-reply@seu-dominio.com>"
+PASSWORD_RESET_URL="https://SEU-DOMINIO"
 ```
 
 ### 2.3 Banco de dados
@@ -141,6 +144,23 @@ Depois do deploy:
 - `POST /api/billing/checkout`
 - `POST /api/billing/portal`
 - `POST /api/webhooks/stripe`
+
+---
+
+## Recuperacao de senha por e-mail
+
+O projeto inclui fluxo completo de senha esquecida:
+- pagina de solicitacao: `/forgot-password`
+- pagina de redefinicao: `/reset-password?token=...`
+- API de solicitacao: `POST /api/auth/forgot-password`
+- API de redefinicao: `POST /api/auth/reset-password`
+
+Variaveis obrigatorias para envio de e-mail:
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+
+Variavel recomendada:
+- `PASSWORD_RESET_URL` (URL publica do app para montar o link do e-mail)
 
 ---
 
