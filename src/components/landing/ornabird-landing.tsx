@@ -23,6 +23,8 @@ type Feature = {
   icon: LucideIcon;
 };
 
+const APP_URL = "https://ornabird.app";
+
 const navItems = [
   { label: "Recursos", href: "#recursos" },
   { label: "Benefícios", href: "#beneficios" },
@@ -271,7 +273,7 @@ export function OrnabirdLanding() {
             ))}
           </nav>
 
-          <PrimaryCTA href="#preco">Teste grátis</PrimaryCTA>
+          <PrimaryCTA href={APP_URL}>Teste grátis</PrimaryCTA>
         </div>
       </header>
 
@@ -297,7 +299,7 @@ export function OrnabirdLanding() {
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <PrimaryCTA href="#preco">Começar meu teste grátis</PrimaryCTA>
+                <PrimaryCTA href={APP_URL}>Começar meu teste grátis</PrimaryCTA>
                 <Link
                   href="#como-funciona"
                   className="inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:border-emerald-300 hover:text-emerald-800"
@@ -432,7 +434,7 @@ export function OrnabirdLanding() {
           </div>
 
           <div className="mt-10 text-center">
-            <PrimaryCTA href="#preco">Testar por 7 dias</PrimaryCTA>
+            <PrimaryCTA href={APP_URL}>Testar por 7 dias</PrimaryCTA>
           </div>
         </section>
 
@@ -512,7 +514,7 @@ export function OrnabirdLanding() {
               </ul>
 
               <div className="mt-8">
-                <PrimaryCTA href="#topo">Começar agora</PrimaryCTA>
+                <PrimaryCTA href={APP_URL}>Começar agora</PrimaryCTA>
               </div>
             </div>
           </div>
@@ -545,7 +547,7 @@ export function OrnabirdLanding() {
             </p>
             <div className="mt-8 flex justify-center">
               <Link
-                href="#preco"
+                href={APP_URL}
                 className="inline-flex items-center justify-center rounded-full bg-amber-300 px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-amber-200"
               >
                 Começar meu teste grátis
