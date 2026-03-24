@@ -6,12 +6,22 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, onFocus, onClick, onKeyDown, inputMode, autoComplete, ...props }, ref) => {
     const isDate = type === "date";
+    const isNumber = type === "number";
 
     function openNativeDatePicker(target: HTMLInputElement) {
       const pickerTarget = target as HTMLInputElement & { showPicker?: () => void };
       if (typeof pickerTarget.showPicker === "function") {
         pickerTarget.showPicker();
       }
+    }
+
+    function selectInitialZero(target: HTMLInputElement) {
+      if (!isNumber) return;
+      if (target.value !== "0") return;
+
+      // On mobile and desktop, selecting the initial zero lets the user
+      // replace it directly without keeping `0` as a fixed prefix.
+      requestAnimationFrame(() => target.select());
     }
 
     return (
@@ -22,10 +32,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         autoComplete={isDate ? "off" : autoComplete}
         onFocus={(event) => {
           if (isDate) openNativeDatePicker(event.currentTarget);
+          selectInitialZero(event.currentTarget);
           onFocus?.(event);
         }}
         onClick={(event) => {
           if (isDate) openNativeDatePicker(event.currentTarget);
+          selectInitialZero(event.currentTarget);
           onClick?.(event);
         }}
         onKeyDown={(event) => {
