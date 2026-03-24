@@ -1,15 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f8fb;
-  --foreground: #14213d;
+  --font-body: "Segoe UI";
+  --font-heading: "Segoe UI";
+  --background: #ffffff;
+  --foreground: #0f172a;
   --surface: #ffffff;
-  --surface-soft: #f0f5ff;
+  --surface-soft: #f8fafc;
   --line: rgba(15, 23, 42, 0.08);
-  --brand: #0f9d8a;
-  --brand-strong: #0c7a6b;
-  --accent: #ffb703;
-  --ink-soft: #5f6c84;
+  --brand: #065f46;
+  --brand-strong: #064e3b;
+  --accent: #d4a853;
+  --ink-soft: #475569;
 }
 
 @theme inline {
@@ -28,12 +30,10 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  background-image:
-    radial-gradient(circle at top left, rgba(15, 157, 138, 0.12), transparent 26%),
-    radial-gradient(circle at top right, rgba(255, 183, 3, 0.12), transparent 24%),
-    linear-gradient(180deg, #f8fbff 0%, #f5f7fb 100%);
-  font-family: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-body), "Segoe UI", sans-serif;
   min-height: 100vh;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 select,
@@ -41,4 +41,8 @@ textarea,
 input,
 button {
   font: inherit;
+}
+
+.font-heading {
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
 }
