@@ -81,6 +81,10 @@ export async function POST(request: Request) {
   }
 
   const issued = await issuePasswordResetToken(user.id);
+  if (!issued) {
+    return NextResponse.json({ ok: true, message: genericMessage });
+  }
+
   const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(issued.rawToken)}`;
 
   await sendPasswordResetEmail({
