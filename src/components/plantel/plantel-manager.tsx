@@ -709,15 +709,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               />
             </Field>
             <Input
-              type={groupForm.purchaseDate ? "date" : "text"}
-              placeholder="Data da compra: dd/mm/aaaa"
+              type="date"
               value={groupForm.purchaseDate}
-              onFocus={(event) => {
-                event.currentTarget.type = "date";
-              }}
-              onBlur={(event) => {
-                if (!event.currentTarget.value) event.currentTarget.type = "text";
-              }}
               onChange={(event) => setGroupForm((prev) => ({ ...prev, purchaseDate: event.target.value }))}
             />
           </div>
@@ -810,15 +803,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Input
-              type={birdForm.acquisitionDate ? "date" : "text"}
-              placeholder="Data de aquisicao: dd/mm/aaaa"
+              type="date"
               value={birdForm.acquisitionDate}
-              onFocus={(event) => {
-                event.currentTarget.type = "date";
-              }}
-              onBlur={(event) => {
-                if (!event.currentTarget.value) event.currentTarget.type = "text";
-              }}
               onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
             />
             <Input
