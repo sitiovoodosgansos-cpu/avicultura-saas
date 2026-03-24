@@ -1,5 +1,5 @@
-import { OrnabirdLanding } from "@/components/landing/ornabird-landing";
+import { redirect } from "next/navigation";
 
 export default function Home() {
-  return <OrnabirdLanding />;
+  redirect("/dashboard");
 }
