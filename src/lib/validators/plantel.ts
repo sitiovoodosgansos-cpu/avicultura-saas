@@ -5,17 +5,18 @@ export const flockGroupSchema = z.object({
   breed: z.string().trim().min(2, "Informe a raça."),
   variety: z.string().trim().optional(),
   title: z.string().trim().min(3, "Informe o título do grupo."),
+  bayNumber: z.coerce.number().int().min(1, "Informe o número da baia.").optional(),
   matrixCount: z.coerce.number().int().min(0),
   reproducerCount: z.coerce.number().int().min(0),
   // Meta anual por ave matriz (ovos/ano), limite máximo de 1 ovo por dia.
   expectedLayCapacity: z.coerce.number().min(0).max(365).optional(),
   purchaseInvestmentTotal: z.coerce.number().min(0).optional(),
-  purchaseDate: z.string().optional(),
   notes: z.string().trim().optional()
 });
 
 export const birdSchema = z.object({
   flockGroupId: z.string().cuid("Grupo inválido."),
+  bayNumber: z.coerce.number().int().min(1, "Informe o número da baia.").optional(),
   ringNumber: z.string().trim().min(2, "Informe a anilha."),
   nickname: z.string().trim().optional(),
   sex: z.enum(["FEMALE", "MALE", "UNKNOWN"]),

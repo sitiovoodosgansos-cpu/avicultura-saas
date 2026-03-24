@@ -222,11 +222,11 @@ export async function createFlockGroup(
     breed: string;
     variety?: string;
     title: string;
+    bayNumber?: number;
     matrixCount: number;
     reproducerCount: number;
     expectedLayCapacity?: number;
     purchaseInvestmentTotal?: number;
-    purchaseDate?: string;
     notes?: string;
   }
 ) {
@@ -239,11 +239,11 @@ export async function createFlockGroup(
       breedId: taxonomy.breedId,
       varietyId: taxonomy.varietyId,
       title: input.title,
+      bayNumber: input.bayNumber ?? 1,
       matrixCount: input.matrixCount,
       reproducerCount: input.reproducerCount,
       expectedLayCapacity: input.expectedLayCapacity,
       purchaseInvestmentTotal: input.purchaseInvestmentTotal,
-      purchaseDate: input.purchaseDate ? new Date(input.purchaseDate) : null,
       notes: input.notes
     }
   });
@@ -257,11 +257,11 @@ export async function updateFlockGroup(
     breed: string;
     variety?: string;
     title: string;
+    bayNumber?: number;
     matrixCount: number;
     reproducerCount: number;
     expectedLayCapacity?: number;
     purchaseInvestmentTotal?: number;
-    purchaseDate?: string;
     notes?: string;
   }
 ) {
@@ -277,11 +277,11 @@ export async function updateFlockGroup(
       breedId: taxonomy.breedId,
       varietyId: taxonomy.varietyId,
       title: input.title,
+      bayNumber: input.bayNumber ?? 1,
       matrixCount: input.matrixCount,
       reproducerCount: input.reproducerCount,
       expectedLayCapacity: input.expectedLayCapacity,
       purchaseInvestmentTotal: input.purchaseInvestmentTotal,
-      purchaseDate: input.purchaseDate ? new Date(input.purchaseDate) : null,
       notes: input.notes
     }
   });
@@ -300,6 +300,7 @@ export async function createBird(
   userId: string | null,
   input: {
     flockGroupId: string;
+    bayNumber?: number;
     ringNumber: string;
     nickname?: string;
     sex: "FEMALE" | "MALE" | "UNKNOWN";
@@ -311,7 +312,7 @@ export async function createBird(
 ) {
   const group = await prisma.flockGroup.findFirst({
     where: { id: input.flockGroupId, tenantId },
-    select: { id: true }
+    select: { id: true, bayNumber: true }
   });
   if (!group) return null;
 
@@ -319,6 +320,7 @@ export async function createBird(
     data: {
       tenantId,
       flockGroupId: input.flockGroupId,
+      bayNumber: input.bayNumber ?? group.bayNumber,
       ringNumber: input.ringNumber,
       nickname: input.nickname,
       sex: input.sex,
@@ -360,6 +362,7 @@ export async function updateBird(
   id: string,
   input: {
     flockGroupId: string;
+    bayNumber?: number;
     ringNumber: string;
     nickname?: string;
     sex: "FEMALE" | "MALE" | "UNKNOWN";
@@ -371,14 +374,21 @@ export async function updateBird(
 ) {
   const existing = await prisma.bird.findFirst({
     where: { id, tenantId },
-    select: { id: true, status: true }
+    select: { id: true, status: true, bayNumber: true }
   });
   if (!existing) return null;
+
+  const group = await prisma.flockGroup.findFirst({
+    where: { id: input.flockGroupId, tenantId },
+    select: { bayNumber: true }
+  });
+  if (!group) return null;
 
   const updated = await prisma.bird.update({
     where: { id },
     data: {
       flockGroupId: input.flockGroupId,
+      bayNumber: input.bayNumber ?? existing.bayNumber ?? group.bayNumber,
       ringNumber: input.ringNumber,
       nickname: input.nickname,
       sex: input.sex,

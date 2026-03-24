@@ -12,6 +12,7 @@ type PlantelGroup = {
   id: string;
   title: string;
   notes: string | null;
+  bayNumber: number;
   matrixCount: number;
   reproducerCount: number;
   species: { name: string };
@@ -33,6 +34,7 @@ type PlantelBird = {
   id: string;
   ringNumber: string;
   nickname: string | null;
+  bayNumber: number | null;
   sex: "FEMALE" | "MALE" | "UNKNOWN";
   status: BirdStatus;
   origin: string | null;
@@ -54,16 +56,17 @@ type GroupForm = {
   breed: string;
   variety: string;
   title: string;
+  bayNumber: number;
   matrixCount: number;
   reproducerCount: number;
   expectedLayCapacity?: number;
   purchaseInvestmentTotal?: number;
-  purchaseDate: string;
   notes: string;
 };
 
 type BirdForm = {
   flockGroupId: string;
+  bayNumber?: number;
   ringNumber: string;
   nickname: string;
   sex: "FEMALE" | "MALE" | "UNKNOWN";
@@ -114,14 +117,15 @@ const emptyGroupForm: GroupForm = {
   breed: "",
   variety: "",
   title: "",
+  bayNumber: 1,
   matrixCount: 0,
   reproducerCount: 0,
-  purchaseDate: "",
   notes: ""
 };
 
 const emptyBirdForm: BirdForm = {
   flockGroupId: "",
+  bayNumber: 1,
   ringNumber: "",
   nickname: "",
   sex: "UNKNOWN",
@@ -268,7 +272,11 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     setLoading(false);
 
     if (!birdForm.flockGroupId && data.groups.length > 0) {
-      setBirdForm((prev) => ({ ...prev, flockGroupId: data.groups[0].id }));
+      setBirdForm((prev) => ({
+        ...prev,
+        flockGroupId: data.groups[0].id,
+        bayNumber: data.groups[0].bayNumber
+      }));
     }
   }
 
@@ -328,7 +336,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       return;
     }
 
-    setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId }));
+    setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId, bayNumber: prev.bayNumber }));
     setEditingBirdId(null);
     setShowBirdModal(false);
     setSaving(false);
@@ -564,7 +572,9 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               variant="outline"
               onClick={() => {
                 setEditingBirdId(null);
-                setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId || groups[0]?.id || "" }));
+                const groupId = birdForm.flockGroupId || groups[0]?.id || "";
+                const selectedGroup = groups.find((group) => group.id === groupId);
+                setBirdForm({ ...emptyBirdForm, flockGroupId: groupId, bayNumber: selectedGroup?.bayNumber ?? 1 });
                 setShowBirdModal(true);
                 setLockedBirdGroupId(null);
               }}
@@ -708,11 +718,19 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 }
               />
             </Field>
-            <Input
-              type="date"
-              value={groupForm.purchaseDate}
-              onChange={(event) => setGroupForm((prev) => ({ ...prev, purchaseDate: event.target.value }))}
-            />
+            <Field label="Número da baia">
+              <Input
+                type="number"
+                min={1}
+                value={groupForm.bayNumber}
+                onChange={(event) =>
+                  setGroupForm((prev) => ({
+                    ...prev,
+                    bayNumber: Number(event.target.value) || 1
+                  }))
+                }
+              />
+            </Field>
           </div>
           <textarea
             className={textareaClass}
@@ -744,7 +762,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         onClose={() => {
           setShowBirdModal(false);
           setEditingBirdId(null);
-          setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId }));
+          setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId, bayNumber: prev.bayNumber }));
           setLockedBirdGroupId(null);
         }}
       >
@@ -758,7 +776,14 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             <select
               className={selectClass}
               value={birdForm.flockGroupId}
-              onChange={(event) => setBirdForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
+              onChange={(event) => {
+                const selectedGroup = groups.find((group) => group.id === event.target.value);
+                setBirdForm((prev) => ({
+                  ...prev,
+                  flockGroupId: event.target.value,
+                  bayNumber: selectedGroup?.bayNumber ?? prev.bayNumber ?? 1
+                }));
+              }}
             >
               <option value="">Grupo da ave: selecione o grupo</option>
               {groups.map((group) => (
@@ -801,25 +826,42 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               <option value="BROODY">Status atual: choca</option>
             </select>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              type="date"
-              value={birdForm.acquisitionDate}
-              onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
-            />
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              placeholder="Valor da compra: 350"
-              value={birdForm.purchaseValue ?? ""}
-              onChange={(event) =>
-                setBirdForm((prev) => ({
-                  ...prev,
-                  purchaseValue: event.target.value ? Number(event.target.value) : undefined
-                }))
-              }
-            />
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Data da aquisição">
+              <Input
+                type="date"
+                value={birdForm.acquisitionDate}
+                onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
+              />
+            </Field>
+            <Field label="Número da baia">
+              <Input
+                type="number"
+                min={1}
+                value={birdForm.bayNumber ?? ""}
+                onChange={(event) =>
+                  setBirdForm((prev) => ({
+                    ...prev,
+                    bayNumber: event.target.value ? Number(event.target.value) : undefined
+                  }))
+                }
+              />
+            </Field>
+            <Field label="Valor da compra">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder="Valor da compra: 350"
+                value={birdForm.purchaseValue ?? ""}
+                onChange={(event) =>
+                  setBirdForm((prev) => ({
+                    ...prev,
+                    purchaseValue: event.target.value ? Number(event.target.value) : undefined
+                  }))
+                }
+              />
+            </Field>
           </div>
           <Input
             placeholder="Origem ou fornecedor: Criatorio Exemplo"
@@ -836,7 +878,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               onClick={() => {
                 setShowBirdModal(false);
                 setEditingBirdId(null);
-                setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId }));
+                setBirdForm((prev) => ({ ...emptyBirdForm, flockGroupId: prev.flockGroupId, bayNumber: prev.bayNumber }));
               }}
             >
               Cancelar
@@ -888,7 +930,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
                   <p className="mt-2 text-sm text-[color:var(--ink-soft)]">
                     {group.species.name} - {group.breed.name}
-                    {group.variety?.name ? ` - ${group.variety.name}` : ""}
+                    {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                   </p>
 
                   <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -920,9 +962,9 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                         breed: group.breed.name,
                         variety: group.variety?.name ?? "",
                         title: group.title,
+                        bayNumber: group.bayNumber,
                         matrixCount: group.matrixCount,
                         reproducerCount: group.reproducerCount,
-                        purchaseDate: "",
                         notes: group.notes ?? ""
                       });
                     }}
@@ -938,7 +980,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     onClick={() => {
                       setEditingBirdId(null);
                       setLockedBirdGroupId(group.id);
-                      setBirdForm({ ...emptyBirdForm, flockGroupId: group.id });
+                      setBirdForm({ ...emptyBirdForm, flockGroupId: group.id, bayNumber: group.bayNumber });
                       setShowBirdModal(true);
                     }}
                   >
@@ -986,6 +1028,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                                     setShowBirdModal(true);
                                     setBirdForm({
                                       flockGroupId: bird.flockGroupId,
+                                      bayNumber: bird.bayNumber ?? group.bayNumber,
                                       ringNumber: bird.ringNumber,
                                       nickname: bird.nickname ?? "",
                                       sex: bird.sex,

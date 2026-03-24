@@ -224,6 +224,7 @@ model FlockGroup {
   breedId                 String
   varietyId               String?
   title                   String
+  bayNumber               Int             @default(1)
   matrixCount             Int             @default(0)
   reproducerCount         Int             @default(0)
   expectedLayCapacity     Float?
@@ -245,6 +246,7 @@ model Bird {
   id              String              @id @default(cuid())
   tenantId        String
   flockGroupId    String
+  bayNumber       Int?
   ringNumber      String
   nickname        String?
   sex             BirdSex             @default(UNKNOWN)
