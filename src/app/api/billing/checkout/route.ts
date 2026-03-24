@@ -24,11 +24,21 @@ export async function POST(request: Request) {
     const tenantId = auth.session.user.tenantId;
     const userEmail = auth.session.user.email;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
-    const priceId = process.env.STRIPE_PRICE_ID;
+    const payload = (await request.json().catch(() => ({}))) as { billingCycle?: "monthly" | "yearly" };
+    const billingCycle = payload.billingCycle === "yearly" ? "yearly" : "monthly";
+    const priceId =
+      billingCycle === "yearly"
+        ? process.env.STRIPE_PRICE_ID_YEARLY
+        : process.env.STRIPE_PRICE_ID_MONTHLY ?? process.env.STRIPE_PRICE_ID;
 
     if (!appUrl || !priceId) {
       return NextResponse.json(
-        { error: "Configuracao de cobranca incompleta (APP_URL/PRICE_ID)." },
+        {
+          error:
+            billingCycle === "yearly"
+              ? "Configuração incompleta: defina STRIPE_PRICE_ID_YEARLY."
+              : "Configuração incompleta: defina STRIPE_PRICE_ID_MONTHLY (ou STRIPE_PRICE_ID)."
+        },
         { status: 500 }
       );
     }
@@ -55,7 +65,7 @@ export async function POST(request: Request) {
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${appUrl}/perfil?billing=success`,
       cancel_url: `${appUrl}/perfil?billing=cancel`,
-      metadata: { tenantId }
+      metadata: { tenantId, billingCycle }
     });
 
     await prisma.subscription.updateMany({

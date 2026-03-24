@@ -50,7 +50,7 @@ function labelStatus(status?: string | null) {
 
 export function BillingProfileManager() {
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [processingCycle, setProcessingCycle] = useState<null | "monthly" | "yearly" | "portal">(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<BillingStatus | null>(null);
 
@@ -88,11 +88,15 @@ export function BillingProfileManager() {
     }
   }
 
-  async function startCheckout() {
-    setProcessing(true);
+  async function startCheckout(billingCycle: "monthly" | "yearly") {
+    setProcessingCycle(billingCycle);
     setError(null);
     try {
-      const res = await fetch("/api/billing/checkout", { method: "POST" });
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ billingCycle })
+      });
       const payload = await parseApiPayload<{ url?: string; error?: string }>(res);
 
       if (!res.ok || !payload?.url) {
@@ -104,12 +108,12 @@ export function BillingProfileManager() {
     } catch {
       setError("Nao foi possivel iniciar a assinatura. Verifique a conexao e tente novamente.");
     } finally {
-      setProcessing(false);
+      setProcessingCycle(null);
     }
   }
 
   async function openPortal() {
-    setProcessing(true);
+    setProcessingCycle("portal");
     setError(null);
     try {
       const res = await fetch("/api/billing/portal", { method: "POST" });
@@ -124,7 +128,7 @@ export function BillingProfileManager() {
     } catch {
       setError("Nao foi possivel abrir o portal de cobranca. Verifique a conexao e tente novamente.");
     } finally {
-      setProcessing(false);
+      setProcessingCycle(null);
     }
   }
 
@@ -188,13 +192,21 @@ export function BillingProfileManager() {
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Ações de cobrança</h3>
         <p className="mt-1 text-sm text-zinc-600">
-          Use os botões abaixo para iniciar a assinatura mensal ou gerenciar método de pagamento, troca de plano e cancelamento.
+          Escolha o plano Starter mensal ou anual. Você também pode abrir o portal para gerenciar pagamento, troca de plano e cancelamento.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" disabled={processing} onClick={startCheckout}>
-            {processing ? "Processando..." : "Iniciar/renovar assinatura"}
+          <Button type="button" disabled={processingCycle !== null} onClick={() => startCheckout("monthly")}>
+            {processingCycle === "monthly" ? "Processando..." : "Starter mensal"}
           </Button>
-          <Button type="button" variant="outline" disabled={processing || !data?.subscription?.providerCustomerId} onClick={openPortal}>
+          <Button type="button" variant="outline" disabled={processingCycle !== null} onClick={() => startCheckout("yearly")}>
+            {processingCycle === "yearly" ? "Processando..." : "Starter anual"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={processingCycle !== null || !data?.subscription?.providerCustomerId}
+            onClick={openPortal}
+          >
             Abrir portal de cobrança
           </Button>
           <Button type="button" variant="outline" onClick={loadData}>

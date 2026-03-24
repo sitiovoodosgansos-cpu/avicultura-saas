@@ -3,7 +3,7 @@
 Sistema SaaS multi-tenant para gestão de criação de aves ornamentais, com:
 - login por e-mail/senha
 - trial grátis de 7 dias
-- assinatura mensal com Stripe
+- assinatura mensal e anual com Stripe
 - módulos: Dashboard, Plantel, Coleta de Ovos, Chocadeiras, Sanidade, Financeiro, Relatórios (PDF)
 
 ---
@@ -34,7 +34,8 @@ NEXTAUTH_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 STRIPE_SECRET_KEY="sk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
-STRIPE_PRICE_ID="price_..."
+STRIPE_PRICE_ID_MONTHLY="price_..."
+STRIPE_PRICE_ID_YEARLY="price_..."
 ```
 
 ### 2.3 Banco de dados
@@ -61,13 +62,12 @@ Abra:
 
 ## 3) Stripe (setup bem mastigado)
 
-### 3.1 Criar produto e preço mensal
+### 3.1 Criar produto e preços mensal/anual
 1. Entre no Stripe Dashboard.
 2. Vá em `Products` > `Create product`.
-3. Nome: `Plano Mensal Gestão de Aves`.
-4. Em preço, escolha `Recurring` mensal.
-5. Salve e copie o `price_id`.
-6. Coloque no `.env` em `STRIPE_PRICE_ID`.
+3. Nome: `Plano Starter Ornabird`.
+4. Crie um preço recorrente mensal e copie o `price_id` para `STRIPE_PRICE_ID_MONTHLY`.
+5. Crie um preço recorrente anual (ex.: R$ 299) e copie o `price_id` para `STRIPE_PRICE_ID_YEARLY`.
 
 ### 3.2 Configurar webhook
 Eventos recomendados para este projeto:
@@ -129,7 +129,7 @@ Depois do deploy:
 ## 5) Como usar cobrança no sistema
 
 - Página de assinatura: `/perfil`
-- Botão de checkout: inicia assinatura mensal
+- Botão de checkout: permite escolher assinatura mensal ou anual
 - Botão de portal: gerencia cartão/plano/cancelamento
 - Histórico de eventos Stripe: exibido na mesma tela
 
