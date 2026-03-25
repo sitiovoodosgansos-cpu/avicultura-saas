@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -24,9 +25,14 @@ export function AppNav() {
         <div className="sticky top-4 rounded-[30px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,249,255,0.94))] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
           <div className="mb-8">
             <div className="flex items-center gap-3">
-              <div className="flex size-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-xl shadow-[0_12px_30px_rgba(15,157,138,0.22)]">
-                {"\u{1F426}"}
-              </div>
+              <Image
+                src="/ornabird-favicon.png"
+                alt="Ornabird"
+                width={48}
+                height={48}
+                className="size-12 object-contain"
+                priority
+              />
               <div>
                 <p className="text-xs font-semibold tracking-[0.2em] text-slate-400">Ornabird</p>
                 <h2 className="text-sm font-semibold leading-tight text-slate-900">
