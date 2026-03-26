@@ -6,10 +6,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const baseItems = [
-  { href: "/equipe/plantel", label: "Plantel", emoji: "\u{1F9DA}", key: "allowPlantel" },
-  { href: "/equipe/coleta-ovos", label: "Coleta", emoji: "\u{1F95A}", key: "allowEggs" },
-  { href: "/equipe/chocadeiras", label: "Chocadeiras", emoji: "\u{1F423}", key: "allowIncubators" },
-  { href: "/equipe/sanidade", label: "Sanidade", emoji: "\u{1F48A}", key: "allowHealth" }
+  { href: "/equipe/plantel", label: "Plantel", emoji: "🧚", key: "allowPlantel" },
+  { href: "/equipe/coleta-ovos", label: "Coleta", emoji: "🥚", key: "allowEggs" },
+  { href: "/equipe/chocadeiras", label: "Chocadeiras", emoji: "🐣", key: "allowIncubators" },
+  { href: "/equipe/sanidade", label: "Sanidade", emoji: "💊", key: "allowHealth" }
 ] as const;
 
 type Permissions = {

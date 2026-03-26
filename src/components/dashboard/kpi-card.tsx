@@ -8,7 +8,7 @@ type KpiCardProps = {
   emoji?: string;
 };
 
-export function KpiCard({ title, value, hint, emoji = "\u{1F4CA}" }: KpiCardProps) {
+export function KpiCard({ title, value, hint, emoji = "📊" }: KpiCardProps) {
   return (
     <Card className="h-full">
       <div className="flex flex-col items-center gap-2 text-center sm:items-start sm:gap-3 sm:text-left">

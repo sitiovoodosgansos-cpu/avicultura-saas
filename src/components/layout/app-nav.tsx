@@ -6,14 +6,14 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", emoji: "\u{1F3E0}" },
-  { href: "/plantel", label: "Plantel", emoji: "\u{1F99A}" },
-  { href: "/coleta-ovos", label: "Coleta", emoji: "\u{1F95A}" },
-  { href: "/chocadeiras", label: "Chocadeiras", emoji: "\u{1F423}" },
-  { href: "/sanidade", label: "Sanidade", emoji: "\u{1F48A}" },
-  { href: "/financeiro", label: "Financeiro", emoji: "\u{1F4B0}" },
-  { href: "/relatorios", label: "Relatorios", emoji: "\u{1F4CA}" },
-  { href: "/perfil", label: "Perfil", emoji: "\u{2699}\u{FE0F}" }
+  { href: "/dashboard", label: "Dashboard", emoji: "🏠" },
+  { href: "/plantel", label: "Plantel", emoji: "🦚" },
+  { href: "/coleta-ovos", label: "Coleta", emoji: "🥚" },
+  { href: "/chocadeiras", label: "Chocadeiras", emoji: "🐣" },
+  { href: "/sanidade", label: "Sanidade", emoji: "💊" },
+  { href: "/financeiro", label: "Financeiro", emoji: "💰" },
+  { href: "/relatorios", label: "Relatorios", emoji: "📊" },
+  { href: "/perfil", label: "Perfil", emoji: "⚙️" }
 ];
 
 export function AppNav() {

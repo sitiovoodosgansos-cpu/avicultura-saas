@@ -33,7 +33,7 @@ export default async function EmployeePortalLayout({
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden rounded-2xl bg-[color:var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--brand-strong)] md:block">
-                {"\u{1F9FE}"} Lancamentos com seguranca
+                {"🧾"} Lancamentos com seguranca
               </div>
               <Link
                 href="/equipe/auth/logout"

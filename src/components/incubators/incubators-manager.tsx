@@ -415,7 +415,7 @@ export function IncubatorsManager() {
       <PageTitle
         title="Chocadeiras"
         description="Layout moderno para maquinas, lotes e eventos de incubacao."
-        icon="\u{1F423}"
+        icon="🐣"
       />
 
       {error ? (

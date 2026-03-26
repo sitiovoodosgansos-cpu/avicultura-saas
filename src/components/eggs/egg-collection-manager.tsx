@@ -336,7 +336,7 @@ export function EggCollectionManager() {
       <PageTitle
         title="Coleta de ovos"
         description="Visao mensal para acompanhar o sitio sem lotar a tela com listas longas."
-        icon="\u{1F95A}"
+        icon="🥚"
       />
 
       {error ? (
@@ -346,12 +346,12 @@ export function EggCollectionManager() {
       ) : null}
 
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <StatTile emoji={"\u{1F95A}"} label="Hoje" value={metrics?.summary.eggsToday ?? 0} />
-        <StatTile emoji={"\u{26A0}\u{FE0F}"} label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
-        <StatTile emoji={"\u{1F4C8}"} label="Bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
-        <StatTile emoji={"\u{1F4C5}"} label="Semana" value={overallTotals.week} />
-        <StatTile emoji={"\u{1F5D3}\u{FE0F}"} label="Mes" value={overallTotals.month} />
-        <StatTile emoji={"\u{1F4CA}"} label="Ano" value={overallTotals.year} />
+        <StatTile emoji={"🥚"} label="Hoje" value={metrics?.summary.eggsToday ?? 0} />
+        <StatTile emoji={"⚠️"} label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
+        <StatTile emoji={"📈"} label="Bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
+        <StatTile emoji={"📅"} label="Semana" value={overallTotals.week} />
+        <StatTile emoji={"🗓️"} label="Mes" value={overallTotals.month} />
+        <StatTile emoji={"📊"} label="Ano" value={overallTotals.year} />
       </section>
 
       <Card>
@@ -487,10 +487,10 @@ export function EggCollectionManager() {
                   <div className={`h-2.5 rounded-full ${perfColor(group.performance)}`} style={{ width: `${width}%` }} />
                 </div>
                 <p className="mt-2 text-xs text-[color:var(--ink-soft)]">
-                  {"\u{1F95A}"} matrizes {group.matrixCount} - meta/matriz {group.expectedLayCapacity || 0}
+                  {"🥚"} matrizes {group.matrixCount} - meta/matriz {group.expectedLayCapacity || 0}
                 </p>
                 <p className="mt-1 text-xs text-[color:var(--ink-soft)]">
-                  {"\u{1F4CA}"} anual {group.eggs365}/{group.expectedGroupAnnual || 0} ({formatPercent(group.progress)})
+                  {"📊"} anual {group.eggs365}/{group.expectedGroupAnnual || 0} ({formatPercent(group.progress)})
                 </p>
               </div>
             </Card>

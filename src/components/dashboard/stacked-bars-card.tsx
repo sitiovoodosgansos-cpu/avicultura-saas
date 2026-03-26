@@ -30,7 +30,7 @@ export function StackedBarsCard({
   title,
   subtitle,
   data,
-  emoji = "\u{1F4CA}"
+  emoji = "📊"
 }: StackedBarsCardProps) {
   return (
     <Card>

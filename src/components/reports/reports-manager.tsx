@@ -130,7 +130,7 @@ export function ReportsManager() {
       <PageTitle
         title="Relatórios"
         description="Consolidação do progresso do sítio com exportação em PDF profissional."
-        icon="\u{1F4CA}"
+        icon="📊"
       />
 
       {error ? (

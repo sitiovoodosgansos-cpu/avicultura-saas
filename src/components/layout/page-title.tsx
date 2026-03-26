@@ -6,7 +6,7 @@ type PageTitleProps = {
   icon?: string;
 };
 
-export function PageTitle({ title, description, icon = "\u{2728}" }: PageTitleProps) {
+export function PageTitle({ title, description, icon = "✨" }: PageTitleProps) {
   return (
     <header className="mb-5 rounded-xl border border-[color:var(--line)] bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(240,245,255,0.92))] px-4 py-4 shadow-[0_14px_35px_rgba(15,23,42,0.06)] sm:mb-6 sm:rounded-[28px] sm:px-5 sm:py-5 sm:shadow-[0_16px_40px_rgba(15,23,42,0.06)]">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--brand-strong)]">

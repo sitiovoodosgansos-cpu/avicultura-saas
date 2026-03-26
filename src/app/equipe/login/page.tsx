@@ -42,7 +42,7 @@ export default function EmployeeLoginPage() {
       <Card className="w-full max-w-md p-6">
         <div className="flex items-center gap-3">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-2xl text-white shadow-[0_16px_34px_rgba(15,157,138,0.28)]">
-            {"\u{1FABA}"}
+            {"🪺"}
           </div>
           <div>
             <h1 className="text-2xl font-semibold text-zinc-900">Acesso da equipe</h1>

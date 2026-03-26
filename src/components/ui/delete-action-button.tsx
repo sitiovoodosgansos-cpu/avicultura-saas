@@ -18,7 +18,7 @@ export function DeleteActionButton({
       variant="danger"
       size="icon"
       iconOnlyOnMobile
-      mobileIcon="\u{1F5D1}\u{FE0F}"
+      mobileIcon="🗑️"
       aria-label={ariaLabel ?? label}
       title={ariaLabel ?? label}
       className={cn("sm:h-11 sm:w-auto sm:px-4 sm:text-sm", className)}

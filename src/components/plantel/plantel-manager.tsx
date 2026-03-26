@@ -457,7 +457,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       <PageTitle
         title="Plantel"
         description="Cadastro do plantel com foco em grupos, anilhas e status das aves."
-        icon="\u{1F99A}"
+        icon="🦚"
       />
 
       {error ? (
@@ -467,17 +467,17 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       ) : null}
 
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        <StatChip emoji={"\u{1F425}"} label="Aves totais" value={totals.total} />
-        <StatChip emoji={"\u{2705}"} label="Ativas" value={totals.active} />
-        <StatChip emoji={"\u{1F922}"} label="Doentes" value={totals.sick} />
-        <StatChip emoji={"\u{1F5D1}\u{FE0F}"} label="Mortas" value={totals.dead} />
+        <StatChip emoji={"🐥"} label="Aves totais" value={totals.total} />
+        <StatChip emoji={"✅"} label="Ativas" value={totals.active} />
+        <StatChip emoji={"🤢"} label="Doentes" value={totals.sick} />
+        <StatChip emoji={"🗑️"} label="Mortas" value={totals.dead} />
       </section>
 
       {showWorkerLinks ? (
       <Card>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">{`${"\u{1F517}"} Link da equipe`}</h3>
+            <h3 className="text-xl font-semibold text-slate-900">{`${"🔗"} Link da equipe`}</h3>
             <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
               Gere um link para funcionario lancar plantel, coleta, chocadeiras e sanidade sem acessar o financeiro.
             </p>
@@ -909,13 +909,13 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   </p>
 
                   <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
-                    <StatChip emoji={"\u{1F425}"} label="Total" value={group.summary.totalBirds} />
-                    <StatChip emoji={"\u{1F95A}"} label="Matrizes" value={group.matrixCount} />
-                    <StatChip emoji={"\u{1F413}"} label="Reprodutores" value={group.reproducerCount} />
-                    <StatChip emoji={"\u{2705}"} label="Ativas" value={group.summary.ACTIVE} />
-                    <StatChip emoji={"\u{1F922}"} label="Doentes" value={group.summary.SICK} />
-                    <StatChip emoji={"\u{1F5D1}\u{FE0F}"} label="Mortas" value={group.summary.DEAD} />
-                    <StatChip emoji={"\u{1F95A}"} label="Chocas" value={group.summary.BROODY} />
+                    <StatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
+                    <StatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
+                    <StatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
+                    <StatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
+                    <StatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
+                    <StatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
+                    <StatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
                   </div>
 
                   {group.notes ? (

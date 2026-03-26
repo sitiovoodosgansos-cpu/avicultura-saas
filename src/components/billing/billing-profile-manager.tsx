@@ -146,7 +146,7 @@ export function BillingProfileManager() {
       <PageTitle
         title="Perfil / Assinatura"
         description="Gerencie sua conta, trial de 7 dias, assinatura e cobrança."
-        icon="\u{1F464}"
+        icon="👤"
       />
 
       {billingMessage === "success" ? (

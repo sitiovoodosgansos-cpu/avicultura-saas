@@ -558,7 +558,7 @@ export function HealthManager() {
       <PageTitle
         title="Sanidade / Enfermaria"
         description="Controle clinico com enfermarias, timeline e quarentena de novas aves."
-        icon="\u{1F48A}"
+        icon="💊"
       />
 
       {error ? (

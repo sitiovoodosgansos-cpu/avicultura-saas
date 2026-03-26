@@ -29,7 +29,7 @@ export default async function DashboardPage() {
         <PageTitle
           title="Dashboard"
           description="Resumo consolidado do plantel, ovos, sanidade, chocadeiras e finanças."
-          icon="\u{1F3E0}"
+          icon="🏠"
         />
         <Card>
           <p className="text-sm text-red-600">Sessão inválida. Faça login novamente.</p>
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
       <PageTitle
         title="Dashboard"
         description="Resumo consolidado do plantel, ovos, sanidade, chocadeiras e finanças."
-        icon="\u{1F3E0}"
+        icon="🏠"
       />
 
       {data.warning ? (
@@ -126,14 +126,14 @@ export default async function DashboardPage() {
           title="Evolução da coleta de ovos"
           subtitle="Produção diária nos últimos 30 dias"
           data={chartEggs}
-          emoji="\u{1F95A}"
+          emoji="🥚"
         />
         <LineChartCard
           title="Evolução do criatório"
           subtitle="Novas aves por mês (últimos 12 meses)"
           data={chartAviaryGrowth}
           color="#0f766e"
-          emoji="\u{1F99A}"
+          emoji="🦚"
         />
       </section>
 
@@ -143,13 +143,13 @@ export default async function DashboardPage() {
           subtitle="Taxa de eclosão no período"
           data={chartIncubator}
           color="#7c3aed"
-          emoji="\u{1F423}"
+          emoji="🐣"
         />
         <StackedBarsCard
           title="Evolução financeira"
           subtitle="Entradas e saídas dos últimos 12 meses"
           data={data.charts.financialEvolution}
-          emoji="\u{1F4B0}"
+          emoji="💰"
         />
       </section>
 
@@ -159,7 +159,7 @@ export default async function DashboardPage() {
           subtitle="Casos abertos por mês"
           data={chartHealthOpen}
           color="#dc2626"
-          emoji="\u{1F48A}"
+          emoji="💊"
         />
         <Card>
           <h3 className="text-base font-semibold text-zinc-900">Resumo operacional</h3>

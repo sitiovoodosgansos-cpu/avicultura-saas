@@ -27,7 +27,7 @@ export function LineChartCard({
   subtitle,
   data,
   color = "#0f766e",
-  emoji = "\u{1F4C8}"
+  emoji = "📈"
 }: LineChartCardProps) {
   return (
     <Card>

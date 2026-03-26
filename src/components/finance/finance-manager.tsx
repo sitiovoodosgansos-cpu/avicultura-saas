@@ -531,7 +531,7 @@ export function FinanceManager() {
       <PageTitle
         title="Financeiro"
         description="Entradas, saidas, comparativos de periodo e resultado liquido."
-        icon="\u{1F4B0}"
+        icon="💰"
       />
 
       {error ? (
@@ -542,19 +542,19 @@ export function FinanceManager() {
 
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <Card>
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{`\u{1F4E5} Entradas do mes`}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{`📥 Entradas do mes`}</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(metrics?.summary.monthIncome ?? 0)}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{`\u{1F4E4} Saidas do mes`}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{`📤 Saidas do mes`}</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(metrics?.summary.monthExpenses ?? 0)}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{`\u{1F4B3} Saldo do mes`}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{`💳 Saldo do mes`}</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(metrics?.summary.monthNet ?? 0)}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{`\u{1F4CA} Resultado`}</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">{`📊 Resultado`}</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatMoney(totals.net)}</p>
         </Card>
       </section>
@@ -590,7 +590,7 @@ export function FinanceManager() {
             </div>
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
-              <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"\u{1F5D1}\u{FE0F}"}</Button>
+              <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
             </div>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
@@ -629,7 +629,7 @@ export function FinanceManager() {
             </div>
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <ItemSelect value={expenseForm.item} options={expenseItemOptions} onChange={(value) => setExpenseForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("expenseItem")} />
-              <Button type="button" variant="outline" onClick={() => removeCustomExpenseItem(expenseForm.item)} title="Excluir item selecionado">{"\u{1F5D1}\u{FE0F}"}</Button>
+              <Button type="button" variant="outline" onClick={() => removeCustomExpenseItem(expenseForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
             </div>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
@@ -839,7 +839,7 @@ export function FinanceManager() {
           </div>
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
-            <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"\u{1F5D1}\u{FE0F}"}</Button>
+            <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
           </div>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
@@ -876,7 +876,7 @@ export function FinanceManager() {
           </div>
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <ItemSelect value={expenseForm.item} options={expenseItemOptions} onChange={(value) => setExpenseForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("expenseItem")} />
-            <Button type="button" variant="outline" onClick={() => removeCustomExpenseItem(expenseForm.item)} title="Excluir item selecionado">{"\u{1F5D1}\u{FE0F}"}</Button>
+            <Button type="button" variant="outline" onClick={() => removeCustomExpenseItem(expenseForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
           </div>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
