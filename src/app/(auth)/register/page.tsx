@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -51,7 +51,7 @@ export default function RegisterPage() {
       router.push("/dashboard");
       router.refresh();
     } catch {
-      setServerError("NÃ£o foi possÃ­vel criar a conta agora. Verifique a conexÃ£o com o banco e tente novamente.");
+      setServerError("Nao foi possivel criar a conta agora. Verifique a conexao com o banco e tente novamente.");
     } finally {
       clearTimeout(timeoutId);
       setLoading(false);
@@ -62,7 +62,7 @@ export default function RegisterPage() {
     <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_#fefce8,_#f8f6f2_45%)] p-4">
       <Card className="w-full max-w-lg p-6">
         <h1 className="text-2xl font-semibold text-zinc-900">Criar conta</h1>
-        <p className="mt-1 text-sm text-zinc-500">Período de teste grátis de 7 dias.</p>
+        <p className="mt-1 text-sm text-zinc-500">Periodo de teste gratis de 7 dias.</p>
 
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
           <div>
@@ -71,8 +71,8 @@ export default function RegisterPage() {
             {errors.name ? <p className="mt-1 text-xs text-red-600">{errors.name.message}</p> : null}
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome do sítio</label>
-            <Input placeholder="Sítio Exemplo" {...register("farmName")} />
+            <label className="mb-1 block text-sm font-medium">Nome do sitio</label>
+            <Input placeholder="Sitio Exemplo" {...register("farmName")} />
             {errors.farmName ? <p className="mt-1 text-xs text-red-600">{errors.farmName.message}</p> : null}
           </div>
           <div>
@@ -93,7 +93,7 @@ export default function RegisterPage() {
         </form>
 
         <p className="mt-4 text-sm text-zinc-500">
-          Já possui conta?{" "}
+          Ja possui conta?{" "}
           <Link href="/login" className="font-semibold text-[#0f766e] hover:underline">
             Fazer login
           </Link>

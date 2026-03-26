@@ -693,7 +693,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 }
               />
             </Field>
-            <Field label="NÃºmero da baia">
+            <Field label="Numero da baia">
               <Input
                 type="number"
                 min={1}
@@ -802,14 +802,14 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             </select>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Data da aquisiÃ§Ã£o">
+            <Field label="Data da aquisicao">
               <Input
                 type="date"
                 value={birdForm.acquisitionDate}
                 onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
               />
             </Field>
-            <Field label="NÃºmero da baia">
+            <Field label="Numero da baia">
               <Input
                 type="number"
                 min={1}
@@ -1078,6 +1078,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     </main>
   );
 }
+
 
 
 

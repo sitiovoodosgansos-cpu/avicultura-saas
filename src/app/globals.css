@@ -81,4 +81,15 @@ body.native-android {
   .mobile-kpi-grid {
     gap: var(--mobile-card-gap);
   }
+
+  .mobile-kpi-grid > * {
+    text-align: center;
+  }
+
+  .mobile-kpi-grid > * p:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+  }
 }

@@ -11,8 +11,8 @@ type KpiCardProps = {
 export function KpiCard({ title, value, hint, emoji = "\u{1F4CA}" }: KpiCardProps) {
   return (
     <Card className="h-full">
-      <div className="flex items-start gap-3">
-        <IconBadge emoji={emoji} tone="amber" className="size-9 rounded-lg text-base sm:size-10 sm:rounded-xl" />
+      <div className="flex flex-col items-center gap-2 text-center sm:items-start sm:gap-3 sm:text-left">
+        <IconBadge emoji={emoji} tone="amber" className="size-10 rounded-xl text-lg sm:size-10 sm:rounded-xl" />
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400 sm:text-xs">{title}</p>
           <p className="mt-1 text-2xl font-semibold text-zinc-900 sm:mt-2">{value}</p>
@@ -22,4 +22,3 @@ export function KpiCard({ title, value, hint, emoji = "\u{1F4CA}" }: KpiCardProp
     </Card>
   );
 }
-
