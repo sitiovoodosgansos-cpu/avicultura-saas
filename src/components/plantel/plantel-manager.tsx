@@ -1,11 +1,13 @@
-"use client";
+﻿"use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
+import { AppModal } from "@/components/ui/app-modal";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type PlantelGroup = {
@@ -159,7 +161,7 @@ function StatChip({
   value: number;
 }) {
   return (
-    <div className="rounded-2xl bg-[color:var(--surface-soft)] px-3 py-3 sm:px-4 sm:py-4">
+    <div className="rounded-xl bg-[color:var(--surface-soft)] px-3 py-3 sm:rounded-2xl sm:px-4 sm:py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-xs">
         {emoji} {label}
       </p>
@@ -176,34 +178,6 @@ function toDateInput(value: string | null | undefined) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function AppModal({
-  open,
-  title,
-  onClose,
-  children
-}: {
-  open: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[90] grid items-start justify-center overflow-y-auto bg-slate-950/35 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 md:items-center md:py-6">
-      <div className="mt-2 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-[color:var(--line)] bg-[color:var(--surface)] p-5 shadow-2xl md:mt-0">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-xl font-semibold text-slate-900">{title}</h3>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Fechar
-          </Button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
 }
 
 export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: boolean }) {
@@ -481,8 +455,9 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   return (
     <main className="space-y-6">
       <PageTitle
-        title={`${"\u{1F99A}"} Plantel`}
+        title="Plantel"
         description="Cadastro do plantel com foco em grupos, anilhas e status das aves."
+        icon="\u{1F99A}"
       />
 
       {error ? (
@@ -491,7 +466,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         </Card>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <StatChip emoji={"\u{1F425}"} label="Aves totais" value={totals.total} />
         <StatChip emoji={"\u{2705}"} label="Ativas" value={totals.active} />
         <StatChip emoji={"\u{1F922}"} label="Doentes" value={totals.sick} />
@@ -550,7 +525,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       <Card>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">Lancamentos do plantel</h3>
+            <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Lancamentos do plantel</h3>
             <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
               Use botoes para abrir os cadastros em popup e manter a tela principal limpa.
             </p>
@@ -587,7 +562,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       <Card>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900">Evolucao de aves novas</h3>
+            <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Evolucao de aves novas</h3>
             <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
               Acompanhe novos cadastros por ano, por mes e por um mes especifico.
             </p>
@@ -621,7 +596,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             </select>
           </div>
         </div>
-        <div className="mt-5 h-72 rounded-2xl bg-[color:var(--surface-soft)] p-3">
+        <div className="mt-5 h-72 rounded-xl bg-[color:var(--surface-soft)] p-3 sm:rounded-2xl">
           {growthChartData.length === 0 ? (
             <div className="grid h-full place-items-center text-sm text-[color:var(--ink-soft)]">Sem dados suficientes ainda.</div>
           ) : (
@@ -718,7 +693,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 }
               />
             </Field>
-            <Field label="Número da baia">
+            <Field label="NÃºmero da baia">
               <Input
                 type="number"
                 min={1}
@@ -827,14 +802,14 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             </select>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Data da aquisição">
+            <Field label="Data da aquisiÃ§Ã£o">
               <Input
                 type="date"
                 value={birdForm.acquisitionDate}
                 onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
               />
             </Field>
-            <Field label="Número da baia">
+            <Field label="NÃºmero da baia">
               <Input
                 type="number"
                 min={1}
@@ -971,9 +946,11 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   >
                     Editar grupo
                   </Button>
-                  <Button variant="danger" type="button" onClick={() => removeGroup(group.id)}>
-                    Excluir grupo
-                  </Button>
+                  <DeleteActionButton
+                    onClick={() => removeGroup(group.id)}
+                    label="Excluir grupo"
+                    aria-label="Excluir grupo"
+                  />
                   <Button
                     variant="outline"
                     type="button"
@@ -1041,9 +1018,10 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                                 >
                                   Editar
                                 </Button>
-                                <Button variant="danger" type="button" onClick={() => removeBird(bird.id)}>
-                                  Excluir
-                                </Button>
+                                <DeleteActionButton
+                                  onClick={() => removeBird(bird.id)}
+                                  aria-label="Excluir ave"
+                                />
                                 <select
                                   className={`${selectClass} min-w-40`}
                                   value={statusDraftByBird[bird.id] ?? bird.status}
@@ -1100,5 +1078,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     </main>
   );
 }
+
 
 

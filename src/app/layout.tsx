@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { NativeAppRuntime } from "@/components/mobile/native-app-runtime";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body>
         {children}
+        <NativeAppRuntime />
         <Analytics />
       </body>
     </html>

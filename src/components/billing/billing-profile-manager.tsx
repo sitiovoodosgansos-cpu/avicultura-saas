@@ -5,6 +5,7 @@ import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmployeesManager } from "@/components/employees/employees-manager";
+import { openUrlWithNativeFallback } from "@/lib/mobile/open-url";
 
 type BillingStatus = {
   tenant: {
@@ -104,7 +105,7 @@ export function BillingProfileManager() {
         return;
       }
 
-      window.location.href = payload.url;
+      await openUrlWithNativeFallback(payload.url);
     } catch {
       setError("Nao foi possivel iniciar a assinatura. Verifique a conexao e tente novamente.");
     } finally {
@@ -124,7 +125,7 @@ export function BillingProfileManager() {
         return;
       }
 
-      window.location.href = payload.url;
+      await openUrlWithNativeFallback(payload.url);
     } catch {
       setError("Nao foi possivel abrir o portal de cobranca. Verifique a conexao e tente novamente.");
     } finally {
@@ -145,6 +146,7 @@ export function BillingProfileManager() {
       <PageTitle
         title="Perfil / Assinatura"
         description="Gerencie sua conta, trial de 7 dias, assinatura e cobrança."
+        icon="\u{1F464}"
       />
 
       {billingMessage === "success" ? (
@@ -170,21 +172,21 @@ export function BillingProfileManager() {
         </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <Card>
-          <p className="text-sm text-zinc-500">Sítio</p>
+          <p className="text-sm text-zinc-500">🏡 Sitio</p>
           <p className="mt-2 text-xl font-semibold text-zinc-900">{data?.farmName ?? "-"}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Plano atual</p>
+          <p className="text-sm text-zinc-500">📦 Plano atual</p>
           <p className="mt-2 text-xl font-semibold text-zinc-900">{data?.subscription?.planCode ?? "starter"}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Status da assinatura</p>
+          <p className="text-sm text-zinc-500">💳 Status da assinatura</p>
           <p className="mt-2 text-xl font-semibold text-zinc-900">{labelStatus(data?.subscription?.status ?? data?.tenant.status)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">Trial grátis</p>
+          <p className="text-sm text-zinc-500">⏳ Trial gratis</p>
           <p className="mt-2 text-xl font-semibold text-zinc-900">{trialLabel}</p>
         </Card>
       </section>

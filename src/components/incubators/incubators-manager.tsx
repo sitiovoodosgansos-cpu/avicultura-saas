@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
 
@@ -411,7 +412,11 @@ export function IncubatorsManager() {
 
   return (
     <main className="space-y-6">
-      <PageTitle title="Chocadeiras" description="Layout moderno para maquinas, lotes e eventos de incubacao." />
+      <PageTitle
+        title="Chocadeiras"
+        description="Layout moderno para maquinas, lotes e eventos de incubacao."
+        icon="\u{1F423}"
+      />
 
       {error ? (
         <Card>
@@ -419,11 +424,11 @@ export function IncubatorsManager() {
         </Card>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Ativas</p><p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.activeIncubators ?? 0}</p></Card>
-        <Card><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Lotes ativos</p><p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.activeBatches ?? 0}</p></Card>
-        <Card><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Finalizados</p><p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.finalizedBatches ?? 0}</p></Card>
-        <Card><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Taxa eclosao</p><p className="mt-2 text-2xl font-semibold text-zinc-900">{formatPercent(metrics?.summary.hatchRate ?? 0)}</p></Card>
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        <Card><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🐣 Ativas</p><p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.activeIncubators ?? 0}</p></Card>
+        <Card><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🥚 Lotes ativos</p><p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.activeBatches ?? 0}</p></Card>
+        <Card><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">📦 Finalizados</p><p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.finalizedBatches ?? 0}</p></Card>
+        <Card><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">📈 Taxa eclosao</p><p className="mt-2 text-2xl font-semibold text-zinc-900">{formatPercent(metrics?.summary.hatchRate ?? 0)}</p></Card>
       </section>
 
       <Card>
@@ -472,7 +477,7 @@ export function IncubatorsManager() {
                 >
                   Editar
                 </Button>
-                <Button variant="danger" type="button" onClick={() => removeDevice(device.id)}>Excluir</Button>
+                <DeleteActionButton onClick={() => removeDevice(device.id)} aria-label="Excluir chocadeira" />
               </div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-zinc-50 p-3 text-sm">
@@ -511,7 +516,7 @@ export function IncubatorsManager() {
                       setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: batch.flockGroupId, eggsSet: batch.eggsSet }]);
                       setShowBatchModal(true);
                     }}>Editar</Button>
-                    <Button variant="danger" type="button" onClick={() => removeBatch(batch.id)}>Excluir</Button>
+                    <DeleteActionButton onClick={() => removeBatch(batch.id)} aria-label="Excluir lote" />
                   </div>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-5">

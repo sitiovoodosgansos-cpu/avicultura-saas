@@ -12,6 +12,17 @@
   --brand-strong: #064e3b;
   --accent: #d4a853;
   --ink-soft: #475569;
+  --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-nav-bottom-gap: max(0.75rem, calc(var(--mobile-safe-bottom) + 0.5rem));
+  --mobile-nav-height: 10.5rem;
+  --mobile-nav-content-gap: 1rem;
+  --mobile-nav-total-space: calc(
+    var(--mobile-nav-height) + var(--mobile-nav-bottom-gap) + var(--mobile-nav-content-gap)
+  );
+  --mobile-card-gap: 0.75rem;
+  --mobile-title-size: 1.85rem;
+  --mobile-subtitle-size: 13px;
+  --mobile-section-gap: 1.25rem;
 }
 
 @theme inline {
@@ -45,4 +56,29 @@ button {
 
 .font-heading {
   font-family: var(--font-heading), "Segoe UI", sans-serif;
+}
+
+.mobile-bottom-nav {
+  bottom: var(--mobile-nav-bottom-gap);
+  padding-bottom: max(0.5rem, var(--mobile-safe-bottom));
+  min-height: var(--mobile-nav-height);
+}
+
+.mobile-page-with-nav {
+  padding-bottom: var(--mobile-nav-total-space);
+}
+
+body.native-android {
+  --mobile-nav-bottom-gap: max(1rem, calc(var(--mobile-safe-bottom) + 2.5rem));
+  --mobile-nav-content-gap: 1.25rem;
+}
+
+@media (max-width: 767px) {
+  main.space-y-6 > * + * {
+    margin-top: var(--mobile-section-gap) !important;
+  }
+
+  .mobile-kpi-grid {
+    gap: var(--mobile-card-gap);
+  }
 }

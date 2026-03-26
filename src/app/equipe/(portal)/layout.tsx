@@ -23,7 +23,7 @@ export default async function EmployeePortalLayout({
           allowHealth: session.employee.allowHealth
         }}
       />
-      <div className="flex-1 pb-24 md:pb-0">
+      <div className="mobile-page-with-nav flex-1 md:pb-0">
         <header className="px-4 py-3 md:px-8">
           <div className="flex items-center justify-between gap-4 rounded-[26px] border border-[color:var(--line)] bg-white/90 px-4 py-3 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
             <div>

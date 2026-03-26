@@ -10,6 +10,7 @@ import {
   YAxis
 } from "recharts";
 import { Card } from "@/components/ui/card";
+import { IconBadge } from "@/components/ui/icon-badge";
 
 type Datum = { label: string; value: number };
 
@@ -18,19 +19,24 @@ type LineChartCardProps = {
   subtitle: string;
   data: Datum[];
   color?: string;
+  emoji?: string;
 };
 
 export function LineChartCard({
   title,
   subtitle,
   data,
-  color = "#0f766e"
+  color = "#0f766e",
+  emoji = "\u{1F4C8}"
 }: LineChartCardProps) {
   return (
     <Card>
-      <div className="mb-4">
-        <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
-        <p className="text-xs text-zinc-500">{subtitle}</p>
+      <div className="mb-4 flex items-start gap-3">
+        <IconBadge emoji={emoji} tone="sky" className="size-9 rounded-lg text-base sm:size-10 sm:rounded-xl" />
+        <div>
+          <h3 className="text-sm font-semibold text-zinc-900 sm:text-base">{title}</h3>
+          <p className="text-[11px] text-zinc-500 sm:text-xs">{subtitle}</p>
+        </div>
       </div>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">

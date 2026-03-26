@@ -130,6 +130,7 @@ export function ReportsManager() {
       <PageTitle
         title="Relatórios"
         description="Consolidação do progresso do sítio com exportação em PDF profissional."
+        icon="\u{1F4CA}"
       />
 
       {error ? (
@@ -178,7 +179,7 @@ export function ReportsManager() {
 
       {data ? (
         <>
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
             <Card>
               <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🐥 Total de aves</p>
               <p className="mt-2 text-2xl font-semibold text-zinc-900">{data.kpis.totalBirds}</p>

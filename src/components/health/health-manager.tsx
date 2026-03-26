@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
 
@@ -557,6 +558,7 @@ export function HealthManager() {
       <PageTitle
         title="Sanidade / Enfermaria"
         description="Controle clinico com enfermarias, timeline e quarentena de novas aves."
+        icon="\u{1F48A}"
       />
 
       {error ? (
@@ -565,21 +567,21 @@ export function HealthManager() {
         </Card>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <Card>
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Em tratamento</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">💊 Em tratamento</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.inTreatment ?? 0}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Taxa cura</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">✅ Taxa cura</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatPercent(metrics?.summary.cureRate ?? 0)}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Mortalidade</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">☠️ Mortalidade</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{formatPercent(metrics?.summary.mortalityRate ?? 0)}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Recuperacao media</p>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">📆 Recuperacao media</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.avgRecoveryDays ?? 0} dias</p>
         </Card>
       </section>
@@ -688,9 +690,10 @@ export function HealthManager() {
                         >
                           Editar
                         </Button>
-                        <Button variant="danger" type="button" onClick={() => removeInfirmary(inf.id)}>
-                          Excluir
-                        </Button>
+                        <DeleteActionButton
+                          onClick={() => removeInfirmary(inf.id)}
+                          aria-label="Excluir enfermaria"
+                        />
                       </div>
                     </td>
                   </tr>
@@ -799,9 +802,10 @@ export function HealthManager() {
                             <Button variant="outline" type="button" onClick={() => loadTimeline(item.id)}>
                               {timelineByCase[item.id] ? "Ocultar timeline" : "Ver timeline"}
                             </Button>
-                            <Button variant="danger" type="button" onClick={() => removeCase(item.id)}>
-                              Excluir
-                            </Button>
+                            <DeleteActionButton
+                              onClick={() => removeCase(item.id)}
+                              aria-label="Excluir caso clinico"
+                            />
                           </div>
                         </td>
                       </tr>

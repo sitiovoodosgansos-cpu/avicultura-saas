@@ -164,15 +164,27 @@ Variavel recomendada:
 
 ---
 
-## 7) Publicar na Play Store e App Store (próximo passo)
+## 7) Mobile com Capacitor (Android primeiro)
 
-Este projeto já está pronto como web app responsivo.
-Para publicar em lojas, o caminho recomendado é:
-1. usar Capacitor (Android/iOS)
-2. apontar o app mobile para esta mesma API/web
-3. gerar builds nativos e publicar nas lojas
+O projeto já está preparado para empacotar o web app como app nativo Android/iOS sem mudar backend/API.
 
-Isso evita reescrever todo o sistema.
+Comandos principais:
+
+```bash
+npm run mobile:android:sync
+npm run mobile:android:sync:preview
+npm run mobile:android:sync:custom -- https://SUA-URL
+npm run mobile:android:open
+```
+
+Guias completos:
+- `docs/mobile-android-playbook.md`
+- `docs/mobile-ios-roadmap.md`
+
+Estratégia recomendada:
+1. validar primeiro em preview deploy
+2. publicar Android em Internal testing
+3. depois avançar para Closed testing e Production
 
 ---
 
@@ -182,6 +194,7 @@ Comandos de validação:
 ```bash
 npm run typecheck
 npm run lint
+npm run release:check-env
 ```
 
 ---

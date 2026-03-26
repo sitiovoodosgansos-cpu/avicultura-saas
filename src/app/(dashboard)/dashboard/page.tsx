@@ -29,6 +29,7 @@ export default async function DashboardPage() {
         <PageTitle
           title="Dashboard"
           description="Resumo consolidado do plantel, ovos, sanidade, chocadeiras e finanças."
+          icon="\u{1F3E0}"
         />
         <Card>
           <p className="text-sm text-red-600">Sessão inválida. Faça login novamente.</p>
@@ -57,6 +58,7 @@ export default async function DashboardPage() {
       <PageTitle
         title="Dashboard"
         description="Resumo consolidado do plantel, ovos, sanidade, chocadeiras e finanças."
+        icon="\u{1F3E0}"
       />
 
       {data.warning ? (
@@ -65,7 +67,7 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <KpiCard
           title="Aves totais"
           value={String(data.kpis.totalBirds)}
@@ -92,7 +94,7 @@ export default async function DashboardPage() {
         />
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <KpiCard
           title="Lotes ativos"
           value={String(data.kpis.activeBatches)}
@@ -124,12 +126,14 @@ export default async function DashboardPage() {
           title="Evolução da coleta de ovos"
           subtitle="Produção diária nos últimos 30 dias"
           data={chartEggs}
+          emoji="\u{1F95A}"
         />
         <LineChartCard
           title="Evolução do criatório"
           subtitle="Novas aves por mês (últimos 12 meses)"
           data={chartAviaryGrowth}
           color="#0f766e"
+          emoji="\u{1F99A}"
         />
       </section>
 
@@ -139,11 +143,13 @@ export default async function DashboardPage() {
           subtitle="Taxa de eclosão no período"
           data={chartIncubator}
           color="#7c3aed"
+          emoji="\u{1F423}"
         />
         <StackedBarsCard
           title="Evolução financeira"
           subtitle="Entradas e saídas dos últimos 12 meses"
           data={data.charts.financialEvolution}
+          emoji="\u{1F4B0}"
         />
       </section>
 
@@ -153,6 +159,7 @@ export default async function DashboardPage() {
           subtitle="Casos abertos por mês"
           data={chartHealthOpen}
           color="#dc2626"
+          emoji="\u{1F48A}"
         />
         <Card>
           <h3 className="text-base font-semibold text-zinc-900">Resumo operacional</h3>

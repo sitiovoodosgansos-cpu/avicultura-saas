@@ -13,12 +13,24 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
-    "backup:db": "powershell -ExecutionPolicy Bypass -File scripts/db-backup.ps1"
+    "backup:db": "powershell -ExecutionPolicy Bypass -File scripts/db-backup.ps1",
+    "release:check-env": "node scripts/check-release-env.mjs",
+    "mobile:android:add": "npx cap add android",
+    "mobile:android:sync": "node scripts/mobile-sync-android.mjs prod",
+    "mobile:android:sync:preview": "node scripts/mobile-sync-android.mjs preview",
+    "mobile:android:sync:custom": "node scripts/mobile-sync-android.mjs custom",
+    "mobile:android:open": "npx cap open android"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/app": "^8.0.1",
+    "@capacitor/browser": "^8.0.2",
+    "@capacitor/cli": "^8.2.0",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/splash-screen": "^8.0.1",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^5.22.0",
     "@react-pdf/renderer": "^4.3.2",

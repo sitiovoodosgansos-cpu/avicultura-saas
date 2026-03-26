@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 
 type CollectionRow = {
@@ -333,8 +334,9 @@ export function EggCollectionManager() {
   return (
     <main className="space-y-6">
       <PageTitle
-        title={`${"\u{1F95A}"} Coleta de ovos`}
+        title="Coleta de ovos"
         description="Visao mensal para acompanhar o sitio sem lotar a tela com listas longas."
+        icon="\u{1F95A}"
       />
 
       {error ? (
@@ -343,7 +345,7 @@ export function EggCollectionManager() {
         </Card>
       ) : null}
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <StatTile emoji={"\u{1F95A}"} label="Hoje" value={metrics?.summary.eggsToday ?? 0} />
         <StatTile emoji={"\u{26A0}\u{FE0F}"} label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
         <StatTile emoji={"\u{1F4C8}"} label="Bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
@@ -634,9 +636,10 @@ export function EggCollectionManager() {
                         >
                           Editar
                         </Button>
-                        <Button variant="danger" type="button" onClick={() => deleteCollection(row.id)}>
-                          Excluir
-                        </Button>
+                        <DeleteActionButton
+                          onClick={() => deleteCollection(row.id)}
+                          aria-label="Excluir registro de coleta"
+                        />
                       </div>
                     </div>
                   </div>
