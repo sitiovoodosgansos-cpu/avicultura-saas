@@ -647,24 +647,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             />
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Numero de matrizes">
-              <Input
-                type="number"
-                min={0}
-                value={groupForm.matrixCount}
-                onChange={(event) => setGroupForm((prev) => ({ ...prev, matrixCount: Number(event.target.value) }))}
-              />
-            </Field>
-            <Field label="Numero de reprodutores">
-              <Input
-                type="number"
-                min={0}
-                value={groupForm.reproducerCount}
-                onChange={(event) => setGroupForm((prev) => ({ ...prev, reproducerCount: Number(event.target.value) }))}
-              />
-            </Field>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
             <Field label="Meta anual de ovos por matriz">
               <Input
                 type="number"
