@@ -60,7 +60,6 @@ button {
 
 .mobile-bottom-nav {
   bottom: var(--mobile-nav-bottom-gap);
-  padding-bottom: max(0.5rem, var(--mobile-safe-bottom));
   min-height: var(--mobile-nav-height);
 }
 
