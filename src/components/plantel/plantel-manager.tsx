@@ -664,8 +664,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               />
             </Field>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Meta anual por ave matriz">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Meta anual de ovos por matriz">
               <Input
                 type="number"
                 min={0}
@@ -675,20 +675,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   setGroupForm((prev) => ({
                     ...prev,
                     expectedLayCapacity: event.target.value ? Number(event.target.value) : undefined
-                  }))
-                }
-              />
-            </Field>
-            <Field label="Investimento total">
-              <Input
-                type="number"
-                min={0}
-                step="0.01"
-                value={groupForm.purchaseInvestmentTotal ?? ""}
-                onChange={(event) =>
-                  setGroupForm((prev) => ({
-                    ...prev,
-                    purchaseInvestmentTotal: event.target.value ? Number(event.target.value) : undefined
                   }))
                 }
               />
