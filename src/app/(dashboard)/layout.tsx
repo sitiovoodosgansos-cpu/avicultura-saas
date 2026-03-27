@@ -22,7 +22,7 @@ export default async function AuthenticatedLayout({
 
   const isBlocked = !billing.isAccessAllowed;
   const lockReason: "trial_expired" | "subscription_expired" =
-    !billing.isTrialActive && !billing.subscription ? "trial_expired" : "subscription_expired";
+    billing.accessReason ?? "subscription_expired";
 
   return (
     <div className="min-h-screen md:flex">

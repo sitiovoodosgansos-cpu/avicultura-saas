@@ -68,10 +68,22 @@ export async function getTenantBilling(tenantId: string) {
     Math.ceil((tenant.trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
   );
 
-  const hasActiveSubscription =
-    subscription?.status === "ACTIVE" || subscription?.status === "TRIALING";
+  const isSubscriptionActive =
+    subscription?.status === "ACTIVE" &&
+    (!subscription.currentPeriodEnd || subscription.currentPeriodEnd > now);
+
+  const isSubscriptionTrialing =
+    subscription?.status === "TRIALING" &&
+    ((subscription.trialEndsAt && subscription.trialEndsAt > now) || tenant.trialEndsAt > now);
+
+  const hasActiveSubscription = Boolean(isSubscriptionActive || isSubscriptionTrialing);
   const isTrialActive = tenant.trialEndsAt > now;
   const isAccessAllowed = Boolean(hasActiveSubscription || isTrialActive);
+  const accessReason: "trial_expired" | "subscription_expired" | null = isAccessAllowed
+    ? null
+    : !subscription || subscription.status === "TRIALING" || subscription.status === "INCOMPLETE"
+      ? "trial_expired"
+      : "subscription_expired";
 
   return {
     tenant,
@@ -80,7 +92,8 @@ export async function getTenantBilling(tenantId: string) {
     payments,
     trialDaysLeft,
     isTrialActive,
-    isAccessAllowed
+    isAccessAllowed,
+    accessReason
   };
 }
 
@@ -139,4 +152,3 @@ export async function upsertStripeSubscription(input: {
     }
   });
 }
-
