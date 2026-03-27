@@ -7,11 +7,13 @@ export function AppModal({
   open,
   title,
   onClose,
+  error,
   children
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
+  error?: string | null;
   children: ReactNode;
 }) {
   if (!open) return null;
@@ -25,6 +27,11 @@ export function AppModal({
             Fechar
           </Button>
         </div>
+        {error ? (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+            <p className="text-sm font-medium text-rose-700">{error}</p>
+          </div>
+        ) : null}
         {children}
       </div>
     </div>

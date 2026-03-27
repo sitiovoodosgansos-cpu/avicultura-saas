@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 
 type CollectionRow = {
@@ -52,19 +51,24 @@ type MetricsResponse = {
   }>;
 };
 
-type FormState = {
-  date: string;
-  flockGroupId: string;
+type DayDraft = {
   totalEggs: number;
   crackedEggs: number;
-  notes: string;
 };
+
+const EMOJI = {
+  egg: "\u{1F95A}",
+  warning: "\u26A0\uFE0F",
+  chart: "\u{1F4C8}",
+  week: "\u{1F4C6}",
+  month: "\u{1F5D3}\uFE0F",
+  year: "\u{1F4CA}",
+  matrix: "\u{1F95A}",
+  annual: "\u{1F4CA}"
+} as const;
 
 const selectClass =
   "h-11 w-full rounded-2xl border border-[color:var(--line)] bg-white/90 px-4 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[color:var(--brand)]/20";
-
-const textareaClass =
-  "min-h-24 w-full rounded-2xl border border-[color:var(--line)] bg-white/90 px-4 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-[color:var(--brand)]/20";
 
 const weekLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
 
@@ -75,14 +79,6 @@ const todayIso = (() => {
   const d = String(now.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 })();
-
-const emptyForm: FormState = {
-  date: todayIso,
-  flockGroupId: "",
-  totalEggs: 0,
-  crackedEggs: 0,
-  notes: ""
-};
 
 function Field({
   label,
@@ -118,15 +114,6 @@ function StatTile({
   );
 }
 
-function formatDateInput(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
 function formatPercent(value: number) {
   return `${value.toFixed(1)}%`;
 }
@@ -150,10 +137,10 @@ function monthKeyFromDate(date: Date) {
 export function EggCollectionManager() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rows, setRows] = useState<CollectionRow[]>([]);
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [dayRows, setDayRows] = useState<CollectionRow[]>([]);
+  const [dayDraftByGroup, setDayDraftByGroup] = useState<Record<string, DayDraft>>({});
+  const [loadingDay, setLoadingDay] = useState(false);
   const [filterGroupId, setFilterGroupId] = useState("");
   const [capacityDraft, setCapacityDraft] = useState<Record<string, number>>({});
   const [monthCursor, setMonthCursor] = useState(monthKeyFromDate(new Date()));
@@ -176,38 +163,19 @@ export function EggCollectionManager() {
   async function loadData() {
     setError(null);
 
-    const monthStart = `${monthCursor}-01`;
-    const [year, month] = monthCursor.split("-").map(Number);
-    const monthEnd = new Date(year, month, 0);
-    const monthEndKey = `${monthCursor}-${String(monthEnd.getDate()).padStart(2, "0")}`;
+    const metricsRes = await fetch("/api/eggs/metrics", { cache: "no-store" });
 
-    const params = new URLSearchParams();
-    params.set("from", monthStart);
-    params.set("to", monthEndKey);
-    if (filterGroupId) params.set("groupId", filterGroupId);
-
-    const [collectionRes, metricsRes] = await Promise.all([
-      fetch(`/api/eggs/collections?${params.toString()}`, { cache: "no-store" }),
-      fetch("/api/eggs/metrics", { cache: "no-store" })
-    ]);
-
-    if (!collectionRes.ok || !metricsRes.ok) {
+    if (!metricsRes.ok) {
       setError("Nao foi possivel carregar a coleta de ovos.");
       return;
     }
 
-    const collectionData = (await collectionRes.json()) as { collections: CollectionRow[] };
     const metricsData = (await metricsRes.json()) as MetricsResponse;
 
-    setRows(collectionData.collections);
     setMetrics(metricsData);
     setCapacityDraft(
       Object.fromEntries(metricsData.groupCards.map((group) => [group.groupId, group.expectedLayCapacity || 0]))
     );
-
-    if (!form.flockGroupId && metricsData.groupCards.length > 0) {
-      setForm((prev) => ({ ...prev, flockGroupId: metricsData.groupCards[0].groupId }));
-    }
   }
 
   useEffect(() => {
@@ -215,44 +183,127 @@ export function EggCollectionManager() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterGroupId, monthCursor]);
 
-  async function submitCollection(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  useEffect(() => {
+    if (!showDayModal) return;
+    loadDayRows(selectedDate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups, selectedDate, showDayModal]);
+
+  async function loadDayRows(date: string) {
+    setLoadingDay(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("from", date);
+      params.set("to", date);
+      const response = await fetch(`/api/eggs/collections?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) {
+        setError("Nao foi possivel carregar os registros desse dia.");
+        return;
+      }
+
+      const payload = (await response.json()) as { collections: CollectionRow[] };
+      const collections = payload.collections ?? [];
+      setDayRows(collections);
+
+      const nextDraft: Record<string, DayDraft> = Object.fromEntries(
+        groups.map((group) => [group.groupId, { totalEggs: 0, crackedEggs: 0 }])
+      );
+
+      for (const row of collections) {
+        const current = nextDraft[row.flockGroupId] ?? { totalEggs: 0, crackedEggs: 0 };
+        nextDraft[row.flockGroupId] = {
+          totalEggs: current.totalEggs + row.totalEggs,
+          crackedEggs: current.crackedEggs + row.crackedEggs
+        };
+      }
+
+      setDayDraftByGroup(nextDraft);
+    } finally {
+      setLoadingDay(false);
+    }
+  }
+
+  async function saveDayCollections() {
+    if (groups.length === 0) {
+      setError("Cadastre pelo menos um grupo no plantel para lancar coleta.");
+      return;
+    }
+
+    for (const group of groups) {
+      const draft = dayDraftByGroup[group.groupId] ?? { totalEggs: 0, crackedEggs: 0 };
+      const totalEggs = Math.max(0, Number(draft.totalEggs) || 0);
+      const crackedEggs = Math.max(0, Number(draft.crackedEggs) || 0);
+      if (crackedEggs > totalEggs) {
+        setError(`No grupo ${group.title}, trincados nao pode ser maior que total.`);
+        return;
+      }
+    }
+
     setSaving(true);
     setError(null);
 
-    const endpoint = editingId ? `/api/eggs/collections/${editingId}` : "/api/eggs/collections";
-    const method = editingId ? "PUT" : "POST";
+    try {
+      for (const group of groups) {
+        const draft = dayDraftByGroup[group.groupId] ?? { totalEggs: 0, crackedEggs: 0 };
+        const totalEggs = Math.max(0, Number(draft.totalEggs) || 0);
+        const crackedEggs = Math.max(0, Number(draft.crackedEggs) || 0);
+        const existing = dayRows.filter((row) => row.flockGroupId === group.groupId);
 
-    const response = await fetch(endpoint, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form)
-    });
+        if (totalEggs === 0 && crackedEggs === 0) {
+          for (const row of existing) {
+            const response = await fetch(`/api/eggs/collections/${row.id}`, { method: "DELETE" });
+            if (!response.ok) {
+              throw new Error(`Nao foi possivel limpar o grupo ${group.title}.`);
+            }
+          }
+          continue;
+        }
 
-    if (!response.ok) {
-      const payload = (await response.json()) as { error?: string };
-      setError(payload.error ?? "Falha ao salvar coleta.");
+        const payload = {
+          date: selectedDate,
+          flockGroupId: group.groupId,
+          totalEggs,
+          crackedEggs,
+          notes: existing[0]?.notes ?? ""
+        };
+
+        if (existing.length > 0) {
+          const primary = existing[0];
+          const updateResponse = await fetch(`/api/eggs/collections/${primary.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (!updateResponse.ok) {
+            throw new Error(`Nao foi possivel atualizar o grupo ${group.title}.`);
+          }
+
+          for (const extra of existing.slice(1)) {
+            const deleteResponse = await fetch(`/api/eggs/collections/${extra.id}`, { method: "DELETE" });
+            if (!deleteResponse.ok) {
+              throw new Error(`Nao foi possivel consolidar registros duplicados do grupo ${group.title}.`);
+            }
+          }
+          continue;
+        }
+
+        const createResponse = await fetch("/api/eggs/collections", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!createResponse.ok) {
+          throw new Error(`Nao foi possivel registrar a coleta do grupo ${group.title}.`);
+        }
+      }
+
+      await loadDayRows(selectedDate);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao salvar as coletas do dia.");
+    } finally {
       setSaving(false);
-      return;
     }
-
-    setForm((prev) => ({ ...emptyForm, flockGroupId: prev.flockGroupId || form.flockGroupId, date: selectedDate }));
-    setEditingId(null);
-    setSaving(false);
-    setShowDayModal(false);
-    await loadData();
-  }
-
-  async function deleteCollection(id: string) {
-    if (!window.confirm("Deseja excluir este registro de coleta?")) return;
-
-    const response = await fetch(`/api/eggs/collections/${id}`, { method: "DELETE" });
-    if (!response.ok) {
-      setError("Nao foi possivel excluir o registro.");
-      return;
-    }
-
-    await loadData();
   }
 
   async function saveCapacity(groupId: string) {
@@ -278,17 +329,6 @@ export function EggCollectionManager() {
     }
     return map;
   }, [metrics]);
-
-  const rowsByDate = useMemo(() => {
-    return rows.reduce<Record<string, CollectionRow[]>>((acc, row) => {
-      const key = formatDateInput(row.date);
-      acc[key] = acc[key] ?? [];
-      acc[key].push(row);
-      return acc;
-    }, {});
-  }, [rows]);
-
-  const selectedDateRows = rowsByDate[selectedDate] ?? [];
 
   const monthDate = useMemo(() => {
     const [year, month] = monthCursor.split("-").map(Number);
@@ -326,32 +366,49 @@ export function EggCollectionManager() {
 
   function openDay(date: string) {
     setSelectedDate(date);
-    setForm((prev) => ({ ...prev, date }));
-    setEditingId(null);
+    setError(null);
     setShowDayModal(true);
   }
+
+  const selectedDayTotals = useMemo(() => {
+    let totalEggs = 0;
+    let crackedEggs = 0;
+
+    for (const group of groups) {
+      const draft = dayDraftByGroup[group.groupId];
+      if (!draft) continue;
+      totalEggs += Math.max(0, Number(draft.totalEggs) || 0);
+      crackedEggs += Math.max(0, Number(draft.crackedEggs) || 0);
+    }
+
+    return {
+      totalEggs,
+      crackedEggs,
+      goodRate: totalEggs > 0 ? (Math.max(totalEggs - crackedEggs, 0) / totalEggs) * 100 : 0
+    };
+  }, [dayDraftByGroup, groups]);
 
   return (
     <main className="space-y-6">
       <PageTitle
         title="Coleta de ovos"
         description="Visao mensal para acompanhar o sitio sem lotar a tela com listas longas."
-        icon="🥚"
+        icon={EMOJI.egg}
       />
 
-      {error ? (
+      {error && !showDayModal ? (
         <Card className="border-rose-200 bg-rose-50">
           <p className="text-sm font-medium text-rose-700">{error}</p>
         </Card>
       ) : null}
 
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <StatTile emoji={"🥚"} label="Hoje" value={metrics?.summary.eggsToday ?? 0} />
-        <StatTile emoji={"⚠️"} label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
-        <StatTile emoji={"📈"} label="Bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
-        <StatTile emoji={"📅"} label="Semana" value={overallTotals.week} />
-        <StatTile emoji={"🗓️"} label="Mes" value={overallTotals.month} />
-        <StatTile emoji={"📊"} label="Ano" value={overallTotals.year} />
+        <StatTile emoji={EMOJI.egg} label="Hoje" value={metrics?.summary.eggsToday ?? 0} />
+        <StatTile emoji={EMOJI.warning} label="Trincados" value={metrics?.summary.crackedEggsToday ?? 0} />
+        <StatTile emoji={EMOJI.chart} label="Bons" value={formatPercent(metrics?.summary.goodRateToday ?? 0)} />
+        <StatTile emoji={EMOJI.week} label="Semana" value={overallTotals.week} />
+        <StatTile emoji={EMOJI.month} label="Mes" value={overallTotals.month} />
+        <StatTile emoji={EMOJI.year} label="Ano" value={overallTotals.year} />
       </section>
 
       <Card>
@@ -487,10 +544,10 @@ export function EggCollectionManager() {
                   <div className={`h-2.5 rounded-full ${perfColor(group.performance)}`} style={{ width: `${width}%` }} />
                 </div>
                 <p className="mt-2 text-xs text-[color:var(--ink-soft)]">
-                  {"🥚"} matrizes {group.matrixCount} - meta/matriz {group.expectedLayCapacity || 0}
+                  {EMOJI.matrix} matrizes {group.matrixCount} - meta/matriz {group.expectedLayCapacity || 0}
                 </p>
                 <p className="mt-1 text-xs text-[color:var(--ink-soft)]">
-                  {"📊"} anual {group.eggs365}/{group.expectedGroupAnnual || 0} ({formatPercent(group.progress)})
+                  {EMOJI.annual} anual {group.eggs365}/{group.expectedGroupAnnual || 0} ({formatPercent(group.progress)})
                 </p>
               </div>
             </Card>
@@ -517,134 +574,109 @@ export function EggCollectionManager() {
               </Button>
             </div>
 
-            <form className="mt-6 grid gap-4" onSubmit={submitCollection}>
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Data da coleta">
-                  <Input
-                    type="date"
-                    value={form.date}
-                    onChange={(event) => {
-                      setSelectedDate(event.target.value);
-                      setForm((prev) => ({ ...prev, date: event.target.value }));
-                    }}
-                  />
-                </Field>
-                <Field label="Grupo de origem">
-                  <select
-                    className={selectClass}
-                    value={form.flockGroupId}
-                    onChange={(event) => setForm((prev) => ({ ...prev, flockGroupId: event.target.value }))}
-                  >
-                    <option value="">Selecione o grupo</option>
-                    {groups.map((group) => (
-                      <option key={group.groupId} value={group.groupId}>
-                        {group.title}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <Field label="Total de ovos">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.totalEggs}
-                    onChange={(event) => setForm((prev) => ({ ...prev, totalEggs: Number(event.target.value) }))}
-                  />
-                </Field>
-                <Field label="Ovos trincados">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.crackedEggs}
-                    onChange={(event) => setForm((prev) => ({ ...prev, crackedEggs: Number(event.target.value) }))}
-                  />
-                </Field>
-                <div className="rounded-2xl border border-dashed border-[color:var(--line)] bg-[color:var(--surface-soft)] px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Taxa de ovos bons</p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900">
-                    {formatPercent(
-                      form.totalEggs > 0 ? ((Math.max(form.totalEggs - form.crackedEggs, 0) / form.totalEggs) * 100) : 0
-                    )}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">Calculo automatico: total menos trincados.</p>
+            <div className="mt-6 grid gap-4">
+              {error ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                  <p className="text-sm font-medium text-rose-700">{error}</p>
                 </div>
+              ) : null}
+              <div className="rounded-2xl border border-dashed border-[color:var(--line)] bg-[color:var(--surface-soft)] px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Resumo do dia</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <p className="text-sm text-slate-600">
+                    Total: <span className="font-semibold text-slate-900">{selectedDayTotals.totalEggs}</span>
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Trincados: <span className="font-semibold text-slate-900">{selectedDayTotals.crackedEggs}</span>
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    Taxa bons: <span className="font-semibold text-slate-900">{formatPercent(selectedDayTotals.goodRate)}</span>
+                  </p>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">Preencha por grupo e salve tudo de uma vez.</p>
               </div>
 
-              <Field label="Observacoes">
-                <textarea
-                  className={textareaClass}
-                  value={form.notes}
-                  onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
-                  placeholder="Observacoes da coleta"
-                />
-              </Field>
+              {loadingDay ? (
+                <p className="text-sm text-[color:var(--ink-soft)]">Carregando grupos...</p>
+              ) : groups.length === 0 ? (
+                <p className="text-sm text-[color:var(--ink-soft)]">Nenhum grupo cadastrado no plantel.</p>
+              ) : (
+                <div className="grid gap-3">
+                  {groups.map((group) => {
+                    const draft = dayDraftByGroup[group.groupId] ?? { totalEggs: 0, crackedEggs: 0 };
+                    const totalEggs = Math.max(0, Number(draft.totalEggs) || 0);
+                    const crackedEggs = Math.max(0, Number(draft.crackedEggs) || 0);
+                    const goodRate = totalEggs > 0 ? (Math.max(totalEggs - crackedEggs, 0) / totalEggs) * 100 : 0;
+
+                    return (
+                      <div
+                        key={group.groupId}
+                        className="grid gap-3 rounded-2xl border border-[color:var(--line)] bg-slate-50/60 p-3 md:grid-cols-[minmax(0,1fr)_130px_130px_110px] md:items-center"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{group.title}</p>
+                          <p className="text-xs text-slate-500">
+                            {group.species} - {group.breed}
+                            {group.variety ? ` - ${group.variety}` : ""}
+                          </p>
+                        </div>
+
+                        <Field label="Ovos">
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="0"
+                            value={totalEggs === 0 ? "" : totalEggs}
+                            onChange={(event) => {
+                              const value = Math.max(0, Number(event.target.value || 0));
+                              setDayDraftByGroup((prev) => ({
+                                ...prev,
+                                [group.groupId]: {
+                                  ...(prev[group.groupId] ?? { totalEggs: 0, crackedEggs: 0 }),
+                                  totalEggs: value
+                                }
+                              }));
+                            }}
+                          />
+                        </Field>
+
+                        <Field label="Trincados">
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="0"
+                            value={crackedEggs === 0 ? "" : crackedEggs}
+                            onChange={(event) => {
+                              const value = Math.max(0, Number(event.target.value || 0));
+                              setDayDraftByGroup((prev) => ({
+                                ...prev,
+                                [group.groupId]: {
+                                  ...(prev[group.groupId] ?? { totalEggs: 0, crackedEggs: 0 }),
+                                  crackedEggs: value
+                                }
+                              }));
+                            }}
+                          />
+                        </Field>
+
+                        <div className="rounded-xl border border-[color:var(--line)] bg-white px-3 py-2 text-center">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Bons</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-900">{formatPercent(goodRate)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2">
-                <Button type="submit" disabled={saving}>
-                  {saving ? "Salvando..." : editingId ? "Atualizar coleta" : "Registrar coleta"}
+                <Button type="button" onClick={saveDayCollections} disabled={saving || loadingDay}>
+                  {saving ? "Salvando..." : "Salvar coleta do dia"}
                 </Button>
-                {editingId ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingId(null);
-                      setForm((prev) => ({ ...emptyForm, flockGroupId: prev.flockGroupId, date: selectedDate }));
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                ) : null}
+                <Button type="button" variant="outline" onClick={() => loadDayRows(selectedDate)} disabled={loadingDay || saving}>
+                  Recarregar
+                </Button>
               </div>
-            </form>
-
-            <div className="mt-6 space-y-3">
-              {selectedDateRows.length === 0 ? (
-                <p className="text-sm text-[color:var(--ink-soft)]">Nenhuma coleta encontrada para essa data.</p>
-              ) : (
-                selectedDateRows.map((row) => (
-                  <div key={row.id} className="rounded-3xl border border-[color:var(--line)] bg-slate-50/70 p-4">
-                    <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-                      <div>
-                        <h5 className="text-base font-semibold text-slate-900">{row.flockGroup.title}</h5>
-                        <p className="text-sm text-[color:var(--ink-soft)]">
-                          {row.totalEggs} ovos no total - {row.crackedEggs} trincados
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          Taxa de ovos bons {formatPercent(row.goodRate)} - Trincados {formatPercent(row.crackedRate)}
-                        </p>
-                        {row.notes ? <p className="mt-2 text-sm text-slate-600">{row.notes}</p> : null}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          variant="outline"
-                          type="button"
-                          onClick={() => {
-                            setEditingId(row.id);
-                            setForm({
-                              date: formatDateInput(row.date),
-                              flockGroupId: row.flockGroupId,
-                              totalEggs: row.totalEggs,
-                              crackedEggs: row.crackedEggs,
-                              notes: row.notes ?? ""
-                            });
-                          }}
-                        >
-                          Editar
-                        </Button>
-                        <DeleteActionButton
-                          onClick={() => deleteCollection(row.id)}
-                          aria-label="Excluir registro de coleta"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
             </div>
           </div>
         </div>

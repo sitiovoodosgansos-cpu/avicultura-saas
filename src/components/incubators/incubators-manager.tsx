@@ -418,7 +418,7 @@ export function IncubatorsManager() {
         icon="🐣"
       />
 
-      {error ? (
+      {error && !(showDeviceModal || showBatchModal || showEventModal) ? (
         <Card>
           <p className="text-sm text-red-600">{error}</p>
         </Card>
@@ -532,7 +532,7 @@ export function IncubatorsManager() {
         </Card>
       </section>
 
-      <AppModal open={showDeviceModal} title={editingDeviceId ? "Editar chocadeira" : "Nova chocadeira"} onClose={() => { setShowDeviceModal(false); setEditingDeviceId(null); setDeviceForm(emptyDevice); }}>
+      <AppModal open={showDeviceModal} title={editingDeviceId ? "Editar chocadeira" : "Nova chocadeira"} error={error} onClose={() => { setShowDeviceModal(false); setEditingDeviceId(null); setDeviceForm(emptyDevice); }}>
         <form className="grid gap-3" onSubmit={saveDevice}>
           <Input placeholder="Nome da chocadeira" value={deviceForm.name} onChange={(e) => setDeviceForm((p) => ({ ...p, name: e.target.value }))} />
           <Input type="number" min={1} placeholder="Capacidade de ovos" value={deviceForm.capacityEggs || ""} onChange={(e) => setDeviceForm((p) => ({ ...p, capacityEggs: Number(e.target.value) || 0 }))} />
@@ -544,7 +544,7 @@ export function IncubatorsManager() {
         </form>
       </AppModal>
 
-      <AppModal open={showBatchModal} title={editingBatchId ? "Editar lote" : "Novo lote"} onClose={() => { setShowBatchModal(false); setEditingBatchId(null); }}>
+      <AppModal open={showBatchModal} title={editingBatchId ? "Editar lote" : "Novo lote"} error={error} onClose={() => { setShowBatchModal(false); setEditingBatchId(null); }}>
         <form className="grid gap-3" onSubmit={saveBatch}>
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.incubatorId} onChange={(e) => setBatchForm((p) => ({ ...p, incubatorId: e.target.value }))}>
             <option value="">Selecione a chocadeira</option>{devices.map((device) => <option key={device.id} value={device.id}>{device.name}</option>)}
@@ -575,7 +575,7 @@ export function IncubatorsManager() {
         </form>
       </AppModal>
 
-      <AppModal open={showEventModal} title="Registrar evento do lote" onClose={() => setShowEventModal(false)}>
+      <AppModal open={showEventModal} title="Registrar evento do lote" error={error} onClose={() => setShowEventModal(false)}>
         <form className="grid gap-3" onSubmit={createEvent}>
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
             <option value="">Selecione o lote</option>{activeBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.incubator.name} - {batch.flockGroup.title} - {new Date(batch.entryDate).toLocaleDateString("pt-BR")} - {batch.eggsSet} ovos</option>)}

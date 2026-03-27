@@ -534,7 +534,7 @@ export function FinanceManager() {
         icon="💰"
       />
 
-      {error ? (
+      {error && !(showEntryModal || showExpenseModal || showCategoryModal) ? (
         <Card>
           <p className="text-sm text-red-600">{error}</p>
         </Card>
@@ -821,6 +821,7 @@ export function FinanceManager() {
       <AppModal
         open={showEntryModal}
         title={editingEntryId ? "Editar entrada" : "Nova entrada"}
+        error={error}
         onClose={() => {
           setShowEntryModal(false);
           setEditingEntryId(null);
@@ -858,6 +859,7 @@ export function FinanceManager() {
       <AppModal
         open={showExpenseModal}
         title={editingExpenseId ? "Editar saida" : "Nova saida"}
+        error={error}
         onClose={() => {
           setShowExpenseModal(false);
           setEditingExpenseId(null);
@@ -906,6 +908,11 @@ export function FinanceManager() {
                 ? "Crie um item para aparecer no menu dropdown."
                 : "Crie uma categoria nova para entradas, saidas ou filtro."}
             </p>
+            {error ? (
+              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                <p className="text-sm font-medium text-rose-700">{error}</p>
+              </div>
+            ) : null}
             <div className="mt-5">
               <Input
                 placeholder={categoryTarget === "entryItem" || categoryTarget === "expenseItem" ? "Ex.: Venda de ovos jumbo, Consulta veterinaria" : "Ex.: Vacinas, Frete, Equipamentos"}

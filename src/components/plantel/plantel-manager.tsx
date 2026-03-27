@@ -460,7 +460,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         icon="🦚"
       />
 
-      {error ? (
+      {error && !(showGroupModal || showBirdModal) ? (
         <Card className="border-rose-200 bg-rose-50">
           <p className="text-sm font-medium text-rose-700">{error}</p>
         </Card>
@@ -615,6 +615,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       <AppModal
         open={showGroupModal}
         title={editingGroupId ? "Editar grupo de aves" : "Novo grupo de aves"}
+        error={error}
         onClose={() => {
           setShowGroupModal(false);
           setEditingGroupId(null);
@@ -702,6 +703,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       <AppModal
         open={showBirdModal}
         title={editingBirdId ? "Editar ave por anilha" : "Cadastro individual por anilha"}
+        error={error}
         onClose={() => {
           setShowBirdModal(false);
           setEditingBirdId(null);

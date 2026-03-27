@@ -561,7 +561,7 @@ export function HealthManager() {
         icon="💊"
       />
 
-      {error ? (
+      {error && !(showInfirmaryModal || showCaseModal || showQuarantineModal) ? (
         <Card>
           <p className="text-sm text-red-600">{error}</p>
         </Card>
@@ -888,6 +888,7 @@ export function HealthManager() {
       <AppModal
         open={showInfirmaryModal}
         title={editingInfirmaryId ? "Editar enfermaria" : "Cadastro de enfermaria"}
+        error={error}
         onClose={() => {
           setShowInfirmaryModal(false);
           setEditingInfirmaryId(null);
@@ -913,6 +914,7 @@ export function HealthManager() {
       <AppModal
         open={showCaseModal}
         title={editingCaseId ? "Editar caso clinico" : "Novo caso clinico"}
+        error={error}
         onClose={() => {
           setShowCaseModal(false);
           setEditingCaseId(null);
@@ -952,6 +954,7 @@ export function HealthManager() {
       <AppModal
         open={showQuarantineModal}
         title="Quarentena nova ave"
+        error={error}
         onClose={() => {
           setShowQuarantineModal(false);
         }}
