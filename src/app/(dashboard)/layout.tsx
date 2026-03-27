@@ -1,6 +1,8 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentSession } from "@/lib/auth/session";
+import { getTenantBilling } from "@/lib/billing/service";
+import { BillingAccessGate } from "@/components/billing/billing-access-gate";
 import { AppNav } from "@/components/layout/app-nav";
 
 export default async function AuthenticatedLayout({
@@ -12,6 +14,15 @@ export default async function AuthenticatedLayout({
   if (!session?.user?.id) {
     redirect("/login");
   }
+
+  const billing = await getTenantBilling(session.user.tenantId);
+  if (!billing) {
+    redirect("/login");
+  }
+
+  const isBlocked = !billing.isAccessAllowed;
+  const lockReason: "trial_expired" | "subscription_expired" =
+    !billing.isTrialActive && !billing.subscription ? "trial_expired" : "subscription_expired";
 
   return (
     <div className="min-h-screen md:flex">
@@ -26,7 +37,7 @@ export default async function AuthenticatedLayout({
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden rounded-2xl bg-[color:var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--brand-strong)] md:block">
-                {"🪺"} Gestao em tempo real
+                Gestao em tempo real
               </div>
               <Link
                 href="/api/auth/signout"
@@ -37,9 +48,18 @@ export default async function AuthenticatedLayout({
             </div>
           </div>
         </header>
-        <div className="mx-auto max-w-7xl p-4 md:p-8">{children}</div>
+        <div className="mx-auto max-w-7xl p-4 md:p-8">
+          {isBlocked ? (
+            <BillingAccessGate
+              farmName={billing.farmName}
+              reason={lockReason}
+              trialEndsAt={lockReason === "trial_expired" ? billing.tenant.trialEndsAt.toISOString() : undefined}
+            />
+          ) : (
+            children
+          )}
+        </div>
       </div>
     </div>
   );
 }
-

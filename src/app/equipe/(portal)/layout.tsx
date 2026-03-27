@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentEmployeeSession } from "@/lib/employees/auth";
+import { getTenantBilling } from "@/lib/billing/service";
+import { EmployeeBillingBlockedCard } from "@/components/billing/billing-access-gate";
 import { EmployeeNav } from "@/components/layout/employee-nav";
 
 export default async function EmployeePortalLayout({
@@ -12,6 +14,13 @@ export default async function EmployeePortalLayout({
   if (!session) {
     redirect("/equipe/login");
   }
+
+  const billing = await getTenantBilling(session.tenant.id);
+  if (!billing) {
+    redirect("/equipe/login");
+  }
+
+  const isBlocked = !billing.isAccessAllowed;
 
   return (
     <div className="min-h-screen md:flex">
@@ -33,7 +42,7 @@ export default async function EmployeePortalLayout({
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden rounded-2xl bg-[color:var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--brand-strong)] md:block">
-                {"🧾"} Lancamentos com seguranca
+                Lancamentos com seguranca
               </div>
               <Link
                 href="/equipe/auth/logout"
@@ -44,7 +53,9 @@ export default async function EmployeePortalLayout({
             </div>
           </div>
         </header>
-        <div className="mx-auto max-w-7xl p-4 md:p-8">{children}</div>
+        <div className="mx-auto max-w-7xl p-4 md:p-8">
+          {isBlocked ? <EmployeeBillingBlockedCard farmName={billing.farmName} /> : children}
+        </div>
       </div>
     </div>
   );
