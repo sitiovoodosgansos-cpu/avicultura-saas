@@ -18,6 +18,7 @@ type BillingStatus = {
   subscription: {
     id: string;
     planCode: string;
+    planLabel?: string;
     status: string;
     providerCustomerId: string | null;
     currentPeriodEnd: string | null;
@@ -179,7 +180,9 @@ export function BillingProfileManager() {
         </Card>
         <Card>
           <p className="text-sm text-zinc-500">📦 Plano atual</p>
-          <p className="mt-2 text-xl font-semibold text-zinc-900">{data?.subscription?.planCode ?? "starter"}</p>
+          <p className="mt-2 text-xl font-semibold text-zinc-900">
+            {data?.subscription?.planLabel ?? data?.subscription?.planCode ?? "Starter"}
+          </p>
         </Card>
         <Card>
           <p className="text-sm text-zinc-500">💳 Status da assinatura</p>

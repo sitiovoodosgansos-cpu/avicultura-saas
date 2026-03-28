@@ -27,6 +27,27 @@ function mapTenantStatus(status: StripeSubStatus): TenantStatus {
   return "SUSPENDED";
 }
 
+function mapPlanCodeToLabel(planCode?: string | null) {
+  if (!planCode) return "Starter";
+
+  const monthlyPriceIds = [process.env.STRIPE_PRICE_ID_MONTHLY, process.env.STRIPE_PRICE_ID].filter(
+    Boolean
+  ) as string[];
+  const yearlyPriceIds = [process.env.STRIPE_PRICE_ID_YEARLY].filter(Boolean) as string[];
+
+  if (yearlyPriceIds.includes(planCode)) return "Starter anual";
+  if (monthlyPriceIds.includes(planCode)) return "Starter mensal";
+
+  const normalized = planCode.toLowerCase();
+  if (normalized.includes("year") || normalized.includes("anual")) return "Starter anual";
+  if (normalized.includes("month") || normalized.includes("mensal")) return "Starter mensal";
+  if (normalized === "starter") return "Starter";
+
+  // Fallback for unknown/new Stripe prices: keep friendly label.
+  if (normalized.startsWith("price_")) return "Starter";
+  return planCode;
+}
+
 export async function getTenantBilling(tenantId: string) {
   const [tenant, subscription, farm, payments] = await Promise.all([
     prisma.tenant.findUnique({
@@ -87,7 +108,12 @@ export async function getTenantBilling(tenantId: string) {
 
   return {
     tenant,
-    subscription,
+    subscription: subscription
+      ? {
+          ...subscription,
+          planLabel: mapPlanCodeToLabel(subscription.planCode)
+        }
+      : null,
     farmName: farm?.name ?? tenant.name,
     payments,
     trialDaysLeft,
