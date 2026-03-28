@@ -895,7 +895,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap gap-2 xl:max-w-xs xl:justify-end">
+                <div className="flex flex-wrap items-center gap-2 xl:max-w-xs xl:justify-end">
                   <Button
                     variant="outline"
                     type="button"
@@ -916,11 +916,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   >
                     Editar grupo
                   </Button>
-                  <DeleteActionButton
-                    onClick={() => removeGroup(group.id)}
-                    label="Excluir grupo"
-                    aria-label="Excluir grupo"
-                  />
                   <Button
                     variant="outline"
                     type="button"
@@ -936,6 +931,15 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   <Button variant="outline" type="button" onClick={() => setExpandedGroupId(expanded ? null : group.id)}>
                     {expanded ? "Fechar aves" : "Abrir aves"}
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(group.id)}
+                    aria-label="Excluir grupo"
+                    title="Excluir grupo"
+                    className="order-last ml-auto inline-flex size-9 items-center justify-center rounded-xl border border-rose-200 bg-white text-lg text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 xl:ml-0"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
 
