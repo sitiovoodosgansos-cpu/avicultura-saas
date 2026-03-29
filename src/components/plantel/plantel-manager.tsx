@@ -740,7 +740,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           )}
           <div className="grid gap-4 md:grid-cols-2">
             <Input
-              placeholder="Numero da anilha: 2025-001"
+              placeholder="Numero da anilha (opcional): 2025-001"
               value={birdForm.ringNumber}
               onChange={(event) => setBirdForm((prev) => ({ ...prev, ringNumber: event.target.value }))}
             />

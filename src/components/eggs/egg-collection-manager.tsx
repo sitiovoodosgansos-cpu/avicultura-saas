@@ -383,8 +383,7 @@ export function EggCollectionManager() {
 
     return {
       totalEggs,
-      crackedEggs,
-      goodRate: totalEggs > 0 ? (Math.max(totalEggs - crackedEggs, 0) / totalEggs) * 100 : 0
+      crackedEggs
     };
   }, [dayDraftByGroup, groups]);
 
@@ -582,15 +581,12 @@ export function EggCollectionManager() {
               ) : null}
               <div className="rounded-2xl border border-dashed border-[color:var(--line)] bg-[color:var(--surface-soft)] px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Resumo do dia</p>
-                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
                   <p className="text-sm text-slate-600">
                     Total: <span className="font-semibold text-slate-900">{selectedDayTotals.totalEggs}</span>
                   </p>
                   <p className="text-sm text-slate-600">
                     Trincados: <span className="font-semibold text-slate-900">{selectedDayTotals.crackedEggs}</span>
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    Taxa bons: <span className="font-semibold text-slate-900">{formatPercent(selectedDayTotals.goodRate)}</span>
                   </p>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">Preencha por grupo e salve tudo de uma vez.</p>
@@ -601,27 +597,31 @@ export function EggCollectionManager() {
               ) : groups.length === 0 ? (
                 <p className="text-sm text-[color:var(--ink-soft)]">Nenhum grupo cadastrado no plantel.</p>
               ) : (
-                <div className="grid gap-3">
-                  {groups.map((group) => {
-                    const draft = dayDraftByGroup[group.groupId] ?? { totalEggs: 0, crackedEggs: 0 };
-                    const totalEggs = Math.max(0, Number(draft.totalEggs) || 0);
-                    const crackedEggs = Math.max(0, Number(draft.crackedEggs) || 0);
-                    const goodRate = totalEggs > 0 ? (Math.max(totalEggs - crackedEggs, 0) / totalEggs) * 100 : 0;
+                <div className="overflow-hidden rounded-2xl border border-[color:var(--line)] bg-white">
+                  <div className="grid grid-cols-[minmax(0,1fr)_96px_96px] gap-2 border-b border-[color:var(--line)] bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 sm:grid-cols-[minmax(0,1fr)_120px_120px]">
+                    <p>Grupo</p>
+                    <p className="text-center">Ovos</p>
+                    <p className="text-center">Trincados</p>
+                  </div>
+                  <div className="max-h-[52vh] overflow-y-auto">
+                    {groups.map((group) => {
+                      const draft = dayDraftByGroup[group.groupId] ?? { totalEggs: 0, crackedEggs: 0 };
+                      const totalEggs = Math.max(0, Number(draft.totalEggs) || 0);
+                      const crackedEggs = Math.max(0, Number(draft.crackedEggs) || 0);
 
-                    return (
-                      <div
-                        key={group.groupId}
-                        className="grid gap-3 rounded-2xl border border-[color:var(--line)] bg-slate-50/60 p-3 md:grid-cols-[minmax(0,1fr)_130px_130px_110px] md:items-center"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{group.title}</p>
-                          <p className="text-xs text-slate-500">
-                            {group.species} - {group.breed}
-                            {group.variety ? ` - ${group.variety}` : ""}
-                          </p>
-                        </div>
+                      return (
+                        <div
+                          key={group.groupId}
+                          className="grid grid-cols-[minmax(0,1fr)_96px_96px] items-center gap-2 border-b border-[color:var(--line)] px-3 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_120px_120px]"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">{group.title}</p>
+                            <p className="truncate text-xs text-slate-500">
+                              {group.species} - {group.breed}
+                              {group.variety ? ` - ${group.variety}` : ""}
+                            </p>
+                          </div>
 
-                        <Field label="Ovos">
                           <Input
                             type="number"
                             min={0}
@@ -638,9 +638,7 @@ export function EggCollectionManager() {
                               }));
                             }}
                           />
-                        </Field>
 
-                        <Field label="Trincados">
                           <Input
                             type="number"
                             min={0}
@@ -657,15 +655,10 @@ export function EggCollectionManager() {
                               }));
                             }}
                           />
-                        </Field>
-
-                        <div className="rounded-xl border border-[color:var(--line)] bg-white px-3 py-2 text-center">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Bons</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-900">{formatPercent(goodRate)}</p>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

@@ -7,7 +7,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await getApiSessionOr401({ employeePermission: 'plantel' });
+  const auth = await getApiSessionOr401({ employeePermission: "plantel" });
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
@@ -15,7 +15,7 @@ export async function PUT(
   const parsed = birdSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Dados inválidos." },
+      { error: parsed.error.issues[0]?.message ?? "Dados invalidos." },
       { status: 400 }
     );
   }
@@ -29,13 +29,13 @@ export async function PUT(
     );
 
     if (!updated) {
-      return NextResponse.json({ error: "Ave não encontrada." }, { status: 404 });
+      return NextResponse.json({ error: "Ave nao encontrada." }, { status: 404 });
     }
 
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
-      { error: "Falha ao atualizar ave. Verifique se a anilha já existe." },
+      { error: "Falha ao atualizar ave. Verifique se o identificador informado ja existe." },
       { status: 400 }
     );
   }
@@ -45,15 +45,14 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await getApiSessionOr401({ employeePermission: 'plantel' });
+  const auth = await getApiSessionOr401({ employeePermission: "plantel" });
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
   const deleted = await deleteBird(auth.session.user.tenantId, auth.session.user.id, id);
   if (!deleted) {
-    return NextResponse.json({ error: "Ave não encontrada." }, { status: 404 });
+    return NextResponse.json({ error: "Ave nao encontrada." }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });
 }
-

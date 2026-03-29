@@ -17,7 +17,11 @@ export const flockGroupSchema = z.object({
 export const birdSchema = z.object({
   flockGroupId: z.string().cuid("Grupo inválido."),
   bayNumber: z.coerce.number().int().min(1, "Informe o número da baia.").optional(),
-  ringNumber: z.string().trim().min(2, "Informe a anilha."),
+  ringNumber: z
+    .string()
+    .trim()
+    .optional()
+    .refine((value) => !value || value.length >= 2, "Informe uma anilha válida."),
   nickname: z.string().trim().optional(),
   sex: z.enum(["FEMALE", "MALE", "UNKNOWN"]),
   acquisitionDate: z.string().optional(),

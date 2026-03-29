@@ -66,6 +66,29 @@ async function ensureTaxonomy(tenantId: string, speciesName: string, breedName: 
   };
 }
 
+async function resolveRingNumber(tenantId: string, inputRingNumber?: string, fallbackRingNumber?: string) {
+  const cleanedInput = inputRingNumber?.trim();
+  if (cleanedInput) return cleanedInput;
+
+  const cleanedFallback = fallbackRingNumber?.trim();
+  if (cleanedFallback) return cleanedFallback;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const candidate = `SEM-ANILHA-${Date.now().toString(36).toUpperCase()}-${suffix}`;
+    const exists = await prisma.bird.findFirst({
+      where: { tenantId, ringNumber: candidate },
+      select: { id: true }
+    });
+    if (!exists) return candidate;
+  }
+
+  return `SEM-ANILHA-${Date.now().toString(36).toUpperCase()}-${Math.random()
+    .toString(36)
+    .slice(2, 10)
+    .toUpperCase()}`;
+}
+
 export async function listPlantel(tenantId: string, filters: PlantelFilters) {
   const groupWhere: Prisma.FlockGroupWhereInput = {
     tenantId,
@@ -301,7 +324,7 @@ export async function createBird(
   input: {
     flockGroupId: string;
     bayNumber?: number;
-    ringNumber: string;
+    ringNumber?: string;
     nickname?: string;
     sex: "FEMALE" | "MALE" | "UNKNOWN";
     acquisitionDate?: string;
@@ -316,12 +339,14 @@ export async function createBird(
   });
   if (!group) return null;
 
+  const ringNumber = await resolveRingNumber(tenantId, input.ringNumber);
+
   const bird = await prisma.bird.create({
     data: {
       tenantId,
       flockGroupId: input.flockGroupId,
       bayNumber: input.bayNumber ?? group.bayNumber,
-      ringNumber: input.ringNumber,
+      ringNumber,
       nickname: input.nickname,
       sex: input.sex,
       acquisitionDate: input.acquisitionDate ? new Date(input.acquisitionDate) : null,
@@ -363,7 +388,7 @@ export async function updateBird(
   input: {
     flockGroupId: string;
     bayNumber?: number;
-    ringNumber: string;
+    ringNumber?: string;
     nickname?: string;
     sex: "FEMALE" | "MALE" | "UNKNOWN";
     acquisitionDate?: string;
@@ -374,7 +399,7 @@ export async function updateBird(
 ) {
   const existing = await prisma.bird.findFirst({
     where: { id, tenantId },
-    select: { id: true, status: true, bayNumber: true }
+    select: { id: true, status: true, bayNumber: true, ringNumber: true }
   });
   if (!existing) return null;
 
@@ -384,12 +409,14 @@ export async function updateBird(
   });
   if (!group) return null;
 
+  const ringNumber = await resolveRingNumber(tenantId, input.ringNumber, existing.ringNumber);
+
   const updated = await prisma.bird.update({
     where: { id },
     data: {
       flockGroupId: input.flockGroupId,
       bayNumber: input.bayNumber ?? existing.bayNumber ?? group.bayNumber,
-      ringNumber: input.ringNumber,
+      ringNumber,
       nickname: input.nickname,
       sex: input.sex,
       acquisitionDate: input.acquisitionDate ? new Date(input.acquisitionDate) : null,
