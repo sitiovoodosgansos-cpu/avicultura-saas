@@ -144,6 +144,54 @@ function parseCapacityFromDescription(description: string | null) {
   return match ? Number(match[1]) : 0;
 }
 
+type SpeciesIncubationRule = { label: string; days: number; keywords: string[] };
+
+const SPECIES_INCUBATION_RULES: SpeciesIncubationRule[] = [
+  { label: "Galinha", days: 21, keywords: ["galinha"] },
+  { label: "Codorna", days: 18, keywords: ["codorna", "quail"] },
+  { label: "Faisao", days: 27, keywords: ["faisao", "pheasant"] },
+  { label: "Pavao", days: 28, keywords: ["pavao", "peafowl", "peacock"] },
+  { label: "Peru", days: 28, keywords: ["peru", "turkey"] },
+  { label: "Pato", days: 28, keywords: ["pato", "duck"] },
+  { label: "Marreco mandarim", days: 29, keywords: ["mandarim", "mandarin"] },
+  { label: "Marreco carolina", days: 30, keywords: ["carolina", "wood duck"] },
+  { label: "Marreco", days: 28, keywords: ["marreco"] },
+  { label: "Ganso", days: 30, keywords: ["ganso", "goose"] },
+  { label: "Cisne", days: 36, keywords: ["cisne", "swan"] },
+  { label: "Avestruz", days: 42, keywords: ["avestruz", "ostrich"] },
+  { label: "Emu", days: 52, keywords: ["emu"] }
+];
+
+function normalizeSpeciesText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function inferSpeciesRuleFromGroupTitle(groupTitle: string) {
+  const normalized = normalizeSpeciesText(groupTitle);
+  const found = SPECIES_INCUBATION_RULES.find((rule) => rule.keywords.some((keyword) => normalized.includes(keyword)));
+  return found ?? { label: "Ave", days: 21, keywords: [] };
+}
+
+function toDateStart(value: string) {
+  const parsed = new Date(value);
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
+function addDaysToDate(base: Date, days: number) {
+  const copy = new Date(base);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function getDaysUntil(targetDate: Date) {
+  const todayDate = new Date();
+  const todayStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
+  return Math.max(0, Math.ceil((targetDate.getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000)));
+}
+
 const LOT_MARKER_REGEX = /\[LOT:(.+?)\]/i;
 
 function extractLotCode(notes: string | null | undefined) {
@@ -234,14 +282,52 @@ export function IncubatorsManager() {
   const incubatorStats = useMemo(() => {
     return devices.map((device) => {
       const byDevice = batches.filter((batch) => batch.incubatorId === device.id);
+      const activeByDevice = byDevice.filter((batch) => batch.status === "ACTIVE");
       const totalEggs = byDevice.reduce((sum, batch) => sum + batch.eggsSet, 0);
       const hatched = byDevice.reduce((sum, batch) => sum + batch.stats.hatched, 0);
-      const active = byDevice.filter((batch) => batch.status === "ACTIVE").length;
+      const active = activeByDevice.length;
+
+      const speciesMap = new Map<
+        string,
+        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number }
+      >();
+      for (const batch of activeByDevice) {
+        const rule = inferSpeciesRuleFromGroupTitle(batch.flockGroup.title);
+        const entryDate = toDateStart(batch.entryDate);
+        const hatchDate = addDaysToDate(entryDate, rule.days);
+        const remainingDays = getDaysUntil(hatchDate);
+        const existing = speciesMap.get(rule.label);
+        if (existing) {
+          existing.eggs += batch.eggsSet;
+          existing.lineCount += 1;
+          if (remainingDays < existing.remainingDays) {
+            existing.remainingDays = remainingDays;
+            existing.hatchDate = hatchDate;
+          }
+          continue;
+        }
+        speciesMap.set(rule.label, {
+          species: rule.label,
+          eggs: batch.eggsSet,
+          remainingDays,
+          hatchDate,
+          lineCount: 1
+        });
+      }
+
+      const speciesCountdowns = Array.from(speciesMap.values())
+        .sort((a, b) => a.remainingDays - b.remainingDays || b.eggs - a.eggs)
+        .map((item) => ({
+          ...item,
+          hatchDateLabel: item.hatchDate.toLocaleDateString("pt-BR")
+        }));
+
       return {
         ...device,
         active,
         hatched,
-        hatchRate: totalEggs ? (hatched / totalEggs) * 100 : 0
+        hatchRate: totalEggs ? (hatched / totalEggs) * 100 : 0,
+        speciesCountdowns
       };
     });
   }, [batches, devices]);
@@ -428,6 +514,17 @@ export function IncubatorsManager() {
     await loadData();
   }
 
+  function openEventModalForIncubator(incubatorId: string) {
+    const firstActiveBatch = activeBatches.find((batch) => batch.incubatorId === incubatorId) ?? null;
+    if (!firstActiveBatch) {
+      setError("Essa chocadeira nao tem lote ativo para registrar evento.");
+      return;
+    }
+    setError(null);
+    setEventForm((prev) => ({ ...prev, batchId: firstActiveBatch.id }));
+    setShowEventModal(true);
+  }
+
   async function createEvent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -519,14 +616,20 @@ export function IncubatorsManager() {
         {!loading && incubatorStats.map((device) => (
           <Card key={device.id} className="border border-amber-200">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-lg font-semibold text-zinc-900">{device.name}</p>
-                <p className="text-sm text-zinc-500">
-                  {parseCapacityFromDescription(device.description) > 0
-                    ? `Capacidade: ${parseCapacityFromDescription(device.description)} ovos`
-                    : "Capacidade nao informada"}
-                </p>
-                <p className="mt-1 text-xs uppercase tracking-[0.14em] text-zinc-400">Status: {device.status}</p>
+              <div className="flex items-start gap-3">
+                <div className="relative mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-base">
+                  <span>{device.active > 0 ? "♨️" : "🥚"}</span>
+                  {device.active > 0 ? <span className="absolute -top-1 -right-1 text-[10px] animate-bounce">💨</span> : null}
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-zinc-900">{device.name}</p>
+                  <p className="text-sm text-zinc-500">
+                    {parseCapacityFromDescription(device.description) > 0
+                      ? `Capacidade: ${parseCapacityFromDescription(device.description)} ovos`
+                      : "Capacidade nao informada"}
+                  </p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-zinc-400">Status: {batchStatusLabel(device.status as Batch["status"])}</p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -545,6 +648,14 @@ export function IncubatorsManager() {
                 >
                   Editar
                 </Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  disabled={device.active === 0}
+                  onClick={() => openEventModalForIncubator(device.id)}
+                >
+                  Evento
+                </Button>
                 <DeleteActionButton onClick={() => removeDevice(device.id)} aria-label="Excluir chocadeira" />
               </div>
             </div>
@@ -553,6 +664,23 @@ export function IncubatorsManager() {
               <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Nascidos</p><p className="text-xl font-semibold text-zinc-900">{device.hatched}</p></div>
               <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Taxa</p><p className="text-xl font-semibold text-zinc-900">{formatPercent(device.hatchRate)}</p></div>
             </div>
+            {device.speciesCountdowns.length > 0 ? (
+              <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-3">
+                <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Contagem por especie</p>
+                <div className="mt-2 space-y-2">
+                  {device.speciesCountdowns.slice(0, 6).map((item) => (
+                    <div key={`${device.id}-${item.species}`} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+                      <p className="truncate text-sm font-medium text-zinc-800">{item.species}</p>
+                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">{item.eggs} ovos</span>
+                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                        {item.remainingDays === 0 ? "Eclodindo" : `${item.remainingDays}d`}
+                      </span>
+                      <p className="col-span-3 text-[11px] text-zinc-500">Eclosao prevista: {item.hatchDateLabel}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </Card>
         ))}
       </section>
@@ -579,29 +707,29 @@ export function IncubatorsManager() {
                   </div>
                 </div>
                 <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-[900px] w-full text-sm">
+                  <table className="w-full table-fixed text-sm">
                     <thead>
-                      <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-[0.14em] text-zinc-400">
-                        <th className="py-2 pr-3 font-semibold">Ave</th>
-                        <th className="py-2 pr-3 font-semibold">Ovos</th>
-                        <th className="py-2 pr-3 font-semibold">Nascidos</th>
-                        <th className="py-2 pr-3 font-semibold">Infertis</th>
-                        <th className="py-2 pr-3 font-semibold">Nao desenvolveu</th>
-                        <th className="py-2 pr-3 font-semibold">Morreu na casca</th>
-                        <th className="py-2 pr-3 font-semibold">Acoes</th>
+                      <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+                        <th className="w-[22%] py-2 pr-2 text-left font-semibold">Ave</th>
+                        <th className="w-[11%] py-2 px-1 text-center font-semibold">Ovos</th>
+                        <th className="w-[11%] py-2 px-1 text-center font-semibold">Nascidos</th>
+                        <th className="w-[11%] py-2 px-1 text-center font-semibold">Infertis</th>
+                        <th className="w-[14%] py-2 px-1 text-center font-semibold">Nao desenvolveu</th>
+                        <th className="w-[14%] py-2 px-1 text-center font-semibold">Morreu na casca</th>
+                        <th className="w-[17%] py-2 pl-2 text-center font-semibold">Acoes</th>
                       </tr>
                     </thead>
                     <tbody>
                       {lot.lines.map((batch) => (
                         <tr key={batch.id} className="border-b border-zinc-100 last:border-b-0">
-                          <td className="py-2 pr-3 text-zinc-900">{batch.flockGroup.title}</td>
-                          <td className="py-2 pr-3 font-semibold text-zinc-900">{batch.eggsSet}</td>
-                          <td className="py-2 pr-3 text-zinc-900">{batch.stats.hatched}</td>
-                          <td className="py-2 pr-3 text-zinc-900">{batch.stats.infertile}</td>
-                          <td className="py-2 pr-3 text-zinc-900">{batch.stats.embryoLoss}</td>
-                          <td className="py-2 pr-3 text-zinc-900">{batch.stats.pippedDied}</td>
-                          <td className="py-2 pr-3">
-                            <div className="flex gap-2">
+                          <td className="py-2 pr-2 text-zinc-900">{batch.flockGroup.title}</td>
+                          <td className="py-2 px-1 text-center font-semibold text-zinc-900">{batch.eggsSet}</td>
+                          <td className="py-2 px-1 text-center text-zinc-900">{batch.stats.hatched}</td>
+                          <td className="py-2 px-1 text-center text-zinc-900">{batch.stats.infertile}</td>
+                          <td className="py-2 px-1 text-center text-zinc-900">{batch.stats.embryoLoss}</td>
+                          <td className="py-2 px-1 text-center text-zinc-900">{batch.stats.pippedDied}</td>
+                          <td className="py-2 pl-2">
+                            <div className="flex items-center justify-center gap-2">
                               <Button variant="outline" type="button" onClick={() => {
                                 setEditingBatchId(batch.id);
                                 setEditingBatchLotCode(extractLotCode(batch.notes));
