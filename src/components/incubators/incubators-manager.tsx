@@ -52,6 +52,15 @@ type Batch = {
   };
 };
 
+type LotGroup = {
+  key: string;
+  lotCode: string | null;
+  entryDate: string;
+  status: Batch["status"];
+  incubatorName: string;
+  lines: Batch[];
+};
+
 type Metrics = {
   summary: {
     activeIncubators: number;
@@ -135,6 +144,33 @@ function parseCapacityFromDescription(description: string | null) {
   return match ? Number(match[1]) : 0;
 }
 
+const LOT_MARKER_REGEX = /\[LOT:(.+?)\]/i;
+
+function extractLotCode(notes: string | null | undefined) {
+  if (!notes) return null;
+  const match = notes.match(LOT_MARKER_REGEX);
+  return match?.[1]?.trim() || null;
+}
+
+function stripLotMetadata(notes: string | null | undefined) {
+  if (!notes) return "";
+  return notes.replace(LOT_MARKER_REGEX, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function withLotMetadata(notes: string, lotCode: string | null) {
+  const cleanNotes = stripLotMetadata(notes);
+  if (!lotCode) return cleanNotes;
+  const marker = `[LOT:${lotCode}]`;
+  return cleanNotes ? `${cleanNotes} ${marker}` : marker;
+}
+
+function batchStatusLabel(status: Batch["status"]) {
+  if (status === "ACTIVE") return "Ativo";
+  if (status === "HATCHED") return "Finalizado com eclosao";
+  if (status === "FAILED") return "Falhou";
+  return "Cancelado";
+}
+
 export function IncubatorsManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -153,12 +189,37 @@ export function IncubatorsManager() {
 
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
+  const [editingBatchLotCode, setEditingBatchLotCode] = useState<string | null>(null);
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
   const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
+  const lotGroups = useMemo(() => {
+    const groups = new Map<string, LotGroup>();
+
+    for (const batch of visibleBatches) {
+      const lotCode = extractLotCode(batch.notes);
+      const fallbackKey = `legacy:${batch.incubatorId}:${toDateInput(batch.entryDate)}:${batch.status}:${stripLotMetadata(batch.notes)}`;
+      const key = lotCode ? `code:${lotCode}` : fallbackKey;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.lines.push(batch);
+        continue;
+      }
+      groups.set(key, {
+        key,
+        lotCode,
+        entryDate: batch.entryDate,
+        status: batch.status,
+        incubatorName: batch.incubator.name,
+        lines: [batch]
+      });
+    }
+
+    return Array.from(groups.values()).sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
+  }, [visibleBatches]);
 
   const totalBatchEggs = useMemo(
     () => batchLines.reduce((sum, line) => sum + (Number.isFinite(line.eggsSet) ? line.eggsSet : 0), 0),
@@ -299,7 +360,7 @@ export function IncubatorsManager() {
           entryDate: batchForm.entryDate,
           eggsSet: line.eggsSet,
           expectedHatchDate: batchForm.expectedHatchDate,
-          notes: batchForm.notes,
+          notes: withLotMetadata(batchForm.notes, editingBatchLotCode),
           status: batchForm.status
         })
       });
@@ -318,6 +379,12 @@ export function IncubatorsManager() {
         return;
       }
 
+      const numericLotCodes = batches
+        .map((batch) => extractLotCode(batch.notes))
+        .map((code) => (code ? Number(code) : NaN))
+        .filter((value) => Number.isFinite(value) && value > 0);
+      const nextLotCode = String(numericLotCodes.length ? Math.max(...numericLotCodes) + 1 : 1);
+
       for (const line of lines) {
         const res = await fetch("/api/incubators/batches", {
           method: "POST",
@@ -328,7 +395,7 @@ export function IncubatorsManager() {
             entryDate: batchForm.entryDate,
             eggsSet: line.eggsSet,
             expectedHatchDate: batchForm.expectedHatchDate,
-            notes: batchForm.notes,
+            notes: withLotMetadata(batchForm.notes, nextLotCode),
             status: batchForm.status
           })
         });
@@ -345,6 +412,7 @@ export function IncubatorsManager() {
     setBatchForm((prev) => ({ ...emptyBatch, incubatorId: prev.incubatorId, entryDate: today }));
     setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: flockGroups[0]?.id ?? "", eggsSet: 1 }]);
     setEditingBatchId(null);
+    setEditingBatchLotCode(null);
     setShowBatchModal(false);
     setSaving(false);
     await loadData();
@@ -500,31 +568,63 @@ export function IncubatorsManager() {
           </div>
 
           <div className="mt-3 grid gap-3">
-            {visibleBatches.length === 0 ? <p className="text-sm text-zinc-500">Nenhum lote nesse filtro.</p> : null}
-            {visibleBatches.map((batch) => (
-              <div key={batch.id} className="rounded-2xl border border-zinc-200 bg-white p-3">
+            {lotGroups.length === 0 ? <p className="text-sm text-zinc-500">Nenhum lote nesse filtro.</p> : null}
+            {lotGroups.map((lot, lotIndex) => (
+              <div key={lot.key} className="rounded-2xl border border-zinc-200 bg-white p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold text-zinc-900">{batch.flockGroup.title}</p>
-                    <p className="text-xs text-zinc-500">{batch.incubator.name} | Entrada: {new Date(batch.entryDate).toLocaleDateString("pt-BR")}</p>
-                    <p className="text-xs text-zinc-500">Status: {batch.status}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" type="button" onClick={() => {
-                      setEditingBatchId(batch.id);
-                      setBatchForm({ incubatorId: batch.incubatorId, entryDate: toDateInput(batch.entryDate), lockdownDate: "", expectedHatchDate: toDateInput(batch.expectedHatchDate), notes: batch.notes ?? "", status: batch.status });
-                      setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: batch.flockGroupId, eggsSet: batch.eggsSet }]);
-                      setShowBatchModal(true);
-                    }}>Editar</Button>
-                    <DeleteActionButton onClick={() => removeBatch(batch.id)} aria-label="Excluir lote" />
+                    <p className="text-sm font-semibold text-zinc-900">Lote #{lot.lotCode ?? lotGroups.length - lotIndex}</p>
+                    <p className="text-xs text-zinc-500">{lot.incubatorName} | Entrada: {new Date(lot.entryDate).toLocaleDateString("pt-BR")}</p>
+                    <p className="text-xs text-zinc-500">Status: {batchStatusLabel(lot.status)}</p>
                   </div>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-5">
-                  <div className="rounded-xl bg-zinc-50 p-2"><p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Ovos</p><p className="text-lg font-semibold text-zinc-900">{batch.eggsSet}</p></div>
-                  <div className="rounded-xl bg-zinc-50 p-2"><p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Nascidos</p><p className="text-lg font-semibold text-zinc-900">{batch.stats.hatched}</p></div>
-                  <div className="rounded-xl bg-zinc-50 p-2"><p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Infertis</p><p className="text-lg font-semibold text-zinc-900">{batch.stats.infertile}</p></div>
-                  <div className="rounded-xl bg-zinc-50 p-2"><p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Nao desenv.</p><p className="text-lg font-semibold text-zinc-900">{batch.stats.embryoLoss}</p></div>
-                  <div className="rounded-xl bg-zinc-50 p-2"><p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Taxa</p><p className="text-lg font-semibold text-zinc-900">{formatPercent(batch.stats.hatchRate)}</p></div>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-[900px] w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-200 text-left text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+                        <th className="py-2 pr-3 font-semibold">Ave</th>
+                        <th className="py-2 pr-3 font-semibold">Ovos</th>
+                        <th className="py-2 pr-3 font-semibold">Nascidos</th>
+                        <th className="py-2 pr-3 font-semibold">Infertis</th>
+                        <th className="py-2 pr-3 font-semibold">Nao desenvolveu</th>
+                        <th className="py-2 pr-3 font-semibold">Morreu na casca</th>
+                        <th className="py-2 pr-3 font-semibold">Acoes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lot.lines.map((batch) => (
+                        <tr key={batch.id} className="border-b border-zinc-100 last:border-b-0">
+                          <td className="py-2 pr-3 text-zinc-900">{batch.flockGroup.title}</td>
+                          <td className="py-2 pr-3 font-semibold text-zinc-900">{batch.eggsSet}</td>
+                          <td className="py-2 pr-3 text-zinc-900">{batch.stats.hatched}</td>
+                          <td className="py-2 pr-3 text-zinc-900">{batch.stats.infertile}</td>
+                          <td className="py-2 pr-3 text-zinc-900">{batch.stats.embryoLoss}</td>
+                          <td className="py-2 pr-3 text-zinc-900">{batch.stats.pippedDied}</td>
+                          <td className="py-2 pr-3">
+                            <div className="flex gap-2">
+                              <Button variant="outline" type="button" onClick={() => {
+                                setEditingBatchId(batch.id);
+                                setEditingBatchLotCode(extractLotCode(batch.notes));
+                                setBatchForm({
+                                  incubatorId: batch.incubatorId,
+                                  entryDate: toDateInput(batch.entryDate),
+                                  lockdownDate: "",
+                                  expectedHatchDate: toDateInput(batch.expectedHatchDate),
+                                  notes: stripLotMetadata(batch.notes),
+                                  status: batch.status
+                                });
+                                setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: batch.flockGroupId, eggsSet: batch.eggsSet }]);
+                                setShowBatchModal(true);
+                              }}>
+                                Editar
+                              </Button>
+                              <DeleteActionButton onClick={() => removeBatch(batch.id)} aria-label="Excluir linha do lote" />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             ))}
@@ -544,7 +644,7 @@ export function IncubatorsManager() {
         </form>
       </AppModal>
 
-      <AppModal open={showBatchModal} title={editingBatchId ? "Editar lote" : "Novo lote"} error={error} onClose={() => { setShowBatchModal(false); setEditingBatchId(null); }}>
+      <AppModal open={showBatchModal} title={editingBatchId ? "Editar lote" : "Novo lote"} error={error} onClose={() => { setShowBatchModal(false); setEditingBatchId(null); setEditingBatchLotCode(null); }}>
         <form className="grid gap-3" onSubmit={saveBatch}>
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.incubatorId} onChange={(e) => setBatchForm((p) => ({ ...p, incubatorId: e.target.value }))}>
             <option value="">Selecione a chocadeira</option>{devices.map((device) => <option key={device.id} value={device.id}>{device.name}</option>)}
@@ -571,7 +671,7 @@ export function IncubatorsManager() {
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.status} onChange={(e) => setBatchForm((p) => ({ ...p, status: e.target.value as BatchForm["status"] }))}>
             <option value="ACTIVE">Ativo</option><option value="HATCHED">Finalizado com eclosao</option><option value="FAILED">Falhou</option><option value="CANCELED">Cancelado</option>
           </select>
-          <div className="flex gap-2"><Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingBatchId ? "Atualizar" : "Cadastrar lote(s)"}</Button><Button type="button" variant="outline" onClick={() => { setShowBatchModal(false); setEditingBatchId(null); }}>Cancelar</Button></div>
+          <div className="flex gap-2"><Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingBatchId ? "Atualizar" : "Cadastrar lote(s)"}</Button><Button type="button" variant="outline" onClick={() => { setShowBatchModal(false); setEditingBatchId(null); setEditingBatchLotCode(null); }}>Cancelar</Button></div>
         </form>
       </AppModal>
 
