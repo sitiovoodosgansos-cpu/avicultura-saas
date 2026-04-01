@@ -19,7 +19,13 @@ export async function listIncubatorContext(tenantId: string) {
       where: { tenantId },
       include: {
         incubator: { select: { id: true, name: true, status: true } },
-        flockGroup: { select: { id: true, title: true } },
+        flockGroup: {
+          select: {
+            id: true,
+            title: true,
+            species: { select: { name: true } }
+          }
+        },
         events: { orderBy: { eventDate: "desc" } }
       },
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }]

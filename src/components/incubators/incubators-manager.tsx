@@ -37,7 +37,7 @@ type Batch = {
   notes: string | null;
   status: "ACTIVE" | "HATCHED" | "FAILED" | "CANCELED";
   incubator: { id: string; name: string; status: string };
-  flockGroup: { id: string; title: string };
+  flockGroup: { id: string; title: string; species?: { name: string } | null };
   events: BatchEvent[];
   stats: {
     hatched: number;
@@ -169,10 +169,10 @@ function normalizeSpeciesText(value: string) {
     .toLowerCase();
 }
 
-function inferSpeciesRuleFromGroupTitle(groupTitle: string) {
-  const normalized = normalizeSpeciesText(groupTitle);
+function inferSpeciesRuleFromText(text: string) {
+  const normalized = normalizeSpeciesText(text);
   const found = SPECIES_INCUBATION_RULES.find((rule) => rule.keywords.some((keyword) => normalized.includes(keyword)));
-  return found ?? { label: "Ave", days: 21, keywords: [] };
+  return found ?? { label: "Especie nao informada", days: 21, keywords: [] };
 }
 
 function toDateStart(value: string) {
@@ -292,11 +292,14 @@ export function IncubatorsManager() {
         { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number }
       >();
       for (const batch of activeByDevice) {
-        const rule = inferSpeciesRuleFromGroupTitle(batch.flockGroup.title);
+        const speciesName = batch.flockGroup.species?.name?.trim() || "";
+        const rule = inferSpeciesRuleFromText(speciesName || batch.flockGroup.title);
+        const speciesLabel = speciesName || rule.label;
+        const speciesKey = normalizeSpeciesText(speciesLabel);
         const entryDate = toDateStart(batch.entryDate);
         const hatchDate = addDaysToDate(entryDate, rule.days);
         const remainingDays = getDaysUntil(hatchDate);
-        const existing = speciesMap.get(rule.label);
+        const existing = speciesMap.get(speciesKey);
         if (existing) {
           existing.eggs += batch.eggsSet;
           existing.lineCount += 1;
@@ -306,8 +309,8 @@ export function IncubatorsManager() {
           }
           continue;
         }
-        speciesMap.set(rule.label, {
-          species: rule.label,
+        speciesMap.set(speciesKey, {
+          species: speciesLabel,
           eggs: batch.eggsSet,
           remainingDays,
           hatchDate,
@@ -710,7 +713,7 @@ export function IncubatorsManager() {
                   <table className="w-full table-fixed text-sm">
                     <thead>
                       <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.14em] text-zinc-400">
-                        <th className="w-[22%] py-2 pr-2 text-left font-semibold">Ave</th>
+                        <th className="w-[22%] py-2 pr-2 text-left font-semibold">Especie</th>
                         <th className="w-[11%] py-2 px-1 text-center font-semibold">Ovos</th>
                         <th className="w-[11%] py-2 px-1 text-center font-semibold">Nascidos</th>
                         <th className="w-[11%] py-2 px-1 text-center font-semibold">Infertis</th>
