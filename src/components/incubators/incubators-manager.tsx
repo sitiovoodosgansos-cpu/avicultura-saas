@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
+import { Clock3, Pencil } from "lucide-react";
 
 type Incubator = {
   id: string;
@@ -289,7 +290,7 @@ export function IncubatorsManager() {
 
       const speciesMap = new Map<
         string,
-        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number }
+        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number; totalDays: number }
       >();
       for (const batch of activeByDevice) {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
@@ -306,6 +307,7 @@ export function IncubatorsManager() {
           if (remainingDays < existing.remainingDays) {
             existing.remainingDays = remainingDays;
             existing.hatchDate = hatchDate;
+            existing.totalDays = rule.days;
           }
           continue;
         }
@@ -314,7 +316,8 @@ export function IncubatorsManager() {
           eggs: batch.eggsSet,
           remainingDays,
           hatchDate,
-          lineCount: 1
+          lineCount: 1,
+          totalDays: rule.days
         });
       }
 
@@ -322,7 +325,9 @@ export function IncubatorsManager() {
         .sort((a, b) => a.remainingDays - b.remainingDays || b.eggs - a.eggs)
         .map((item) => ({
           ...item,
-          hatchDateLabel: item.hatchDate.toLocaleDateString("pt-BR")
+          hatchDateLabel: item.hatchDate.toLocaleDateString("pt-BR"),
+          progressPercent: item.totalDays > 0 ? Math.min(100, Math.max(0, ((item.totalDays - item.remainingDays) / item.totalDays) * 100)) : 0,
+          countdownLabel: item.remainingDays === 0 ? "Eclodindo" : `${item.remainingDays}d`
         }));
 
       return {
@@ -638,6 +643,10 @@ export function IncubatorsManager() {
                 <Button
                   variant="outline"
                   type="button"
+                  size="icon"
+                  className="h-12 w-12 rounded-xl md:h-auto md:w-auto md:px-3"
+                  aria-label="Editar chocadeira"
+                  title="Editar chocadeira"
                   onClick={() => {
                     setEditingDeviceId(device.id);
                     setDeviceForm({
@@ -649,7 +658,7 @@ export function IncubatorsManager() {
                     setShowDeviceModal(true);
                   }}
                 >
-                  Editar
+                  <Pencil className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
@@ -672,13 +681,24 @@ export function IncubatorsManager() {
                 <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Contagem por especie</p>
                 <div className="mt-2 space-y-2">
                   {device.speciesCountdowns.slice(0, 6).map((item) => (
-                    <div key={`${device.id}-${item.species}`} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
-                      <p className="truncate text-sm font-medium text-zinc-800">{item.species}</p>
-                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700">{item.eggs} ovos</span>
-                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-                        {item.remainingDays === 0 ? "Eclodindo" : `${item.remainingDays}d`}
-                      </span>
-                      <p className="col-span-3 text-[11px] text-zinc-500">Eclosao prevista: {item.hatchDateLabel}</p>
+                    <div key={`${device.id}-${item.species}`} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-semibold text-zinc-800">{item.species}</p>
+                        <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                          <Clock3 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                          <span>{item.countdownLabel}</span>
+                        </div>
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between text-[11px] text-zinc-500">
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-700">{item.eggs} ovos</span>
+                        <span>Eclosao: {item.hatchDateLabel}</span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                          style={{ width: `${item.progressPercent}%` }}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
