@@ -659,7 +659,7 @@ export function IncubatorsManager() {
                 >
                   Evento
                 </Button>
-                <DeleteActionButton onClick={() => removeDevice(device.id)} aria-label="Excluir chocadeira" />
+                <DeleteActionButton iconOnly onClick={() => removeDevice(device.id)} aria-label="Excluir chocadeira" />
               </div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-zinc-50 p-3 text-sm">
@@ -749,7 +749,7 @@ export function IncubatorsManager() {
                               }}>
                                 Editar
                               </Button>
-                              <DeleteActionButton onClick={() => removeBatch(batch.id)} aria-label="Excluir linha do lote" />
+                              <DeleteActionButton iconOnly onClick={() => removeBatch(batch.id)} aria-label="Excluir linha do lote" />
                             </div>
                           </td>
                         </tr>
