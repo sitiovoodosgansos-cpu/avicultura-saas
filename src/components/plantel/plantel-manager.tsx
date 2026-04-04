@@ -170,6 +170,25 @@ function StatChip({
   );
 }
 
+function CompactStatChip({
+  emoji,
+  label,
+  value
+}: {
+  emoji: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-50 px-2 py-2 text-center">
+      <p className="text-[10px] text-slate-500">
+        {emoji} {label}
+      </p>
+      <p className="text-sm font-semibold text-slate-900">{value}</p>
+    </div>
+  );
+}
+
 function toDateInput(value: string | null | undefined) {
   if (!value) return "";
   const date = new Date(value);
@@ -878,14 +897,14 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                   </p>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 xl:max-w-[720px]">
-                    <StatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
-                    <StatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
-                    <StatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
-                    <StatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
-                    <StatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
-                    <StatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
-                    <StatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2 xl:max-w-[720px]">
+                    <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
+                    <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
+                    <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
+                    <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
+                    <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
+                    <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
+                    <CompactStatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
                   </div>
 
                   {group.notes ? (
