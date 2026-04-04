@@ -180,11 +180,11 @@ function CompactStatChip({
   value: number;
 }) {
   return (
-    <div className="rounded-xl bg-slate-50 px-2 py-2 text-center">
-      <p className="text-[10px] text-slate-500">
+    <div className="flex h-[86px] w-[112px] shrink-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-1.5 text-center">
+      <p className="text-[10px] leading-tight text-slate-500">
         {emoji} {label}
       </p>
-      <p className="text-sm font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-[38px] font-semibold leading-none text-slate-900">{value}</p>
     </div>
   );
 }
@@ -897,7 +897,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                   </p>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2 xl:max-w-[720px]">
+                  <div className="mt-4 flex flex-wrap gap-2 xl:max-w-[360px]">
                     <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
                     <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
                     <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
