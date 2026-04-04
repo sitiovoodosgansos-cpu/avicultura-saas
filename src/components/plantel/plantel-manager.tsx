@@ -161,11 +161,11 @@ function StatChip({
   value: number;
 }) {
   return (
-    <div className="flex min-h-[92px] flex-col justify-between rounded-xl bg-[color:var(--surface-soft)] px-3 py-2.5 sm:min-h-[102px] sm:rounded-2xl sm:px-3.5 sm:py-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-xs">
+    <div className="flex min-h-[72px] flex-col justify-between rounded-xl bg-[color:var(--surface-soft)] px-3 py-2 sm:min-h-[82px] sm:px-3 sm:py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 sm:text-[11px]">
         {emoji} {label}
       </p>
-      <p className="mt-0.5 text-2xl font-semibold text-slate-900 sm:text-[30px]">{value}</p>
+      <p className="mt-0.5 text-[34px] font-semibold leading-none text-slate-900 sm:text-[30px]">{value}</p>
     </div>
   );
 }
@@ -878,7 +878,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                   </p>
 
-                  <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:max-w-[780px]">
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 xl:max-w-[720px]">
                     <StatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
                     <StatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
                     <StatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
