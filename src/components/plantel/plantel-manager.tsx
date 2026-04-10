@@ -897,7 +897,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                   </p>
 
-                  <div className="mt-4 grid w-full max-w-[420px] grid-cols-2 gap-2">
+                  <div className="mt-4 grid w-full grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
                     <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
                     <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
                     <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
