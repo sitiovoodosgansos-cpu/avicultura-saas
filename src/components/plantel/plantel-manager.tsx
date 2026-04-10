@@ -180,7 +180,7 @@ function CompactStatChip({
   value: number;
 }) {
   return (
-    <div className="flex h-[86px] w-[112px] shrink-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-1.5 text-center">
+    <div className="flex h-[96px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-1.5 text-center">
       <p className="text-[10px] leading-tight text-slate-500">
         {emoji} {label}
       </p>
@@ -877,13 +877,13 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         </Card>
       ) : null}
 
-      <section className="grid gap-4">
+      <section className="grid gap-4 lg:grid-cols-2">
         {groups.map((group) => {
           const expanded = expandedGroupId === group.id;
 
           return (
-            <Card key={group.id} className="overflow-hidden">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <Card key={group.id} className="h-fit overflow-hidden">
+              <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-3">
                     <h3 className="text-2xl font-semibold text-slate-900">{group.title}</h3>
@@ -897,7 +897,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                   </p>
 
-                  <div className="mt-4 flex flex-wrap gap-2 xl:max-w-[360px]">
+                  <div className="mt-4 grid w-full max-w-[420px] grid-cols-2 gap-2">
                     <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
                     <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
                     <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
@@ -914,7 +914,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 xl:max-w-xs xl:justify-end">
+                <div className="flex flex-wrap items-center gap-2 2xl:max-w-xs 2xl:justify-end">
                   <Button
                     variant="outline"
                     type="button"
@@ -955,7 +955,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     onClick={() => removeGroup(group.id)}
                     aria-label="Excluir grupo"
                     title="Excluir grupo"
-                    className="order-last ml-auto inline-flex size-9 items-center justify-center rounded-xl border border-rose-200 bg-white text-lg text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 xl:ml-0"
+                    className="order-last ml-auto inline-flex size-9 items-center justify-center rounded-xl border border-rose-200 bg-white text-lg text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 2xl:ml-0"
                   >
                     🗑️
                   </button>
