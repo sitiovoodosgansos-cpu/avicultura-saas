@@ -180,11 +180,11 @@ function CompactStatChip({
   value: number;
 }) {
   return (
-    <div className="flex h-[92px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-1.5 text-center">
-      <p className="text-xs leading-tight text-slate-500">
+    <div className="flex h-full min-h-[92px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center md:min-h-[100px]">
+      <p className="max-w-full truncate text-[12px] leading-tight text-slate-500">
         {emoji} {label}
       </p>
-      <p className="mt-1 text-[36px] font-semibold leading-none text-slate-900">{value}</p>
+      <p className="mt-1 text-[22px] font-semibold leading-none text-slate-900 md:text-[30px]">{value}</p>
     </div>
   );
 }
@@ -877,48 +877,45 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         </Card>
       ) : null}
 
-      <section className="grid gap-4 lg:grid-cols-2">
+      <section className="grid items-start gap-4 lg:grid-cols-2">
         {groups.map((group) => {
           const expanded = expandedGroupId === group.id;
 
           return (
             <Card key={group.id} className="h-fit overflow-hidden">
-              <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
-                <div className="flex-1">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-2xl font-semibold text-slate-900">{group.title}</h3>
-                    <span className="rounded-full bg-[color:var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-strong)]">
-                      {group.summary.totalBirds} aves
-                    </span>
+              <div className="flex flex-col gap-4">
+                <div className="min-w-0">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h3 className="text-2xl font-semibold text-slate-900">{group.title}</h3>
+                      <span className="rounded-full bg-[color:var(--surface-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-strong)]">
+                        {group.summary.totalBirds} aves
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm text-[color:var(--ink-soft)]">
+                      {group.species.name} - {group.breed.name}
+                      {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
+                    </p>
                   </div>
-
-                  <p className="mt-2 text-sm text-[color:var(--ink-soft)]">
-                    {group.species.name} - {group.breed.name}
-                    {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
-                  </p>
-
-                  <div className="mt-4 space-y-2">
-                    <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
-                      <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
-                      <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
-                      <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
-                      <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
-                    </div>
-                    <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-3">
-                      <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
-                      <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
-                      <CompactStatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
-                    </div>
-                  </div>
-
-                  {group.notes ? (
-                    <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                      {group.notes}
-                    </div>
-                  ) : null}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 2xl:max-w-xs 2xl:justify-end">
+                <div className="grid w-full auto-rows-fr grid-cols-2 gap-2 md:grid-cols-4">
+                  <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
+                  <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
+                  <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
+                  <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
+                  <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
+                  <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
+                  <CompactStatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
+                  <CompactStatChip emoji={"🏠"} label="Baia" value={group.bayNumber} />
+                </div>
+
+                {group.notes ? (
+                  <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">{group.notes}</div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--line)] pt-3">
                   <Button
                     variant="outline"
                     type="button"
@@ -959,11 +956,12 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     onClick={() => removeGroup(group.id)}
                     aria-label="Excluir grupo"
                     title="Excluir grupo"
-                    className="order-last ml-auto inline-flex size-9 items-center justify-center rounded-xl border border-rose-200 bg-white text-lg text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 2xl:ml-0"
+                    className="inline-flex size-9 items-center justify-center rounded-xl border border-rose-200 bg-white text-lg text-rose-600 transition hover:bg-rose-50 hover:text-rose-700"
                   >
                     🗑️
                   </button>
                 </div>
+
               </div>
 
               {expanded ? (
