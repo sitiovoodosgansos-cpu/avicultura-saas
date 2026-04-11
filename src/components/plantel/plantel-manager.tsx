@@ -897,14 +897,18 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                   </p>
 
-                  <div className="mt-4 grid w-full grid-cols-2 gap-2 md:grid-cols-4">
-                    <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
-                    <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
-                    <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
-                    <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
-                    <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
-                    <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
-                    <CompactStatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
+                  <div className="mt-4 space-y-2">
+                    <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-4">
+                      <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
+                      <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
+                      <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
+                      <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
+                    </div>
+                    <div className="grid w-full grid-cols-2 gap-2 md:grid-cols-3">
+                      <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
+                      <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
+                      <CompactStatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
+                    </div>
                   </div>
 
                   {group.notes ? (
