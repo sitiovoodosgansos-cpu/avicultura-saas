@@ -180,11 +180,11 @@ function CompactStatChip({
   value: number;
 }) {
   return (
-    <div className="flex h-full min-h-[92px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center md:min-h-[100px]">
-      <p className="max-w-full truncate text-[12px] leading-tight text-slate-500">
+    <div className="flex h-full min-h-[84px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center sm:min-h-[92px]">
+      <p className="max-w-full truncate text-[11px] leading-tight text-slate-500 sm:text-[12px]">
         {emoji} {label}
       </p>
-      <p className="mt-1 text-[22px] font-semibold leading-none text-slate-900 md:text-[30px]">{value}</p>
+      <p className="mt-1 text-[28px] font-semibold leading-none text-slate-900 sm:text-[30px]">{value}</p>
     </div>
   );
 }
@@ -900,7 +900,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   </div>
                 </div>
 
-                <div className="grid w-full auto-rows-fr grid-cols-2 gap-2 md:grid-cols-4">
+                <div className="grid w-full auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-4">
                   <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
                   <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
                   <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
