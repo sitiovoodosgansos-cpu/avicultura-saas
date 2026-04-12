@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
+import { cn } from "@/lib/utils";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type PlantelGroup = {
@@ -173,18 +174,25 @@ function StatChip({
 function CompactStatChip({
   emoji,
   label,
-  value
+  value,
+  className
 }: {
   emoji: string;
   label: string;
   value: number;
+  className?: string;
 }) {
   return (
-    <div className="flex h-full min-h-[84px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center sm:min-h-[92px]">
-      <p className="max-w-full truncate text-[11px] leading-tight text-slate-500 sm:text-[12px]">
+    <div
+      className={cn(
+        "flex h-full min-h-[96px] w-full min-w-0 flex-col justify-between rounded-xl bg-slate-50 px-3 py-2.5 text-left sm:min-h-[108px] sm:px-3.5",
+        className
+      )}
+    >
+      <p className="max-w-full truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 sm:text-[12px]">
         {emoji} {label}
       </p>
-      <p className="mt-1 text-[28px] font-semibold leading-none text-slate-900 sm:text-[30px]">{value}</p>
+      <p className="mt-1 text-[44px] font-semibold leading-none text-slate-900 sm:text-[46px]">{value}</p>
     </div>
   );
 }
@@ -883,8 +891,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
           return (
             <Card key={group.id} className="h-fit overflow-hidden">
-              <div className="flex flex-col gap-4">
-                <div className="min-w-0">
+              <div className="grid gap-4">
+                <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
                       <h3 className="text-2xl font-semibold text-slate-900">{group.title}</h3>
@@ -892,15 +900,60 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                         {group.summary.totalBirds} aves
                       </span>
                     </div>
-
                     <p className="mt-2 text-sm text-[color:var(--ink-soft)]">
                       {group.species.name} - {group.breed.name}
                       {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                     </p>
                   </div>
+                  <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => {
+                        setEditingGroupId(group.id);
+                        setShowGroupModal(true);
+                        setGroupForm({
+                          species: group.species.name,
+                          breed: group.breed.name,
+                          variety: group.variety?.name ?? "",
+                          title: group.title,
+                          bayNumber: group.bayNumber,
+                          matrixCount: group.matrixCount,
+                          reproducerCount: group.reproducerCount,
+                          notes: group.notes ?? ""
+                        });
+                      }}
+                    >
+                      Editar grupo
+                    </Button>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => {
+                        setEditingBirdId(null);
+                        setLockedBirdGroupId(group.id);
+                        setBirdForm({ ...emptyBirdForm, flockGroupId: group.id, bayNumber: group.bayNumber });
+                        setShowBirdModal(true);
+                      }}
+                    >
+                      Cadastrar ave
+                    </Button>
+                    <Button variant="outline" type="button" onClick={() => setExpandedGroupId(expanded ? null : group.id)}>
+                      {expanded ? "Fechar aves" : "Abrir aves"}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => removeGroup(group.id)}
+                      aria-label="Excluir grupo"
+                      title="Excluir grupo"
+                      className="inline-flex size-9 items-center justify-center rounded-xl border border-rose-200 bg-white text-lg text-rose-600 transition hover:bg-rose-50 hover:text-rose-700"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid w-full auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="grid w-full grid-cols-2 gap-3 sm:grid-cols-4">
                   <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
                   <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
                   <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
@@ -914,53 +967,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 {group.notes ? (
                   <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">{group.notes}</div>
                 ) : null}
-
-                <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--line)] pt-3">
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => {
-                      setEditingGroupId(group.id);
-                      setShowGroupModal(true);
-                      setGroupForm({
-                        species: group.species.name,
-                        breed: group.breed.name,
-                        variety: group.variety?.name ?? "",
-                        title: group.title,
-                        bayNumber: group.bayNumber,
-                        matrixCount: group.matrixCount,
-                        reproducerCount: group.reproducerCount,
-                        notes: group.notes ?? ""
-                      });
-                    }}
-                  >
-                    Editar grupo
-                  </Button>
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => {
-                      setEditingBirdId(null);
-                      setLockedBirdGroupId(group.id);
-                      setBirdForm({ ...emptyBirdForm, flockGroupId: group.id, bayNumber: group.bayNumber });
-                      setShowBirdModal(true);
-                    }}
-                  >
-                    Cadastrar ave
-                  </Button>
-                  <Button variant="outline" type="button" onClick={() => setExpandedGroupId(expanded ? null : group.id)}>
-                    {expanded ? "Fechar aves" : "Abrir aves"}
-                  </Button>
-                  <button
-                    type="button"
-                    onClick={() => removeGroup(group.id)}
-                    aria-label="Excluir grupo"
-                    title="Excluir grupo"
-                    className="inline-flex size-9 items-center justify-center rounded-xl border border-rose-200 bg-white text-lg text-rose-600 transition hover:bg-rose-50 hover:text-rose-700"
-                  >
-                    🗑️
-                  </button>
-                </div>
 
               </div>
 
