@@ -190,7 +190,7 @@ function addDaysToDate(base: Date, days: number) {
 function getDaysUntil(targetDate: Date) {
   const todayDate = new Date();
   const todayStart = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate());
-  return Math.max(0, Math.ceil((targetDate.getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000)));
+  return Math.ceil((targetDate.getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000));
 }
 
 const LOT_MARKER_REGEX = /\[LOT:(.+?)\]/i;
@@ -323,12 +323,29 @@ export function IncubatorsManager() {
 
       const speciesCountdowns = Array.from(speciesMap.values())
         .sort((a, b) => a.remainingDays - b.remainingDays || b.eggs - a.eggs)
-        .map((item) => ({
-          ...item,
-          hatchDateLabel: item.hatchDate.toLocaleDateString("pt-BR"),
-          progressPercent: item.totalDays > 0 ? Math.min(100, Math.max(0, ((item.totalDays - item.remainingDays) / item.totalDays) * 100)) : 0,
-          countdownLabel: item.remainingDays === 0 ? "Eclodindo" : `${item.remainingDays}d`
-        }));
+        .map((item) => {
+          const countdownState = item.remainingDays < 0 ? "overdue" : item.remainingDays === 0 ? "today" : "counting";
+          const countdownLabel =
+            countdownState === "overdue"
+              ? `Atrasado ${Math.abs(item.remainingDays)}d`
+              : countdownState === "today"
+                ? "Eclosao hoje"
+                : `${item.remainingDays}d`;
+          const progressPercent =
+            item.remainingDays <= 0
+              ? 100
+              : item.totalDays > 0
+                ? Math.min(100, Math.max(0, ((item.totalDays - item.remainingDays) / item.totalDays) * 100))
+                : 0;
+
+          return {
+            ...item,
+            hatchDateLabel: item.hatchDate.toLocaleDateString("pt-BR"),
+            progressPercent,
+            countdownState,
+            countdownLabel
+          };
+        });
 
       return {
         ...device,
@@ -684,8 +701,20 @@ export function IncubatorsManager() {
                     <div key={`${device.id}-${item.species}`} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-zinc-800">{item.species}</p>
-                        <div className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-                          <Clock3 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
+                        <div
+                          className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
+                            item.countdownState === "overdue"
+                              ? "bg-rose-50 text-rose-700"
+                              : item.countdownState === "today"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          <Clock3
+                            className={`h-3.5 w-3.5 ${
+                              item.countdownState === "counting" ? "animate-spin motion-reduce:animate-none" : ""
+                            }`}
+                          />
                           <span>{item.countdownLabel}</span>
                         </div>
                       </div>
@@ -695,7 +724,13 @@ export function IncubatorsManager() {
                       </div>
                       <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200">
                         <div
-                          className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            item.countdownState === "overdue"
+                              ? "bg-rose-500"
+                              : item.countdownState === "today"
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                          }`}
                           style={{ width: `${item.progressPercent}%` }}
                         />
                       </div>
