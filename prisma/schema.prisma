@@ -131,6 +131,7 @@ model Tenant {
   incubators     Incubator[]
   batches        IncubatorBatch[]
   batchEvents    IncubatorBatchEvent[]
+  batchSources   IncubatorBatchSource[]
   infirmaries    Infirmary[]
   infirmaryCases InfirmaryCase[]
   infirmaryCaseEvents InfirmaryCaseEvent[]
@@ -338,6 +339,7 @@ model IncubatorBatch {
   incubator         Incubator   @relation(fields: [incubatorId], references: [id], onDelete: Cascade)
   flockGroup        FlockGroup  @relation(fields: [flockGroupId], references: [id], onDelete: Restrict)
   events            IncubatorBatchEvent[]
+  sources           IncubatorBatchSource[]
 }
 
 model IncubatorBatchEvent {
@@ -351,6 +353,20 @@ model IncubatorBatchEvent {
   createdAt DateTime @default(now())
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   batch     IncubatorBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+}
+
+model IncubatorBatchSource {
+  id            String   @id @default(cuid())
+  tenantId      String
+  batchId       String
+  trayEntryId   String?
+  collectionDate DateTime
+  quantity      Int
+  createdAt     DateTime @default(now())
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch         IncubatorBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, batchId])
 }
 
 model Infirmary {

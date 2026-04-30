@@ -253,7 +253,7 @@ async function consumeFifo(
   trayId: string,
   totalQuantity: number,
   field: "soldCount" | "transferredCount"
-): Promise<{ entries: EntryWithAvailable[]; consumed: Array<{ entryId: string; quantity: number }> }> {
+): Promise<{ entries: EntryWithAvailable[]; consumed: Array<{ entryId: string; entryDate: Date; quantity: number }> }> {
   const entries = await tx.eggTrayEntry.findMany({
     where: { tenantId, trayId },
     orderBy: { entryDate: "asc" }
@@ -270,7 +270,7 @@ async function consumeFifo(
     throw new Error(`Quantidade indisponivel. Restam ${totalAvailable} ovos na bandeja.`);
   }
 
-  const consumed: Array<{ entryId: string; quantity: number }> = [];
+  const consumed: Array<{ entryId: string; entryDate: Date; quantity: number }> = [];
   let remaining = totalQuantity;
   for (const entry of withAvailable) {
     if (remaining <= 0) break;
@@ -280,7 +280,7 @@ async function consumeFifo(
       where: { id: entry.id },
       data: { [field]: { increment: take } }
     });
-    consumed.push({ entryId: entry.id, quantity: take });
+    consumed.push({ entryId: entry.id, entryDate: entry.entryDate, quantity: take });
     remaining -= take;
   }
 
@@ -348,8 +348,8 @@ export async function transferTrayToIncubator(
 
   try {
     const batch = await prisma.$transaction(async (tx) => {
-      await consumeFifo(tx, tenantId, tray.id, input.quantity, "transferredCount");
-      return tx.incubatorBatch.create({
+      const consumption = await consumeFifo(tx, tenantId, tray.id, input.quantity, "transferredCount");
+      const created = await tx.incubatorBatch.create({
         data: {
           tenantId,
           incubatorId: input.incubatorId,
@@ -360,6 +360,18 @@ export async function transferTrayToIncubator(
           notes: input.notes ?? `Transferido da prateleira (${tray.speciesLabel} ${tray.breedLabel}).`
         }
       });
+      for (const slice of consumption.consumed) {
+        await tx.incubatorBatchSource.create({
+          data: {
+            tenantId,
+            batchId: created.id,
+            trayEntryId: slice.entryId,
+            collectionDate: slice.entryDate,
+            quantity: slice.quantity
+          }
+        });
+      }
+      return created;
     });
 
     await prisma.auditLog.create({
@@ -404,7 +416,7 @@ export async function transferTraysBulkToIncubator(
       const created = [];
       for (const item of input.items) {
         const tray = trays.find((t) => t.id === item.trayId)!;
-        await consumeFifo(tx, tenantId, tray.id, item.quantity, "transferredCount");
+        const consumption = await consumeFifo(tx, tenantId, tray.id, item.quantity, "transferredCount");
         const batch = await tx.incubatorBatch.create({
           data: {
             tenantId,
@@ -416,6 +428,17 @@ export async function transferTraysBulkToIncubator(
             notes: input.notes ?? `Transferido em lote da prateleira (${tray.speciesLabel} ${tray.breedLabel}).`
           }
         });
+        for (const slice of consumption.consumed) {
+          await tx.incubatorBatchSource.create({
+            data: {
+              tenantId,
+              batchId: batch.id,
+              trayEntryId: slice.entryId,
+              collectionDate: slice.entryDate,
+              quantity: slice.quantity
+            }
+          });
+        }
         created.push(batch);
       }
       return created;

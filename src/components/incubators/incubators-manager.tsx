@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
-import { Check, Clock3, Pencil } from "lucide-react";
+import { Check, Clock3, Info, Pencil } from "lucide-react";
 
 type Incubator = {
   id: string;
@@ -28,6 +28,13 @@ type BatchEvent = {
   notes: string | null;
 };
 
+type BatchSource = {
+  id: string;
+  trayEntryId: string | null;
+  collectionDate: string;
+  quantity: number;
+};
+
 type Batch = {
   id: string;
   incubatorId: string;
@@ -40,6 +47,7 @@ type Batch = {
   incubator: { id: string; name: string; status: string };
   flockGroup: { id: string; title: string; species?: { name: string } | null };
   events: BatchEvent[];
+  sources?: BatchSource[];
   stats: {
     hatched: number;
     infertile: number;
@@ -255,6 +263,7 @@ export function IncubatorsManager() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [finalizeBatchOnSubmit, setFinalizeBatchOnSubmit] = useState(false);
+  const [sourcesModal, setSourcesModal] = useState<{ title: string; sources: BatchSource[] } | null>(null);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
   const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
@@ -867,37 +876,93 @@ export function IncubatorsManager() {
                       </tr>
                     </thead>
                     <tbody>
-                      {lot.lines.map((batch) => (
-                        <tr key={batch.id} className="border-b border-zinc-100 last:border-b-0">
-                          <td className="py-2 pr-2 text-zinc-900">{batch.flockGroup.title}</td>
-                          <td className="py-2 px-1 text-center font-semibold text-zinc-900">{batch.eggsSet}</td>
-                          <td className="py-2 px-1 text-center text-zinc-900">{batch.stats.hatched}</td>
-                          <td className="py-2 px-1 text-center text-zinc-900">{batch.stats.infertile}</td>
-                          <td className="py-2 px-1 text-center text-zinc-900">{batch.stats.embryoLoss}</td>
-                          <td className="py-2 px-1 text-center text-zinc-900">{batch.stats.pippedDied}</td>
-                          <td className="py-2 pl-2">
-                            <div className="flex items-center justify-center gap-2">
-                              <Button variant="outline" type="button" onClick={() => {
-                                setEditingBatchId(batch.id);
-                                setEditingBatchLotCode(extractLotCode(batch.notes));
-                                setBatchForm({
-                                  incubatorId: batch.incubatorId,
-                                  entryDate: toDateInput(batch.entryDate),
-                                  lockdownDate: "",
-                                  expectedHatchDate: toDateInput(batch.expectedHatchDate),
-                                  notes: stripLotMetadata(batch.notes),
-                                  status: batch.status
-                                });
-                                setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: batch.flockGroupId, eggsSet: batch.eggsSet }]);
-                                setShowBatchModal(true);
-                              }}>
-                                Editar
-                              </Button>
-                              <DeleteActionButton iconOnly onClick={() => removeBatch(batch.id)} aria-label="Excluir linha do lote" />
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {(() => {
+                        const aggregated = new Map<string, {
+                          flockGroupId: string;
+                          flockGroupTitle: string;
+                          eggsSet: number;
+                          hatched: number;
+                          infertile: number;
+                          embryoLoss: number;
+                          pippedDied: number;
+                          batchIds: string[];
+                          sources: BatchSource[];
+                          first: Batch;
+                        }>();
+                        for (const batch of lot.lines) {
+                          const key = batch.flockGroupId;
+                          const ex = aggregated.get(key);
+                          if (ex) {
+                            ex.eggsSet += batch.eggsSet;
+                            ex.hatched += batch.stats.hatched;
+                            ex.infertile += batch.stats.infertile;
+                            ex.embryoLoss += batch.stats.embryoLoss;
+                            ex.pippedDied += batch.stats.pippedDied;
+                            ex.batchIds.push(batch.id);
+                            ex.sources.push(...(batch.sources ?? []));
+                          } else {
+                            aggregated.set(key, {
+                              flockGroupId: batch.flockGroupId,
+                              flockGroupTitle: batch.flockGroup.title,
+                              eggsSet: batch.eggsSet,
+                              hatched: batch.stats.hatched,
+                              infertile: batch.stats.infertile,
+                              embryoLoss: batch.stats.embryoLoss,
+                              pippedDied: batch.stats.pippedDied,
+                              batchIds: [batch.id],
+                              sources: [...(batch.sources ?? [])],
+                              first: batch
+                            });
+                          }
+                        }
+                        return Array.from(aggregated.values()).map((row) => (
+                          <tr key={row.flockGroupId} className="border-b border-zinc-100 last:border-b-0">
+                            <td className="py-2 pr-2 text-zinc-900">
+                              <div className="flex items-center gap-1.5">
+                                <span>{row.flockGroupTitle}</span>
+                                {row.sources.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSourcesModal({ title: row.flockGroupTitle, sources: row.sources })}
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-50 text-sky-600 transition hover:bg-sky-100"
+                                    title="Ver datas de coleta originais"
+                                    aria-label="Ver datas de coleta originais"
+                                  >
+                                    <Info className="h-3 w-3" />
+                                  </button>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td className="py-2 px-1 text-center font-semibold text-zinc-900">{row.eggsSet}</td>
+                            <td className="py-2 px-1 text-center text-zinc-900">{row.hatched}</td>
+                            <td className="py-2 px-1 text-center text-zinc-900">{row.infertile}</td>
+                            <td className="py-2 px-1 text-center text-zinc-900">{row.embryoLoss}</td>
+                            <td className="py-2 px-1 text-center text-zinc-900">{row.pippedDied}</td>
+                            <td className="py-2 pl-2">
+                              <div className="flex items-center justify-center gap-2">
+                                <Button variant="outline" type="button" onClick={() => {
+                                  const batch = row.first;
+                                  setEditingBatchId(batch.id);
+                                  setEditingBatchLotCode(extractLotCode(batch.notes));
+                                  setBatchForm({
+                                    incubatorId: batch.incubatorId,
+                                    entryDate: toDateInput(batch.entryDate),
+                                    lockdownDate: "",
+                                    expectedHatchDate: toDateInput(batch.expectedHatchDate),
+                                    notes: stripLotMetadata(batch.notes),
+                                    status: batch.status
+                                  });
+                                  setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: batch.flockGroupId, eggsSet: batch.eggsSet }]);
+                                  setShowBatchModal(true);
+                                }}>
+                                  Editar
+                                </Button>
+                                <DeleteActionButton iconOnly onClick={() => row.batchIds.forEach((id) => removeBatch(id))} aria-label="Excluir linha do lote" />
+                              </div>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -980,6 +1045,43 @@ export function IncubatorsManager() {
           <Input placeholder="Observacoes" value={eventForm.notes} onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))} />
           <Button type="submit" disabled={saving}>{saving ? (finalizeBatchOnSubmit ? "Finalizando..." : "Registrando...") : (finalizeBatchOnSubmit ? "Confirmar e finalizar lote" : "Registrar evento")}</Button>
         </form>
+      </AppModal>
+
+      <AppModal
+        open={Boolean(sourcesModal)}
+        title={sourcesModal ? `Origem: ${sourcesModal.title}` : ""}
+        onClose={() => setSourcesModal(null)}
+      >
+        {sourcesModal ? (
+          <div className="space-y-2">
+            <p className="text-sm text-zinc-600">
+              Datas de coleta dos ovos que entraram nesse lote (vindos da prateleira):
+            </p>
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-2">
+              {(() => {
+                const grouped = new Map<string, number>();
+                for (const src of sourcesModal.sources) {
+                  const key = new Date(src.collectionDate).toISOString().slice(0, 10);
+                  grouped.set(key, (grouped.get(key) ?? 0) + src.quantity);
+                }
+                const sorted = Array.from(grouped.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+                return (
+                  <ul className="divide-y divide-zinc-200">
+                    {sorted.map(([date, qty]) => (
+                      <li key={date} className="flex items-center justify-between py-1.5 text-sm">
+                        <span className="font-medium text-zinc-700">{new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR")}</span>
+                        <span className="font-semibold text-zinc-900">{qty} ovos</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button type="button" variant="outline" onClick={() => setSourcesModal(null)}>Fechar</Button>
+            </div>
+          </div>
+        ) : null}
       </AppModal>
     </main>
   );
