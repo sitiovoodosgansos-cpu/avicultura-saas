@@ -43,6 +43,7 @@ type PlantelBird = {
   acquisitionDate: string | null;
   purchaseValue: string | number | null;
   flockGroupId: string;
+  inVitrine: boolean;
 };
 
 type BirdHistory = {
@@ -220,6 +221,14 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showBirdModal, setShowBirdModal] = useState(false);
   const [lockedBirdGroupId, setLockedBirdGroupId] = useState<string | null>(null);
+  const [sellingBird, setSellingBird] = useState<PlantelBird | null>(null);
+  const [sellListingForm, setSellListingForm] = useState<{
+    ageInMonths: number;
+    priceOverride: string;
+  }>({ ageInMonths: 0, priceOverride: "" });
+  const [sellListingError, setSellListingError] = useState<string | null>(null);
+  const [sellListingSubmitting, setSellListingSubmitting] = useState(false);
+  const [vitrineToast, setVitrineToast] = useState<string | null>(null);
   const [growthByMonth, setGrowthByMonth] = useState<Array<{ key: string; label: string; total: number }>>([]);
   const [growthByYear, setGrowthByYear] = useState<Array<{ key: string; label: string; total: number }>>([]);
   const [growthView, setGrowthView] = useState<"monthly" | "yearly" | "specific-month">("monthly");
@@ -850,6 +859,122 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           </div>
         </form>
       </AppModal>
+
+      <AppModal
+        open={Boolean(sellingBird)}
+        title={sellingBird ? `Colocar à venda — ${sellingBird.nickname || sellingBird.ringNumber}` : "Colocar à venda"}
+        onClose={() => setSellingBird(null)}
+        error={sellListingError}
+      >
+        {sellingBird ? (
+          <form
+            className="grid gap-3"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setSellListingSubmitting(true);
+              setSellListingError(null);
+              try {
+                const overrideValue = sellListingForm.priceOverride.trim();
+                const response = await fetch(`/api/plantel/birds/${sellingBird.id}/sell-listing`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    ageInMonths: sellListingForm.ageInMonths,
+                    priceOverride: overrideValue === "" ? null : Number(overrideValue)
+                  })
+                });
+                if (!response.ok) {
+                  const body = (await response.json().catch(() => ({}))) as { error?: string };
+                  throw new Error(body.error ?? "Erro ao enviar para Vitrine.");
+                }
+                const data = (await response.json().catch(() => ({}))) as {
+                  kind?: string;
+                  missingTier?: boolean;
+                };
+                setSellingBird(null);
+                if (data.kind === "created") {
+                  setVitrineToast(
+                    data.missingTier
+                      ? "Ave enviada para a Vitrine. Cadastre os preços por idade na Vitrine."
+                      : "Ave enviada para a Vitrine."
+                  );
+                }
+                await loadData();
+              } catch (err) {
+                setSellListingError(err instanceof Error ? err.message : "Erro ao enviar para Vitrine.");
+              } finally {
+                setSellListingSubmitting(false);
+              }
+            }}
+          >
+            <p className="text-sm text-slate-600">
+              A ave será adicionada à Vitrine com quantidade 1. Informe a idade em meses para que o
+              preço seja calculado pela tabela cadastrada.
+            </p>
+
+            <label className="grid gap-1.5">
+              <span className="text-sm font-semibold text-slate-800">Idade (meses)</span>
+              <Input
+                type="number"
+                min={0}
+                max={999}
+                required
+                value={sellListingForm.ageInMonths}
+                onChange={(event) =>
+                  setSellListingForm({
+                    ...sellListingForm,
+                    ageInMonths: Number(event.target.value || 0)
+                  })
+                }
+              />
+            </label>
+
+            <label className="grid gap-1.5">
+              <span className="text-sm font-semibold text-slate-800">Preço (R$, opcional)</span>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={sellListingForm.priceOverride}
+                onChange={(event) =>
+                  setSellListingForm({ ...sellListingForm, priceOverride: event.target.value })
+                }
+                placeholder="Puxa da tabela se vazio"
+              />
+            </label>
+
+            <div className="mt-2 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSellingBird(null)}
+                disabled={sellListingSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={sellListingSubmitting}>
+                {sellListingSubmitting ? "Enviando..." : "Enviar para Vitrine"}
+              </Button>
+            </div>
+          </form>
+        ) : null}
+      </AppModal>
+
+      {vitrineToast ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium text-emerald-800">{vitrineToast}</p>
+            <button
+              type="button"
+              onClick={() => setVitrineToast(null)}
+              className="text-xs font-semibold text-emerald-700 hover:underline"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <Card>
         <h3 className="text-xl font-semibold text-slate-900">Filtros do plantel</h3>
         <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
@@ -1038,6 +1163,22 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                                 <Button variant="outline" type="button" onClick={() => toggleHistory(bird.id)}>
                                   {historyByBird[bird.id] ? "Ocultar historico" : "Ver historico"}
                                 </Button>
+                                {bird.inVitrine ? (
+                                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                                    Na Vitrine
+                                  </span>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      setSellingBird(bird);
+                                      setSellListingForm({ ageInMonths: 0, priceOverride: "" });
+                                      setSellListingError(null);
+                                    }}
+                                  >
+                                    Colocar à venda
+                                  </Button>
+                                )}
                               </div>
                             </td>
                           </tr>
