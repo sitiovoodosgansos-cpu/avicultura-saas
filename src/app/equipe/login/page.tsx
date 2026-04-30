@@ -51,8 +51,8 @@ export default function EmployeeLoginPage() {
         </div>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail do funcionario" />
-          <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha" />
+          <Input type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="E-mail do funcionario" />
+          <Input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha" />
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <Button className="w-full" type="submit" disabled={loading}>
             {loading ? "Entrando..." : "Entrar na equipe"}

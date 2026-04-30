@@ -96,13 +96,13 @@ export function ResetPasswordForm({ token = "" }: ResetPasswordFormProps) {
           <form className="mt-6 space-y-4" onSubmit={onSubmit}>
             <div>
               <label className="mb-1 block text-sm font-medium">Nova senha</label>
-              <Input type="password" placeholder="Nova senha" {...register("password")} />
+              <Input type="password" autoComplete="new-password" placeholder="Nova senha" {...register("password")} />
               {errors.password ? <p className="mt-1 text-xs text-red-600">{errors.password.message}</p> : null}
             </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium">Confirmar senha</label>
-              <Input type="password" placeholder="Repita a senha" {...register("confirmPassword")} />
+              <Input type="password" autoComplete="new-password" placeholder="Repita a senha" {...register("confirmPassword")} />
               {errors.confirmPassword ? (
                 <p className="mt-1 text-xs text-red-600">{errors.confirmPassword.message}</p>
               ) : null}

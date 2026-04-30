@@ -29,7 +29,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         type={type}
         inputMode={isDate ? "none" : inputMode}
-        autoComplete={isDate ? "off" : autoComplete}
+        autoComplete={autoComplete ?? "off"}
         onFocus={(event) => {
           if (isDate) openNativeDatePicker(event.currentTarget);
           selectInitialZero(event.currentTarget);
