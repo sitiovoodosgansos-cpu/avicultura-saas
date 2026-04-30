@@ -278,7 +278,7 @@ export function WorkerPortal({ token }: { token: string }) {
                 </select>
               </div>
               <Input type="date" value={birdForm.acquisitionDate} onChange={(e) => setBirdForm((p) => ({ ...p, acquisitionDate: e.target.value }))} />
-              <Input type="number" min={0} step="0.01" placeholder="Valor da compra" value={birdForm.purchaseValue || ""} onChange={(e) => setBirdForm((p) => ({ ...p, purchaseValue: Number(e.target.value) }))} />
+              <Input type="number" min={0} step="0.01" placeholder="Custo de aquisicao" value={birdForm.purchaseValue || ""} onChange={(e) => setBirdForm((p) => ({ ...p, purchaseValue: Number(e.target.value) }))} />
               <Input placeholder="Origem ou fornecedor" value={birdForm.origin} onChange={(e) => setBirdForm((p) => ({ ...p, origin: e.target.value }))} />
               <Button type="submit" disabled={saving}>Salvar ave</Button>
             </form>
