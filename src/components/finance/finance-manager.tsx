@@ -594,7 +594,7 @@ export function FinanceManager() {
             </div>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-              <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+              <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
             </div>
             <Input placeholder="Descricao" value={entryForm.description} onChange={(e) => setEntryForm((p) => ({ ...p, description: e.target.value }))} />
             <Input placeholder="Cliente (opcional)" value={entryForm.customer} onChange={(e) => setEntryForm((p) => ({ ...p, customer: e.target.value }))} />
@@ -633,7 +633,7 @@ export function FinanceManager() {
             </div>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-              <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+              <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount || ""} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
             </div>
             <Input placeholder="Descricao" value={expenseForm.description} onChange={(e) => setExpenseForm((p) => ({ ...p, description: e.target.value }))} />
             <Input placeholder="Fornecedor (opcional)" value={expenseForm.supplier} onChange={(e) => setExpenseForm((p) => ({ ...p, supplier: e.target.value }))} />
@@ -844,7 +844,7 @@ export function FinanceManager() {
           </div>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-            <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
           </div>
           <Input placeholder="Descricao" value={entryForm.description} onChange={(e) => setEntryForm((p) => ({ ...p, description: e.target.value }))} />
           <Input placeholder="Cliente (opcional)" value={entryForm.customer} onChange={(e) => setEntryForm((p) => ({ ...p, customer: e.target.value }))} />
@@ -882,7 +882,7 @@ export function FinanceManager() {
           </div>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-            <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount || ""} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
           </div>
           <Input placeholder="Descricao" value={expenseForm.description} onChange={(e) => setExpenseForm((p) => ({ ...p, description: e.target.value }))} />
           <Input placeholder="Fornecedor (opcional)" value={expenseForm.supplier} onChange={(e) => setExpenseForm((p) => ({ ...p, supplier: e.target.value }))} />
