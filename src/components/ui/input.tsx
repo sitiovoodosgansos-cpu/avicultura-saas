@@ -29,7 +29,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         ref={ref}
         type={type}
         inputMode={isDate ? "none" : inputMode}
-        autoComplete={autoComplete ?? "off"}
+        // Chrome ignora autoComplete="off" quando detecta heuristica de pagamento;
+        // "new-password" e respeitado e nao tem efeito visual em type="text".
+        autoComplete={autoComplete ?? "new-password"}
+        data-form-type="other"
+        data-lpignore="true"
+        data-1p-ignore="true"
         onFocus={(event) => {
           if (isDate) openNativeDatePicker(event.currentTarget);
           selectInitialZero(event.currentTarget);
