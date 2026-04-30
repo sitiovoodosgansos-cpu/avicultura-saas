@@ -610,9 +610,9 @@ export function IncubatorsManager() {
           body: JSON.stringify({
             incubatorId: batch.incubatorId,
             flockGroupId: batch.flockGroupId,
-            entryDate: batch.entryDate,
+            entryDate: toDateInput(batch.entryDate),
             eggsSet: batch.eggsSet,
-            expectedHatchDate: batch.expectedHatchDate ?? "",
+            expectedHatchDate: batch.expectedHatchDate ? toDateInput(batch.expectedHatchDate) : "",
             notes: batch.notes ?? "",
             status: "HATCHED"
           })
