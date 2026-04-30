@@ -140,6 +140,7 @@ export async function listTrays(tenantId: string) {
       return {
         id: tray.id,
         flockGroupId: tray.flockGroupId,
+        flockGroupTitle: tray.flockGroup?.title ?? null,
         speciesLabel: tray.speciesLabel,
         breedLabel: tray.breedLabel,
         varietyLabel: tray.varietyLabel,
@@ -282,6 +283,49 @@ async function consumeFifo(
   return { entries: withAvailable, consumed };
 }
 
+export async function discardFromEntries(
+  tenantId: string,
+  userId: string | null,
+  input: { items: Array<{ trayEntryId: string; quantity: number }>; notes?: string }
+) {
+  if (input.items.length === 0) return { ok: false as const, reason: "EMPTY" as const };
+
+  try {
+    const updated = await prisma.$transaction(async (tx) => {
+      const results = [];
+      for (const item of input.items) {
+        const entry = await tx.eggTrayEntry.findFirst({ where: { id: item.trayEntryId, tenantId } });
+        if (!entry) throw new Error(`Entrada nao encontrada.`);
+        const available = entry.initialCount - entry.soldCount - entry.discardedCount - entry.transferredCount;
+        if (item.quantity > available) {
+          throw new Error(`Quantidade indisponivel em uma das entradas. Restam ${available}.`);
+        }
+        const u = await tx.eggTrayEntry.update({
+          where: { id: entry.id },
+          data: { discardedCount: entry.discardedCount + item.quantity }
+        });
+        results.push(u);
+      }
+      return results;
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        tenantId,
+        userId: userId ?? undefined,
+        action: "EGG_TRAY_DISCARD_BULK",
+        entity: "EggTrayEntry",
+        entityId: input.items.map((i) => i.trayEntryId).join(","),
+        after: { count: updated.length, reason: input.notes }
+      }
+    });
+
+    return { ok: true as const, entries: updated };
+  } catch (err) {
+    return { ok: false as const, reason: "EXCEEDS_AVAILABLE" as const, message: (err as Error).message };
+  }
+}
+
 export async function transferTrayToIncubator(
   tenantId: string,
   userId: string | null,
@@ -326,6 +370,65 @@ export async function transferTrayToIncubator(
     });
 
     return { ok: true as const, batch };
+  } catch (err) {
+    return { ok: false as const, reason: "EXCEEDS_AVAILABLE" as const, message: (err as Error).message };
+  }
+}
+
+export async function transferTraysBulkToIncubator(
+  tenantId: string,
+  userId: string | null,
+  input: { incubatorId: string; items: Array<{ trayId: string; quantity: number }>; notes?: string }
+) {
+  const incubator = await prisma.incubator.findFirst({ where: { id: input.incubatorId, tenantId } });
+  if (!incubator) return { ok: false as const, reason: "INCUBATOR_NOT_FOUND" as const };
+
+  const trays = await prisma.eggTray.findMany({
+    where: { tenantId, id: { in: input.items.map((i) => i.trayId) } }
+  });
+  if (trays.length !== new Set(input.items.map((i) => i.trayId)).size) {
+    return { ok: false as const, reason: "TRAY_NOT_FOUND" as const };
+  }
+  for (const tray of trays) {
+    if (!tray.flockGroupId) {
+      return { ok: false as const, reason: "NO_FLOCK_GROUP" as const, message: `Bandeja "${tray.speciesLabel}" e externa sem grupo do plantel.` };
+    }
+  }
+
+  try {
+    const batches = await prisma.$transaction(async (tx) => {
+      const created = [];
+      for (const item of input.items) {
+        const tray = trays.find((t) => t.id === item.trayId)!;
+        await consumeFifo(tx, tenantId, tray.id, item.quantity, "transferredCount");
+        const batch = await tx.incubatorBatch.create({
+          data: {
+            tenantId,
+            incubatorId: input.incubatorId,
+            flockGroupId: tray.flockGroupId!,
+            entryDate: new Date(),
+            eggsSet: item.quantity,
+            status: "ACTIVE",
+            notes: input.notes ?? `Transferido em lote da prateleira (${tray.speciesLabel} ${tray.breedLabel}).`
+          }
+        });
+        created.push(batch);
+      }
+      return created;
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        tenantId,
+        userId: userId ?? undefined,
+        action: "EGG_TRAY_TRANSFER_BULK",
+        entity: "IncubatorBatch",
+        entityId: batches.map((b) => b.id).join(","),
+        after: { incubatorId: input.incubatorId, count: batches.length }
+      }
+    });
+
+    return { ok: true as const, batches };
   } catch (err) {
     return { ok: false as const, reason: "EXCEEDS_AVAILABLE" as const, message: (err as Error).message };
   }

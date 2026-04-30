@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Egg, Flame, Plus, ShoppingBasket, Trash2 } from "lucide-react";
+import { Egg, Flame, Plus, ShoppingBasket, Trash2, X } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ type TrayEntry = {
 type Tray = {
   id: string;
   flockGroupId: string | null;
+  flockGroupTitle: string | null;
   speciesLabel: string;
   breedLabel: string;
   varietyLabel: string | null;
@@ -44,7 +45,17 @@ type FlockGroupOption = {
   variety: { name: string } | null;
 };
 
-type SaleItem = { trayId: string; quantity: number; unitPrice: number };
+type SelectionMode = "sale" | "transfer" | "discard" | null;
+
+type SelectedItem = {
+  entryId: string;
+  trayId: string;
+  trayLabel: string;
+  trayHasFlockGroup: boolean;
+  quantity: number;
+  available: number;
+  unitPrice?: number;
+};
 
 const today = (() => {
   const d = new Date();
@@ -110,9 +121,17 @@ function countdownLabel(remainingDays: number) {
   return `${remainingDays} dias restantes`;
 }
 
-function describeTray(tray: Tray) {
+function trayHeader(tray: Tray) {
+  if (tray.flockGroupTitle) return tray.flockGroupTitle;
   const parts = [tray.speciesLabel, tray.breedLabel, tray.varietyLabel].filter(Boolean);
   return parts.join(" · ");
+}
+
+function modeLabel(mode: SelectionMode) {
+  if (mode === "sale") return "Venda";
+  if (mode === "transfer") return "Chocadeira";
+  if (mode === "discard") return "Descarte";
+  return "";
 }
 
 export function PrateleiraManager() {
@@ -122,21 +141,22 @@ export function PrateleiraManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const [showSaleModal, setShowSaleModal] = useState(false);
-  const [showTransferModal, setShowTransferModal] = useState(false);
-  const [showExternalModal, setShowExternalModal] = useState(false);
-  const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [expandedTrayId, setExpandedTrayId] = useState<string | null>(null);
+
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>(null);
+  const [selection, setSelection] = useState<Map<string, SelectedItem>>(new Map());
+
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [showExternalModal, setShowExternalModal] = useState(false);
 
   const [saleCustomer, setSaleCustomer] = useState("");
   const [saleSoldAt, setSaleSoldAt] = useState(today);
-  const [saleItems, setSaleItems] = useState<SaleItem[]>([{ trayId: "", quantity: 1, unitPrice: 0 }]);
   const [saleNotes, setSaleNotes] = useState("");
 
-  const [transferTrayId, setTransferTrayId] = useState<string>("");
   const [transferIncubatorId, setTransferIncubatorId] = useState<string>("");
-  const [transferQuantity, setTransferQuantity] = useState<number>(0);
+  const [transferNotes, setTransferNotes] = useState("");
+
+  const [discardNotes, setDiscardNotes] = useState("");
 
   const [externalForm, setExternalForm] = useState({
     flockGroupId: "",
@@ -148,10 +168,6 @@ export function PrateleiraManager() {
     expiryDays: 10,
     notes: ""
   });
-
-  const [discardEntryId, setDiscardEntryId] = useState<string>("");
-  const [discardQuantity, setDiscardQuantity] = useState<number>(0);
-  const [discardNotes, setDiscardNotes] = useState("");
 
   async function loadData() {
     setLoading(true);
@@ -167,7 +183,7 @@ export function PrateleiraManager() {
       setTrays(trayData.trays);
       if (incRes.ok) {
         const incData = (await incRes.json()) as { incubators: IncubatorOption[] };
-        setIncubators((incData.incubators ?? []).filter((i) => i.status === "ACTIVE"));
+        setIncubators(incData.incubators ?? []);
       }
       if (groupRes.ok) {
         const groupData = (await groupRes.json()) as { groups: FlockGroupOption[] };
@@ -196,41 +212,145 @@ export function PrateleiraManager() {
     };
   }, [trays]);
 
-  const saleTotal = useMemo(
-    () => saleItems.reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0),
-    [saleItems]
-  );
+  const selectedCount = selection.size;
+  const selectedEggs = useMemo(() => Array.from(selection.values()).reduce((s, it) => s + it.quantity, 0), [selection]);
+  const saleTotal = useMemo(() => {
+    if (selectionMode !== "sale") return 0;
+    return Array.from(selection.values()).reduce((s, it) => s + (it.quantity || 0) * (it.unitPrice || 0), 0);
+  }, [selection, selectionMode]);
 
-  function openSaleModalForTray(trayId: string) {
-    setSaleCustomer("");
-    setSaleSoldAt(today);
-    setSaleItems([{ trayId, quantity: 1, unitPrice: 0 }]);
-    setSaleNotes("");
-    setShowSaleModal(true);
+  function clearSelection() {
+    setSelection(new Map());
+    setSelectionMode(null);
   }
 
-  function openSaleModalEmpty() {
-    setSaleCustomer("");
-    setSaleSoldAt(today);
-    setSaleItems([{ trayId: trays[0]?.id ?? "", quantity: 1, unitPrice: 0 }]);
-    setSaleNotes("");
-    setShowSaleModal(true);
+  function toggleEntry(entry: TrayEntry, tray: Tray, mode: SelectionMode) {
+    if (mode === null) return;
+    if (entry.available <= 0) return;
+
+    const trayLabel = trayHeader(tray);
+    const trayHasFlockGroup = Boolean(tray.flockGroupId);
+
+    setSelection((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(entry.id);
+      if (existing) {
+        next.delete(entry.id);
+      } else {
+        next.set(entry.id, {
+          entryId: entry.id,
+          trayId: tray.id,
+          trayLabel,
+          trayHasFlockGroup,
+          quantity: entry.available,
+          available: entry.available,
+          unitPrice: 0
+        });
+      }
+      return next;
+    });
+
+    setSelectionMode((current) => {
+      if (selection.size === 0 || (selection.size === 1 && selection.has(entry.id))) {
+        // Going to empty (was the last one) — clear mode
+        const nextSize = selection.has(entry.id) ? selection.size - 1 : selection.size + 1;
+        if (nextSize === 0) return null;
+      }
+      return current ?? mode;
+    });
   }
 
-  function openTransferModal(trayId: string) {
-    const tray = trays.find((t) => t.id === trayId);
-    setTransferTrayId(trayId);
-    setTransferIncubatorId(incubators[0]?.id ?? "");
-    setTransferQuantity(tray?.totalAvailable ?? 0);
-    setShowTransferModal(true);
+  function handleEntryAction(entry: TrayEntry, tray: Tray, mode: NonNullable<SelectionMode>) {
+    if (entry.available <= 0) return;
+
+    if (selectionMode && selectionMode !== mode && selection.size > 0) {
+      setError(`Voce ja tem itens selecionados em "${modeLabel(selectionMode)}". Finalize ou cancele antes de mudar.`);
+      return;
+    }
+
+    if (!selectionMode) setSelectionMode(mode);
+
+    setSelection((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(entry.id);
+      if (existing) {
+        next.delete(entry.id);
+      } else {
+        next.set(entry.id, {
+          entryId: entry.id,
+          trayId: tray.id,
+          trayLabel: trayHeader(tray),
+          trayHasFlockGroup: Boolean(tray.flockGroupId),
+          quantity: entry.available,
+          available: entry.available,
+          unitPrice: 0
+        });
+      }
+      // se ficou vazio, sai do modo
+      if (next.size === 0) setSelectionMode(null);
+      return next;
+    });
+    setError(null);
+    void toggleEntry; // evita warning
   }
 
-  function openDiscardModal(entryId: string) {
-    const entry = trays.flatMap((t) => t.entries).find((e) => e.id === entryId);
-    setDiscardEntryId(entryId);
-    setDiscardQuantity(entry?.available ?? 0);
-    setDiscardNotes("");
-    setShowDiscardModal(true);
+  function handleTrayBulkAction(tray: Tray, mode: NonNullable<SelectionMode>) {
+    if (tray.totalAvailable <= 0) return;
+
+    if (selectionMode && selectionMode !== mode && selection.size > 0) {
+      setError(`Voce ja tem itens selecionados em "${modeLabel(selectionMode)}". Finalize ou cancele antes de mudar.`);
+      return;
+    }
+
+    if (!selectionMode) setSelectionMode(mode);
+
+    setSelection((prev) => {
+      const next = new Map(prev);
+      for (const entry of tray.entries) {
+        if (entry.available > 0) {
+          next.set(entry.id, {
+            entryId: entry.id,
+            trayId: tray.id,
+            trayLabel: trayHeader(tray),
+            trayHasFlockGroup: Boolean(tray.flockGroupId),
+            quantity: entry.available,
+            available: entry.available,
+            unitPrice: 0
+          });
+        }
+      }
+      return next;
+    });
+    setError(null);
+  }
+
+  function updateSelectionQuantity(entryId: string, quantity: number) {
+    setSelection((prev) => {
+      const next = new Map(prev);
+      const item = next.get(entryId);
+      if (!item) return next;
+      next.set(entryId, { ...item, quantity: Math.max(0, Math.min(item.available, quantity)) });
+      return next;
+    });
+  }
+
+  function updateSelectionPrice(entryId: string, unitPrice: number) {
+    setSelection((prev) => {
+      const next = new Map(prev);
+      const item = next.get(entryId);
+      if (!item) return next;
+      next.set(entryId, { ...item, unitPrice: Math.max(0, unitPrice) });
+      return next;
+    });
+  }
+
+  function removeFromSelection(entryId: string) {
+    setSelection((prev) => {
+      const next = new Map(prev);
+      next.delete(entryId);
+      if (next.size === 0) setSelectionMode(null);
+      return next;
+    });
   }
 
   function openExternalModal() {
@@ -262,83 +382,91 @@ export function PrateleiraManager() {
     }));
   }
 
-  async function submitSale(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
+  function openFinalize() {
+    if (!selectionMode || selection.size === 0) return;
+    setSaleCustomer("");
+    setSaleSoldAt(today);
+    setSaleNotes("");
+    setTransferIncubatorId(incubators.find((i) => i.status === "ACTIVE")?.id ?? "");
+    setTransferNotes("");
+    setDiscardNotes("");
     setError(null);
-    const body = {
-      customer: saleCustomer || undefined,
-      soldAt: saleSoldAt,
-      items: saleItems
-        .filter((it) => it.trayId && it.quantity > 0)
-        .map((it) => ({ trayId: it.trayId, quantity: Number(it.quantity), unitPrice: Number(it.unitPrice) })),
-      notes: saleNotes || undefined
-    };
-    if (body.items.length === 0) {
-      setError("Adicione ao menos um item com bandeja e quantidade.");
-      setSaving(false);
-      return;
-    }
-    const res = await fetch("/api/eggs/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(payload.error ?? "Falha ao registrar venda.");
-      setSaving(false);
-      return;
-    }
-    setShowSaleModal(false);
-    setSaving(false);
-    await loadData();
+    setShowFinalizeModal(true);
   }
 
-  async function submitTransfer(event: React.FormEvent<HTMLFormElement>) {
+  async function submitFinalize(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const res = await fetch("/api/eggs/trays/transfer", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        trayId: transferTrayId,
-        incubatorId: transferIncubatorId,
-        quantity: Number(transferQuantity)
-      })
-    });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(payload.error ?? "Falha ao transferir.");
-      setSaving(false);
-      return;
-    }
-    setShowTransferModal(false);
-    setSaving(false);
-    await loadData();
-  }
 
-  async function submitDiscard(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSaving(true);
-    setError(null);
-    const res = await fetch("/api/eggs/trays/discard", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        trayEntryId: discardEntryId,
-        quantity: Number(discardQuantity),
-        notes: discardNotes || undefined
-      })
-    });
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(payload.error ?? "Falha ao descartar.");
+    const items = Array.from(selection.values()).filter((it) => it.quantity > 0);
+    if (items.length === 0) {
+      setError("Nenhum item valido para enviar.");
       setSaving(false);
       return;
     }
-    setShowDiscardModal(false);
+
+    let res: Response;
+
+    if (selectionMode === "sale") {
+      res = await fetch("/api/eggs/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: saleCustomer || undefined,
+          soldAt: saleSoldAt,
+          items: items.map((it) => ({
+            trayId: it.trayId,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice ?? 0
+          })),
+          notes: saleNotes || undefined
+        })
+      });
+    } else if (selectionMode === "transfer") {
+      const externalIssue = items.find((it) => !it.trayHasFlockGroup);
+      if (externalIssue) {
+        setError(`Bandeja "${externalIssue.trayLabel}" e externa sem grupo do plantel. Edite o cadastro antes de incubar.`);
+        setSaving(false);
+        return;
+      }
+      if (!transferIncubatorId) {
+        setError("Selecione a chocadeira.");
+        setSaving(false);
+        return;
+      }
+      res = await fetch("/api/eggs/trays/transfer-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          incubatorId: transferIncubatorId,
+          items: items.map((it) => ({ trayId: it.trayId, quantity: it.quantity })),
+          notes: transferNotes || undefined
+        })
+      });
+    } else if (selectionMode === "discard") {
+      res = await fetch("/api/eggs/trays/discard-bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: items.map((it) => ({ trayEntryId: it.entryId, quantity: it.quantity })),
+          notes: discardNotes || undefined
+        })
+      });
+    } else {
+      setSaving(false);
+      return;
+    }
+
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(payload.error ?? "Falha ao processar.");
+      setSaving(false);
+      return;
+    }
+
+    setShowFinalizeModal(false);
+    clearSelection();
     setSaving(false);
     await loadData();
   }
@@ -372,14 +500,47 @@ export function PrateleiraManager() {
     await loadData();
   }
 
-  const canTransfer = (tray: Tray) => Boolean(tray.flockGroupId);
+  function ActionIcon({
+    mode,
+    selected,
+    disabled,
+    onClick,
+    title
+  }: {
+    mode: NonNullable<SelectionMode>;
+    selected: boolean;
+    disabled: boolean;
+    onClick: () => void;
+    title: string;
+  }) {
+    const base =
+      "inline-flex h-8 w-8 items-center justify-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30";
+    const palette =
+      mode === "sale"
+        ? selected
+          ? "bg-emerald-600 text-white shadow-sm"
+          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+        : mode === "transfer"
+          ? selected
+            ? "bg-amber-600 text-white shadow-sm"
+            : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+          : selected
+            ? "bg-rose-600 text-white shadow-sm"
+            : "bg-rose-50 text-rose-700 hover:bg-rose-100";
+    const Icon = mode === "sale" ? ShoppingBasket : mode === "transfer" ? Flame : Trash2;
+    return (
+      <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${palette}`} aria-label={title} title={title}>
+        <Icon className="h-4 w-4" />
+      </button>
+    );
+  }
 
   return (
-    <main className="space-y-5 pb-24 sm:space-y-6">
+    <main className="space-y-5 pb-32 sm:space-y-6">
       <PageTitle
         icon="🪺"
         title="Prateleira"
-        description="Ovos coletados aguardando destino: venda ou chocadeira. Cada bandeja agrupa por especie e raca, com a data de cada coleta."
+        description="Ovos coletados aguardando destino: venda ou chocadeira. Selecione com os botoes verde / ambar / vermelho de cada data e finalize tudo de uma vez."
       />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
@@ -407,18 +568,13 @@ export function PrateleiraManager() {
             <h3 className="text-lg font-semibold text-zinc-900">Bandejas ativas</h3>
             <p className="text-sm text-zinc-500">FIFO automatico: ao vender ou transferir, os ovos mais antigos saem primeiro.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={openSaleModalEmpty} disabled={trays.length === 0}>
-              <ShoppingBasket className="mr-1 h-4 w-4" /> Nova venda
-            </Button>
-            <Button type="button" variant="outline" onClick={openExternalModal}>
-              <Plus className="mr-1 h-4 w-4" /> Bandeja externa
-            </Button>
-          </div>
+          <Button type="button" variant="outline" onClick={openExternalModal}>
+            <Plus className="mr-1 h-4 w-4" /> Bandeja externa
+          </Button>
         </div>
       </Card>
 
-      {error && !(showSaleModal || showTransferModal || showExternalModal || showDiscardModal) ? (
+      {error && !showFinalizeModal && !showExternalModal ? (
         <p className="rounded-xl bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</p>
       ) : null}
 
@@ -434,8 +590,8 @@ export function PrateleiraManager() {
             <span className="text-4xl">🪹</span>
             <p className="text-base font-semibold text-zinc-700">Prateleira vazia</p>
             <p className="text-sm text-zinc-500">
-              Quando voce registrar uma coleta, os ovos aparecerao aqui automaticamente. Tambem da pra adicionar uma bandeja
-              externa (ovos comprados de fora ou de especies novas).
+              Quando voce registrar uma coleta, os ovos aparecerao aqui automaticamente. Tambem da pra adicionar uma
+              bandeja externa.
             </p>
           </div>
         </Card>
@@ -446,7 +602,7 @@ export function PrateleiraManager() {
           const tone = urgencyTone(tray.oldestRemaining);
           const palette = tonePalette(tone);
           const expanded = expandedTrayId === tray.id;
-          const showTransferLocked = !canTransfer(tray);
+          const trayLabel = trayHeader(tray);
           return (
             <Card key={tray.id} className={`${palette.border} ${palette.bg}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -455,7 +611,7 @@ export function PrateleiraManager() {
                     <Egg className={`h-6 w-6 ${palette.accent}`} />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-base font-semibold text-zinc-900">{describeTray(tray)}</p>
+                    <p className="truncate text-base font-semibold text-zinc-900">{trayLabel}</p>
                     <p className="text-xs text-zinc-500">
                       {tray.entries.length} {tray.entries.length === 1 ? "data" : "datas"} · validade {tray.expiryDays}d
                     </p>
@@ -478,8 +634,10 @@ export function PrateleiraManager() {
                   const entryTone = urgencyTone(entry.remainingDays);
                   const entryPalette = tonePalette(entryTone);
                   const progress = entry.initialCount > 0 ? Math.min(100, Math.max(0, (entry.available / entry.initialCount) * 100)) : 0;
+                  const selected = selection.get(entry.id);
+                  const disabledOther = selectionMode !== null && selection.size > 0;
                   return (
-                    <div key={entry.id} className="rounded-xl border border-white bg-white/80 p-2.5">
+                    <div key={entry.id} className={`rounded-xl border bg-white/80 p-2.5 ${selected ? "border-emerald-300 ring-1 ring-emerald-200" : "border-white"}`}>
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-zinc-600">{formatDateBr(entry.entryDate)}</span>
@@ -492,15 +650,29 @@ export function PrateleiraManager() {
                             {countdownLabel(entry.remainingDays)}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => openDiscardModal(entry.id)}
-                          disabled={entry.available === 0}
-                          className="text-xs font-semibold text-rose-600 transition hover:text-rose-800 hover:underline disabled:cursor-not-allowed disabled:text-zinc-300 disabled:no-underline"
-                          title="Descartar ovos desta data"
-                        >
-                          <Trash2 className="inline h-3 w-3" /> Descartar
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <ActionIcon
+                            mode="sale"
+                            selected={Boolean(selected) && selectionMode === "sale"}
+                            disabled={entry.available <= 0 || (disabledOther && selectionMode !== "sale")}
+                            onClick={() => handleEntryAction(entry, tray, "sale")}
+                            title="Adicionar a venda"
+                          />
+                          <ActionIcon
+                            mode="transfer"
+                            selected={Boolean(selected) && selectionMode === "transfer"}
+                            disabled={entry.available <= 0 || (disabledOther && selectionMode !== "transfer")}
+                            onClick={() => handleEntryAction(entry, tray, "transfer")}
+                            title="Adicionar a chocadeira"
+                          />
+                          <ActionIcon
+                            mode="discard"
+                            selected={Boolean(selected) && selectionMode === "discard"}
+                            disabled={entry.available <= 0 || (disabledOther && selectionMode !== "discard")}
+                            onClick={() => handleEntryAction(entry, tray, "discard")}
+                            title="Descartar"
+                          />
+                        </div>
                       </div>
                       <div className="mt-1.5 flex items-center justify-between text-[11px] text-zinc-500">
                         <span>{entry.available} de {entry.initialCount} disponiveis</span>
@@ -529,187 +701,197 @@ export function PrateleiraManager() {
                 ) : null}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <Button type="button" onClick={() => openSaleModalForTray(tray.id)} disabled={tray.totalAvailable === 0}>
-                  <ShoppingBasket className="mr-1 h-4 w-4" /> Vender
-                </Button>
-                <Button
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <button
                   type="button"
-                  variant="outline"
-                  onClick={() => openTransferModal(tray.id)}
-                  disabled={tray.totalAvailable === 0 || showTransferLocked}
-                  title={showTransferLocked ? "Bandeja externa precisa de grupo no plantel" : undefined}
+                  onClick={() => handleTrayBulkAction(tray, "sale")}
+                  disabled={tray.totalAvailable === 0 || (selectionMode !== null && selectionMode !== "sale")}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <Flame className="mr-1 h-4 w-4" /> Para chocadeira
-                </Button>
+                  <ShoppingBasket className="h-3.5 w-3.5" /> Venda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTrayBulkAction(tray, "transfer")}
+                  disabled={tray.totalAvailable === 0 || (selectionMode !== null && selectionMode !== "transfer")}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Flame className="h-3.5 w-3.5" /> Chocadeira
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTrayBulkAction(tray, "discard")}
+                  disabled={tray.totalAvailable === 0 || (selectionMode !== null && selectionMode !== "discard")}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Descarte
+                </button>
               </div>
-              {showTransferLocked ? (
-                <p className="mt-2 text-[11px] text-zinc-500">
-                  Esta bandeja e externa e nao esta vinculada a um grupo. Edite o cadastro para escolher o grupo no plantel
-                  antes de incubar.
-                </p>
-              ) : null}
             </Card>
           );
         })}
       </section>
 
-      <AppModal
-        open={showSaleModal}
-        title="Nova venda de ovos"
-        error={error}
-        onClose={() => setShowSaleModal(false)}
-      >
-        <form className="grid gap-3" onSubmit={submitSale}>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Input placeholder="Cliente (opcional)" value={saleCustomer} onChange={(e) => setSaleCustomer(e.target.value)} />
-            <Input type="date" value={saleSoldAt} onChange={(e) => setSaleSoldAt(e.target.value)} />
+      {selectionMode && selection.size > 0 ? (
+        <div className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-3xl rounded-2xl border border-zinc-200 bg-white p-3 shadow-2xl md:bottom-6 md:p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span
+                className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-white ${
+                  selectionMode === "sale" ? "bg-emerald-600" : selectionMode === "transfer" ? "bg-amber-600" : "bg-rose-600"
+                }`}
+              >
+                {selectionMode === "sale" ? <ShoppingBasket className="h-5 w-5" /> : selectionMode === "transfer" ? <Flame className="h-5 w-5" /> : <Trash2 className="h-5 w-5" />}
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-zinc-900">Modo: {modeLabel(selectionMode)}</p>
+                <p className="text-xs text-zinc-500">
+                  {selectedCount} {selectedCount === 1 ? "data selecionada" : "datas selecionadas"} · {selectedEggs} ovos
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={clearSelection}>
+                <X className="mr-1 h-4 w-4" /> Cancelar
+              </Button>
+              <Button type="button" onClick={openFinalize}>
+                Finalizar
+              </Button>
+            </div>
           </div>
+        </div>
+      ) : null}
+
+      <AppModal
+        open={showFinalizeModal}
+        title={
+          selectionMode === "sale"
+            ? "Finalizar venda"
+            : selectionMode === "transfer"
+              ? "Enviar para chocadeira"
+              : selectionMode === "discard"
+                ? "Confirmar descarte"
+                : ""
+        }
+        error={error}
+        onClose={() => setShowFinalizeModal(false)}
+      >
+        <form className="grid gap-3" onSubmit={submitFinalize}>
+          {selectionMode === "sale" ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Input placeholder="Cliente (opcional)" value={saleCustomer} onChange={(e) => setSaleCustomer(e.target.value)} />
+              <Input type="date" value={saleSoldAt} onChange={(e) => setSaleSoldAt(e.target.value)} />
+            </div>
+          ) : null}
+
+          {selectionMode === "transfer" ? (
+            <>
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Sera criado um lote ativo na chocadeira para cada bandeja. FIFO consume os ovos mais antigos.
+              </p>
+              <select
+                className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+                value={transferIncubatorId}
+                onChange={(e) => setTransferIncubatorId(e.target.value)}
+              >
+                <option value="">Selecione a chocadeira</option>
+                {incubators.filter((i) => i.status === "ACTIVE").map((inc) => (
+                  <option key={inc.id} value={inc.id}>{inc.name}</option>
+                ))}
+              </select>
+            </>
+          ) : null}
+
+          {selectionMode === "discard" ? (
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800">
+              Use para ovos quebrados, contaminados ou inviaveis. Esta acao nao pode ser desfeita.
+            </p>
+          ) : null}
 
           <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Itens</p>
-            {saleItems.map((item, index) => {
+            <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Itens selecionados</p>
+            {Array.from(selection.values()).map((item) => {
               const tray = trays.find((t) => t.id === item.trayId);
-              const max = tray?.totalAvailable ?? 0;
+              const entry = tray?.entries.find((e) => e.id === item.entryId);
               return (
-                <div key={index} className="grid grid-cols-12 gap-2 rounded-xl border border-zinc-200 bg-white p-2">
-                  <select
-                    className="col-span-5 h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm"
-                    value={item.trayId}
-                    onChange={(e) => {
-                      const next = [...saleItems];
-                      next[index] = { ...next[index], trayId: e.target.value };
-                      setSaleItems(next);
-                    }}
-                  >
-                    <option value="">Bandeja</option>
-                    {trays.filter((t) => t.totalAvailable > 0).map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {describeTray(t)} ({t.totalAvailable})
-                      </option>
-                    ))}
-                  </select>
-                  <Input
-                    className="col-span-3"
-                    type="number"
-                    min={1}
-                    max={max || undefined}
-                    placeholder="Qtde"
-                    value={item.quantity || ""}
-                    onChange={(e) => {
-                      const next = [...saleItems];
-                      next[index] = { ...next[index], quantity: Math.min(Number(e.target.value) || 0, max || Number(e.target.value) || 0) };
-                      setSaleItems(next);
-                    }}
-                  />
-                  <Input
-                    className="col-span-3"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="R$ unit."
-                    value={item.unitPrice || ""}
-                    onChange={(e) => {
-                      const next = [...saleItems];
-                      next[index] = { ...next[index], unitPrice: Number(e.target.value) };
-                      setSaleItems(next);
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="col-span-1 px-0"
-                    disabled={saleItems.length <= 1}
-                    onClick={() => setSaleItems(saleItems.filter((_, i) => i !== index))}
-                    aria-label="Remover item"
-                  >
-                    ×
-                  </Button>
+                <div key={item.entryId} className="rounded-xl border border-zinc-200 bg-white p-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-zinc-800">{item.trayLabel}</p>
+                      {entry ? (
+                        <p className="text-[11px] text-zinc-500">
+                          Coleta de {formatDateBr(entry.entryDate)} · disponiveis: {item.available}
+                        </p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFromSelection(item.entryId)}
+                      className="text-xs font-semibold text-zinc-400 hover:text-rose-600"
+                      aria-label="Remover"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className={`mt-2 grid gap-2 ${selectionMode === "sale" ? "grid-cols-2" : "grid-cols-1"}`}>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={item.available}
+                      placeholder="Quantidade"
+                      value={item.quantity || ""}
+                      onChange={(e) => updateSelectionQuantity(item.entryId, Number(e.target.value))}
+                    />
+                    {selectionMode === "sale" ? (
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="R$ unit."
+                        value={item.unitPrice || ""}
+                        onChange={(e) => updateSelectionPrice(item.entryId, Number(e.target.value))}
+                      />
+                    ) : null}
+                  </div>
                 </div>
               );
             })}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSaleItems([...saleItems, { trayId: "", quantity: 1, unitPrice: 0 }])}
-            >
-              + Adicionar item
-            </Button>
           </div>
 
-          <div className="rounded-xl bg-emerald-50 px-3 py-2 text-sm">
-            <span className="text-zinc-600">Total da venda: </span>
-            <span className="font-semibold text-emerald-800">
-              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}
-            </span>
-          </div>
+          {selectionMode === "sale" ? (
+            <div className="rounded-xl bg-emerald-50 px-3 py-2 text-sm">
+              <span className="text-zinc-600">Total: </span>
+              <span className="font-semibold text-emerald-800">
+                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}
+              </span>
+            </div>
+          ) : null}
 
-          <Input placeholder="Observacoes (opcional)" value={saleNotes} onChange={(e) => setSaleNotes(e.target.value)} />
-
-          <div className="flex gap-2">
-            <Button type="submit" disabled={saving}>{saving ? "Registrando..." : "Confirmar venda"}</Button>
-            <Button type="button" variant="outline" onClick={() => setShowSaleModal(false)}>
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </AppModal>
-
-      <AppModal
-        open={showTransferModal}
-        title="Enviar para chocadeira"
-        error={error}
-        onClose={() => setShowTransferModal(false)}
-      >
-        <form className="grid gap-3" onSubmit={submitTransfer}>
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Os ovos saem da bandeja em ordem FIFO (mais antigos primeiro) e formam um novo lote ativo na chocadeira escolhida.
-          </p>
-          <select
-            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-            value={transferIncubatorId}
-            onChange={(e) => setTransferIncubatorId(e.target.value)}
-          >
-            <option value="">Selecione a chocadeira</option>
-            {incubators.map((inc) => (
-              <option key={inc.id} value={inc.id}>{inc.name}</option>
-            ))}
-          </select>
           <Input
-            type="number"
-            min={1}
-            placeholder="Quantidade de ovos"
-            value={transferQuantity || ""}
-            onChange={(e) => setTransferQuantity(Number(e.target.value))}
+            placeholder={selectionMode === "discard" ? "Motivo (opcional)" : "Observacoes (opcional)"}
+            value={selectionMode === "sale" ? saleNotes : selectionMode === "transfer" ? transferNotes : discardNotes}
+            onChange={(e) =>
+              selectionMode === "sale"
+                ? setSaleNotes(e.target.value)
+                : selectionMode === "transfer"
+                  ? setTransferNotes(e.target.value)
+                  : setDiscardNotes(e.target.value)
+            }
           />
-          <div className="flex gap-2">
-            <Button type="submit" disabled={saving || !transferIncubatorId}>
-              {saving ? "Transferindo..." : "Confirmar transferencia"}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setShowTransferModal(false)}>Cancelar</Button>
-          </div>
-        </form>
-      </AppModal>
 
-      <AppModal
-        open={showDiscardModal}
-        title="Descartar ovos"
-        error={error}
-        onClose={() => setShowDiscardModal(false)}
-      >
-        <form className="grid gap-3" onSubmit={submitDiscard}>
-          <p className="text-xs text-zinc-500">Use para ovos quebrados, contaminados ou inviaveis.</p>
-          <Input
-            type="number"
-            min={1}
-            placeholder="Quantidade"
-            value={discardQuantity || ""}
-            onChange={(e) => setDiscardQuantity(Number(e.target.value))}
-          />
-          <Input placeholder="Motivo (opcional)" value={discardNotes} onChange={(e) => setDiscardNotes(e.target.value)} />
           <div className="flex gap-2">
-            <Button type="submit" disabled={saving}>{saving ? "Descartando..." : "Confirmar descarte"}</Button>
-            <Button type="button" variant="outline" onClick={() => setShowDiscardModal(false)}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>
+              {saving
+                ? "Salvando..."
+                : selectionMode === "sale"
+                  ? "Confirmar venda"
+                  : selectionMode === "transfer"
+                    ? "Confirmar transferencia"
+                    : "Confirmar descarte"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setShowFinalizeModal(false)}>
+              Voltar
+            </Button>
           </div>
         </form>
       </AppModal>

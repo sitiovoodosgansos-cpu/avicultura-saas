@@ -43,10 +43,35 @@ export const trayDiscardSchema = z.object({
   notes: z.string().trim().optional()
 });
 
+export const trayDiscardBulkSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        trayEntryId: z.string().cuid("Entrada inválida."),
+        quantity: z.coerce.number().int().min(1, "Quantidade deve ser maior que zero.")
+      })
+    )
+    .min(1, "Adicione ao menos um item."),
+  notes: z.string().trim().optional()
+});
+
 export const trayTransferSchema = z.object({
   trayId: z.string().cuid("Bandeja inválida."),
   incubatorId: z.string().cuid("Chocadeira inválida."),
   quantity: z.coerce.number().int().min(1, "Quantidade deve ser maior que zero."),
+  notes: z.string().trim().optional()
+});
+
+export const trayTransferBulkSchema = z.object({
+  incubatorId: z.string().cuid("Chocadeira inválida."),
+  items: z
+    .array(
+      z.object({
+        trayId: z.string().cuid("Bandeja inválida."),
+        quantity: z.coerce.number().int().min(1, "Quantidade deve ser maior que zero.")
+      })
+    )
+    .min(1, "Adicione ao menos um item."),
   notes: z.string().trim().optional()
 });
 
@@ -68,5 +93,7 @@ export const eggSaleSchema = z
 
 export type ExternalTrayInput = z.infer<typeof externalTraySchema>;
 export type TrayDiscardInput = z.infer<typeof trayDiscardSchema>;
+export type TrayDiscardBulkInput = z.infer<typeof trayDiscardBulkSchema>;
 export type TrayTransferInput = z.infer<typeof trayTransferSchema>;
+export type TrayTransferBulkInput = z.infer<typeof trayTransferBulkSchema>;
 export type EggSaleInput = z.infer<typeof eggSaleSchema>;
