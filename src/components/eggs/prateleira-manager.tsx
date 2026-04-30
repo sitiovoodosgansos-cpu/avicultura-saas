@@ -544,11 +544,6 @@ export function PrateleiraManager() {
                 </div>
               </div>
 
-              {tray.oldestRemaining !== null ? (
-                <div className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${palette.chipBg} ${palette.chipText}`}>
-                  ⏱ {countdownLabel(tray.oldestRemaining)}
-                </div>
-              ) : null}
 
               <div className="mt-2 space-y-1.5">
                 {(expanded ? tray.entries : tray.entries.slice(0, 3)).map((entry) => {
