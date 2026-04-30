@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Pencil, ShoppingCart } from "lucide-react";
+import { HeartCrack, Pencil, ShoppingCart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
@@ -29,12 +29,14 @@ export function FlockGroupCard({
   listings,
   onEdit,
   onSell,
+  onDeath,
   onRemove
 }: {
   group: FlockGroupRef;
   listings: VitrineListingItem[];
   onEdit: (listing: VitrineListingItem) => void;
   onSell: (listing: VitrineListingItem) => void;
+  onDeath: (listing: VitrineListingItem) => void;
   onRemove: (id: string) => void;
 }) {
   const taxonomy = [group.species.name, group.breed?.name, group.variety?.name]
@@ -151,6 +153,18 @@ export function FlockGroupCard({
                   className="h-8 w-8 sm:h-9 sm:w-9"
                 >
                   <ShoppingCart className="h-4 w-4" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={() => onDeath(listing)}
+                  disabled={listing.status !== "AVAILABLE" || listing.availableQuantity === 0}
+                  aria-label="Registrar óbito"
+                  title="Registrar óbito"
+                  className="h-8 w-8 border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50 sm:h-9 sm:w-9"
+                >
+                  <HeartCrack className="h-4 w-4" aria-hidden />
                 </Button>
                 <Button
                   type="button"

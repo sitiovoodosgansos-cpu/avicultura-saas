@@ -164,6 +164,7 @@ model Tenant {
   priceTiers           PriceTier[]
   vitrineListings      VitrineListing[]
   vitrineSales         VitrineSale[]
+  vitrineDeaths        VitrineDeathRecord[]
 }
 
 model TenantMember {
@@ -690,6 +691,10 @@ model VitrineListing {
   sourceIncubatorBatchId String?
   sourceBirdId           String? @unique
 
+  publishedToOrnamarketAt DateTime?
+  ornamarketListingId     String?
+  ornamarketListingUrl    String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -701,6 +706,7 @@ model VitrineListing {
 
   photos VitrineListingPhoto[]
   sales  VitrineSale[]
+  deaths VitrineDeathRecord[]
 
   @@index([tenantId, status])
   @@index([tenantId, flockGroupId])
@@ -737,4 +743,19 @@ model VitrineSale {
 
   @@index([tenantId, listingId])
   @@index([tenantId, soldAt])
+}
+
+model VitrineDeathRecord {
+  id         String   @id @default(cuid())
+  tenantId   String
+  listingId  String
+  quantity   Int
+  cause      String?
+  occurredAt DateTime @default(now())
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  listing VitrineListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, listingId])
+  @@index([tenantId, occurredAt])
 }
