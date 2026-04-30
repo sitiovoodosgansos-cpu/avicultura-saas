@@ -1,64 +1,59 @@
 # Prompt para o Claude Code do OrnaMarket
 
-Cole este prompt na sessão do Claude Code que está construindo o **OrnaMarket**. Ele dá todo o contexto pra ele criar o lado receptor da integração com o Ornabird.
+Cole isso na sessão do Claude Code do projeto **OrnaMarket** para adicionar o endpoint de integração com o **Ornabird**.
 
 ---
 
 ## PROMPT
 
-Estou construindo o **OrnaMarket**, um marketplace público de animais ornamentais (aves, especialmente). Ele recebe publicações vindas de outro app meu chamado **Ornabird** (gestão de criatório), que já está em produção.
+Sou o dono dos dois projetos: este aqui (**OrnaMarket** — marketplace público de aves ornamentais, já no ar Android + iOS) e do **Ornabird** (gestão de criatório, separado, em produção também).
 
-Preciso que você crie o **endpoint de integração** que recebe as publicações do Ornabird. O Ornabird já está pronto e empurrando via HTTP — só falta o OrnaMarket aceitar.
+Acabei de adicionar uma feature no Ornabird que **publica lotes de animais à venda** empurrando via HTTP para o OrnaMarket. **O lado Ornabird já está pronto e empurrando**. Falta você criar o **lado receptor aqui no OrnaMarket** sem quebrar nada do app existente.
 
-### Contexto
+A integração é **unidirecional**: Ornabird empurra (POST/DELETE), OrnaMarket recebe e exibe como anúncio público normal — junto com os anúncios criados manualmente pelos usuários do app.
 
-- O Ornabird tem uma feature "Vitrine" onde criadores cadastram lotes de animais à venda. Ao clicar no botão **🌐 Publicar**, ele faz `POST` para o OrnaMarket com o anúncio.
-- O OrnaMarket precisa armazenar esses anúncios e exibir publicamente em uma tela tipo "Novo anúncio" (categoria Aves, com foto, título, preço, idade, descrição, sexo).
-- A autenticação é via **API key compartilhada** no header `Authorization: Bearer <key>`.
-- A integração é **unidirecional**: Ornabird empurra, OrnaMarket recebe e exibe.
+## Antes de mudar qualquer coisa
 
-### O que você precisa construir
+Investigue o projeto e me diga em até 200 palavras:
 
-#### 1. Modelo de dados (Prisma)
+1. **Qual stack do backend?** Next.js API routes, Express, NestJS, Fastify, Hono, outro? Qual ORM?
+2. **Onde estão definidos os anúncios hoje?** Qual model representa um anúncio (provavelmente `Ad`, `Listing`, `Product` ou similar)? Qual o schema dele?
+3. **Como funciona auth de usuário hoje?** Tem `User` model? Como o anúncio é vinculado a um vendedor?
+4. **Categoria "Aves" existe?** Como categorias são representadas — string fixa, enum, FK para uma tabela `Category`?
+5. **Onde fica a página pública de um anúncio individual?** (Rota tipo `/anuncio/:id` ou `/listing/:id`.)
 
-```prisma
-model Ad {
-  id          String   @id @default(cuid())
-  externalId  String   @unique // ID do anúncio no Ornabird (idempotência)
-  sellerId    String           // tenantId do Ornabird (associar a um vendedor)
-  title       String
-  description String?
-  price       Decimal  @db.Decimal(10, 2)
-  category    String           // sempre "AVES" por enquanto
-  sex         String           // MALE | FEMALE | UNKNOWN
-  ageInMonths Int
-  photoUrl    String           // URL pública do Vercel Blob
-  metadata    Json?            // { species, breed, variety, flockGroupTitle }
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+**Pare e me confirme antes de mexer em código.** Quero alinhar a abordagem (criar tabela `ExternalAd` separada vs reutilizar a tabela existente com flag `source`) ANTES de qualquer mudança.
 
-  @@index([sellerId])
-  @@index([category])
-}
-```
+## O que precisa existir no final
 
-Se você já tem um modelo `Listing` ou `Product`, adapte a ideia mantendo `externalId @unique` para idempotência.
+### 1. Persistência
 
-#### 2. Env var
+O anúncio recebido do Ornabird precisa virar um anúncio público igual aos outros (aparece na listagem da categoria Aves, tem página própria com foto/preço/idade/descrição).
 
-`ORNAMARKET_API_KEY` — string aleatória longa. Eu vou colocar o mesmo valor no Ornabird e aqui no OrnaMarket.
+A tabela existente de anúncios precisa ganhar (ou um modelo paralelo precisa ser criado):
 
-#### 3. Endpoint `POST /api/external/listings`
+- `externalId String @unique` — vem do Ornabird (chave de idempotência)
+- `externalSource String?` — `"ornabird"` (ou similar) para distinguir manuais de integrados
+- `metadata Json?` — guarda taxonomia (espécie, raça, variedade) que o Ornabird envia
 
-- Validar header `Authorization: Bearer <ORNAMARKET_API_KEY>`. Se inválido → `401 Unauthorized`.
-- Validar body com Zod (ver schema abaixo). Se inválido → `400 { error: "..." }`.
-- **Upsert por `externalId`**: se já existe, atualiza; senão, cria.
-- Retorna `201 { id: <Ad.id>, url: <URL pública do anúncio> }`.
+A escolha entre **estender a tabela existente** vs **tabela separada `ExternalAd`** depende de quão acoplado tá o anúncio atual ao fluxo de criação no app. Me diga o que faz mais sentido depois de inspecionar.
 
-**Body schema:**
+### 2. Variável de ambiente
+
+`ORNAMARKET_API_KEY` — string aleatória longa (ex: gerar com `openssl rand -hex 32`). Eu vou colocar o mesmo valor aqui no OrnaMarket e no Ornabird.
+
+### 3. Endpoint `POST /api/external/listings`
+
+- Validar header `Authorization: Bearer <ORNAMARKET_API_KEY>`. Inválido → `401 Unauthorized`.
+- Validar body com Zod (schema abaixo). Inválido → `400 { error: "..." }`.
+- **Upsert por `externalId`**: se já existe anúncio com esse `externalId`, atualiza campos. Senão, cria novo.
+- **Vendedor**: o campo `sellerId` é o `tenantId` do Ornabird. Se você tem um modelo `User` com IDs próprios, crie um `Seller` ou `Account` que aponta para esse `sellerId` externo. Ou armazene direto no anúncio sem associar a um `User` local — depende da modelagem que tu escolher.
+- Retorna `201 { id: <id local>, url: <URL pública> }`.
+
+**Body schema (Zod):**
 
 ```typescript
-const adSchema = z.object({
+const externalAdSchema = z.object({
   externalId: z.string(),
   title: z.string().min(1),
   description: z.string().nullable().optional(),
@@ -77,7 +72,7 @@ const adSchema = z.object({
 });
 ```
 
-**Exemplo de request:**
+**Exemplo real de request que o Ornabird envia:**
 
 ```json
 POST /api/external/listings
@@ -86,13 +81,13 @@ Content-Type: application/json
 
 {
   "externalId": "clxyz123abc",
-  "title": "Galinha Sedosa Branca - Lote Abril",
+  "title": "Sedosa Branca",
   "description": null,
   "price": 65.00,
   "category": "AVES",
   "sex": "UNKNOWN",
   "ageInMonths": 1,
-  "photoUrl": "https://abc.public.blob.vercel-storage.com/vitrine/.../foto.jpg",
+  "photoUrl": "https://abc.public.blob.vercel-storage.com/vitrine/tenant_xxx/listing_yyy/foto.jpg",
   "sellerId": "tenant_abc123",
   "metadata": {
     "species": "Galinha",
@@ -103,23 +98,19 @@ Content-Type: application/json
 }
 ```
 
-#### 4. Endpoint `DELETE /api/external/listings/:externalId`
+### 4. Endpoint `DELETE /api/external/listings/:externalId`
 
 - Mesma autenticação.
-- Apaga o `Ad` correspondente. Se não existir, retorna `404` (Ornabird ignora).
-- Retorna `200 { ok: true }`.
+- Apaga o anúncio (ou marca como `archived`/`removed`, depende da política do app).
+- Se não existir, retorna `404` (Ornabird ignora).
+- Sucesso: `200 { ok: true }`.
 
-#### 5. Tela pública para o anúncio
+### 5. Foto vinda de domínio externo
 
-Crie uma página `/anuncio/[id]` que mostra o `Ad` com foto, título, preço, idade, descrição, taxonomia (espécie/raça/variedade do `metadata`) e dados do vendedor (`sellerId`, talvez join com algum modelo `User`/`Seller` que você já tenha).
-
-Essa URL é o que o endpoint POST retorna no campo `url` da resposta — o Ornabird armazena pra mostrar pro usuário.
-
-#### 6. Suporte a foto via URL externa
-
-A `photoUrl` aponta pro Vercel Blob do projeto Ornabird (`*.public.blob.vercel-storage.com`). Se você usar `next/image`, adicione no `next.config.ts`:
+A `photoUrl` aponta para o Vercel Blob público do Ornabird (`*.public.blob.vercel-storage.com`). Se você renderiza com `next/image` ou outro componente que faz allowlist, libere esse domínio:
 
 ```typescript
+// next.config.ts (caso seja Next)
 images: {
   remotePatterns: [
     { protocol: "https", hostname: "*.public.blob.vercel-storage.com", pathname: "/**" }
@@ -127,17 +118,27 @@ images: {
 }
 ```
 
-### Importante
+Se for app mobile (React Native), é só o `<Image source={{ uri }} />` direto — funciona sem config.
 
-- **Idempotência via `externalId`** é essencial. O Ornabird pode reenviar o mesmo `externalId` se o usuário despublicar e publicar de novo.
-- O `sellerId` é o `tenantId` do Ornabird, não um user_id local. Trate como string opaca.
-- A `photoUrl` é pública e estável — pode salvar como `String` mesmo, sem fazer download.
-- Sem rate limiting agressivo — é o Ornabird empurrando, baixo volume.
+### 6. Página pública do anúncio
 
-### Como testar
+O endpoint POST retorna `url` que aponta para a página pública do anúncio. Use a rota que já existe no app (ou crie `/anuncio/:id`). É essa URL que o Ornabird armazena para mostrar pro criador.
 
-Depois de implementar, me avise pra eu colocar a `ORNAMARKET_API_URL` (URL do deploy do OrnaMarket) e a `ORNAMARKET_API_KEY` (mesma key dos dois lados) no Ornabird. Aí eu testo o botão "Publicar" e o anúncio deve aparecer no OrnaMarket.
+## Cuidados importantes
 
----
+- **Idempotência via `externalId @unique`**: o Ornabird pode reenviar o mesmo `externalId` se o usuário despublicar e publicar de novo. Trate como upsert.
+- **`sellerId` é uma string opaca**: vem do Ornabird como `tenantId`. Não tente fazer JOIN com `User.id` local. Se quiser associar, crie tabela de mapeamento.
+- **Não modifique fluxos existentes do app**: o endpoint é aditivo. Não mexa no que já está em produção.
+- **Sem rate limiting agressivo**: é uma integração privada de baixo volume.
+- **Logs**: registre cada chamada recebida (externalId, ação, timestamp) para debug.
 
-Pode começar pelo schema Prisma + endpoint POST. Pergunta antes de mexer em outras áreas do projeto.
+## Fluxo recomendado para você
+
+1. **Investigar** (item "Antes de mudar") e me reportar.
+2. Esperar minha confirmação de abordagem (estender vs tabela separada).
+3. Criar a env var `ORNAMARKET_API_KEY`.
+4. Implementar schema + endpoints + middleware de auth.
+5. Testar com `curl` enviando um payload de exemplo.
+6. Me avisar pra eu colocar a `ORNAMARKET_API_URL` e a key no Ornabird e testar end-to-end.
+
+Pode começar pela investigação.
