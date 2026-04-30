@@ -240,8 +240,8 @@ export function WorkerPortal({ token }: { token: string }) {
               <Input placeholder="Variedade ou cor" value={groupForm.variety} onChange={(e) => setGroupForm((p) => ({ ...p, variety: e.target.value }))} />
               <Input placeholder="Nome do card do grupo" value={groupForm.title} onChange={(e) => setGroupForm((p) => ({ ...p, title: e.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
-                <Input type="number" min={0} placeholder="Número de matrizes" value={groupForm.matrixCount || ""} onChange={(e) => setGroupForm((p) => ({ ...p, matrixCount: Number(e.target.value) }))} />
-                <Input type="number" min={0} placeholder="Número de reprodutores" value={groupForm.reproducerCount || ""} onChange={(e) => setGroupForm((p) => ({ ...p, reproducerCount: Number(e.target.value) }))} />
+                <Input type="number" min={0} placeholder="Matrizes" value={groupForm.matrixCount || ""} onChange={(e) => setGroupForm((p) => ({ ...p, matrixCount: Number(e.target.value) }))} />
+                <Input type="number" min={0} placeholder="Reprodutores" value={groupForm.reproducerCount || ""} onChange={(e) => setGroupForm((p) => ({ ...p, reproducerCount: Number(e.target.value) }))} />
               </div>
               <textarea className={textareaClass} placeholder="Observações do grupo" value={groupForm.notes} onChange={(e) => setGroupForm((p) => ({ ...p, notes: e.target.value }))} />
               <Button type="submit" disabled={saving}>Salvar grupo</Button>
@@ -278,7 +278,7 @@ export function WorkerPortal({ token }: { token: string }) {
                 </select>
               </div>
               <Input type="date" value={birdForm.acquisitionDate} onChange={(e) => setBirdForm((p) => ({ ...p, acquisitionDate: e.target.value }))} />
-              <Input type="number" min={0} step="0.01" placeholder="Valor da compra" value={birdForm.purchaseValue || ""} onChange={(e) => setBirdForm((p) => ({ ...p, purchaseValue: Number(e.target.value) }))} />
+              <Input type="number" min={0} step="0.01" placeholder="Custo de aquisicao" value={birdForm.purchaseValue || ""} onChange={(e) => setBirdForm((p) => ({ ...p, purchaseValue: Number(e.target.value) }))} />
               <Input placeholder="Origem ou fornecedor" value={birdForm.origin} onChange={(e) => setBirdForm((p) => ({ ...p, origin: e.target.value }))} />
               <Button type="submit" disabled={saving}>Salvar ave</Button>
             </form>

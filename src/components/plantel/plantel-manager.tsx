@@ -681,7 +681,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 }
               />
             </Field>
-            <Field label="Numero da baia">
+            <Field label="Baia">
               <Input
                 type="number"
                 min={1}
@@ -759,7 +759,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           )}
           <div className="grid gap-4 md:grid-cols-2">
             <Input
-              placeholder="Numero da anilha (opcional): 2025-001"
+              placeholder="ID da anilha (opcional): 2025-001"
               value={birdForm.ringNumber}
               onChange={(event) => setBirdForm((prev) => ({ ...prev, ringNumber: event.target.value }))}
             />
@@ -798,7 +798,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
               />
             </Field>
-            <Field label="Numero da baia">
+            <Field label="Baia">
               <Input
                 type="number"
                 min={1}
@@ -811,12 +811,12 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 }
               />
             </Field>
-            <Field label="Valor da compra">
+            <Field label="Custo de aquisicao">
               <Input
                 type="number"
                 min={0}
                 step="0.01"
-                placeholder="Valor da compra: 350"
+                placeholder="Custo de aquisicao: 350"
                 value={birdForm.purchaseValue ?? ""}
                 onChange={(event) =>
                   setBirdForm((prev) => ({
