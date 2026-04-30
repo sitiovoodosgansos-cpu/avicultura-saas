@@ -64,13 +64,13 @@ export function LoginForm({ resetDone = false }: LoginFormProps) {
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
           <div>
             <label className="mb-1 block text-sm font-medium">E-mail</label>
-            <Input type="email" {...register("email")} placeholder="voce@sitio.com" />
+            <Input type="email" autoComplete="username" {...register("email")} placeholder="voce@sitio.com" />
             {errors.email ? <p className="mt-1 text-xs text-red-600">{errors.email.message}</p> : null}
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium">Senha</label>
-            <Input type="password" {...register("password")} placeholder="********" />
+            <Input type="password" autoComplete="current-password" {...register("password")} placeholder="********" />
             {errors.password ? <p className="mt-1 text-xs text-red-600">{errors.password.message}</p> : null}
           </div>
 

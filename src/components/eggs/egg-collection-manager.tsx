@@ -525,7 +525,7 @@ export function EggCollectionManager() {
                       min={0}
                       max={365}
                       placeholder="0 a 365"
-                      value={capacityDraft[group.groupId] ?? 0}
+                      value={capacityDraft[group.groupId] || ""}
                       onChange={(event) =>
                         setCapacityDraft((prev) => ({
                           ...prev,

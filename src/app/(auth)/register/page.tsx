@@ -77,12 +77,12 @@ export default function RegisterPage() {
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">E-mail</label>
-            <Input type="email" placeholder="voce@sitio.com" {...register("email")} />
+            <Input type="email" autoComplete="email" placeholder="voce@sitio.com" {...register("email")} />
             {errors.email ? <p className="mt-1 text-xs text-red-600">{errors.email.message}</p> : null}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Senha</label>
-            <Input type="password" placeholder="Senha forte" {...register("password")} />
+            <Input type="password" autoComplete="new-password" placeholder="Senha forte" {...register("password")} />
             {errors.password ? <p className="mt-1 text-xs text-red-600">{errors.password.message}</p> : null}
           </div>
 
