@@ -323,12 +323,11 @@ export function IncubatorsManager() {
       for (const batch of activeByDevice) {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
         const rule = inferSpeciesRuleFromText(speciesName || batch.flockGroup.title);
-        const speciesLabel = speciesName || rule.label;
-        const speciesKey = normalizeSpeciesText(speciesLabel);
+        const cardLabel = batch.flockGroup.title?.trim() || speciesName || rule.label;
         const entryDate = toDateStart(batch.entryDate);
         const hatchDate = addDaysToDate(entryDate, rule.days);
         const remainingDays = getDaysUntil(hatchDate);
-        const groupKey = `${speciesKey}|${entryDate.toISOString().slice(0, 10)}`;
+        const groupKey = `${batch.flockGroupId}|${entryDate.toISOString().slice(0, 10)}`;
         const existing = groupMap.get(groupKey);
         if (existing) {
           existing.eggs += batch.eggsSet;
@@ -337,7 +336,7 @@ export function IncubatorsManager() {
           continue;
         }
         groupMap.set(groupKey, {
-          species: speciesLabel,
+          species: cardLabel,
           eggs: batch.eggsSet,
           remainingDays,
           hatchDate,
