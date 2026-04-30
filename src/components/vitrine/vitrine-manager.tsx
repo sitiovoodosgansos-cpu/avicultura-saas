@@ -4,25 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  ListingCard,
-  type FlockGroupRef,
-  type VitrineListingItem
-} from "@/components/vitrine/listing-card";
+import { FlockGroupCard } from "@/components/vitrine/flock-group-card";
 import {
   ListingFormModal,
   type ListingFormValues
 } from "@/components/vitrine/listing-form-modal";
 import { PriceTierManager } from "@/components/vitrine/price-tier-manager";
+import {
+  formatBRL,
+  type FlockGroupRef,
+  type VitrineListingItem
+} from "@/components/vitrine/types";
 
 type VitrineResponse = {
   listings: VitrineListingItem[];
   flockGroups: FlockGroupRef[];
 };
-
-function formatBRL(value: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}
 
 export function VitrineManager() {
   const [data, setData] = useState<VitrineResponse | null>(null);
@@ -140,6 +137,23 @@ export function VitrineManager() {
     return { totalAnimals, totalValue, missingTiers };
   }, [data]);
 
+  const grouped = useMemo(() => {
+    if (!data) return [] as Array<{ group: FlockGroupRef; listings: VitrineListingItem[] }>;
+    const map = new Map<string, { group: FlockGroupRef; listings: VitrineListingItem[] }>();
+    for (const listing of data.listings) {
+      const existing = map.get(listing.flockGroupId);
+      if (existing) {
+        existing.listings.push(listing);
+      } else {
+        map.set(listing.flockGroupId, {
+          group: listing.flockGroup,
+          listings: [listing]
+        });
+      }
+    }
+    return [...map.values()].sort((a, b) => a.group.title.localeCompare(b.group.title));
+  }, [data]);
+
   return (
     <div className="grid gap-4">
       <PageTitle
@@ -224,10 +238,11 @@ export function VitrineManager() {
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {data?.listings.map((listing) => (
-          <ListingCard
-            key={listing.id}
-            listing={listing}
+        {grouped.map(({ group, listings }) => (
+          <FlockGroupCard
+            key={group.id}
+            group={group}
+            listings={listings}
             onEdit={openEdit}
             onRemove={handleRemove}
           />

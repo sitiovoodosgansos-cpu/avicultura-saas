@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AppModal } from "@/components/ui/app-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { FlockGroupRef, VitrineListingItem } from "@/components/vitrine/listing-card";
+import type { FlockGroupRef, VitrineListingItem } from "@/components/vitrine/types";
 
 const inputClass =
   "h-10 w-full rounded-xl border border-[color:var(--line)] bg-white/90 px-3 text-[13px] text-slate-800 outline-none focus:ring-4 focus:ring-[color:var(--brand)]/20 sm:h-11 sm:rounded-2xl sm:px-4 sm:text-sm";

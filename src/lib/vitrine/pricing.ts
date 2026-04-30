@@ -11,12 +11,20 @@ export function calculateAgeInMonths(birthDate: Date, now: Date = new Date()): n
 /**
  * Returns the birth date that corresponds to a given age in months from `now`.
  * Used to convert UX input ("the chick is 2 months old") into a stable timestamp.
+ *
+ * Clamps the day to the last valid day of the target month so subtracting from
+ * e.g. April 30 by 2 months gives Feb 28, not March 2 (the JS default rolls
+ * overflow into the next month, which would then read back as 1 month old).
  */
 export function birthDateFromAgeInMonths(ageInMonths: number, now: Date = new Date()): Date {
   const safe = Math.max(0, Math.floor(ageInMonths));
-  const date = new Date(now);
-  date.setMonth(date.getMonth() - safe);
-  return date;
+  const result = new Date(now);
+  const originalDay = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() - safe);
+  const daysInTargetMonth = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(originalDay, daysInTargetMonth));
+  return result;
 }
 
 export type CurrentPriceResult = {
