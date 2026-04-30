@@ -10,6 +10,7 @@ import {
   type ListingFormValues
 } from "@/components/vitrine/listing-form-modal";
 import { PriceTierManager } from "@/components/vitrine/price-tier-manager";
+import { DeathModal, type DeathFormValues } from "@/components/vitrine/death-modal";
 import { SellModal, type SaleFormValues } from "@/components/vitrine/sell-modal";
 import {
   formatBRL,
@@ -33,6 +34,9 @@ export function VitrineManager() {
   const [sellOpen, setSellOpen] = useState(false);
   const [selling, setSelling] = useState<VitrineListingItem | null>(null);
   const [sellError, setSellError] = useState<string | null>(null);
+  const [deathOpen, setDeathOpen] = useState(false);
+  const [dying, setDying] = useState<VitrineListingItem | null>(null);
+  const [deathError, setDeathError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,31 +119,32 @@ export function VitrineManager() {
     }
   }
 
-  async function handlePublishToggle(listing: VitrineListingItem) {
-    setError(null);
-    const isPublished = Boolean(listing.publishedToOrnamarketAt);
-    const verb = isPublished ? "despublicar" : "publicar";
-    if (!confirm(`Deseja ${verb} este lote no OrnaMarket?`)) return;
+  function openDeath(listing: VitrineListingItem) {
+    setDying(listing);
+    setDeathError(null);
+    setDeathOpen(true);
+  }
 
+  async function handleDeath(values: DeathFormValues, id: string) {
+    setDeathError(null);
     try {
-      const response = await fetch(`/api/vitrine/${listing.id}/publish`, {
-        method: isPublished ? "DELETE" : "POST"
+      const response = await fetch(`/api/vitrine/${id}/death`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantity: values.quantity,
+          cause: values.cause || null
+        })
       });
       if (!response.ok) {
         const body = (await response.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error ?? `Erro ao ${verb}.`);
+        throw new Error(body.error ?? "Erro ao registrar óbito.");
       }
-      if (!isPublished) {
-        const data = (await response.json().catch(() => ({}))) as { mock?: boolean };
-        if (data.mock) {
-          setError(
-            "Publicado em modo simulado (OrnaMarket ainda não conectado). Configure ORNAMARKET_API_URL e ORNAMARKET_API_KEY no Vercel para publicar de verdade."
-          );
-        }
-      }
+      setDeathOpen(false);
+      setDying(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Erro ao ${verb}.`);
+      setDeathError(err instanceof Error ? err.message : "Erro ao registrar óbito.");
     }
   }
 
@@ -309,7 +314,7 @@ export function VitrineManager() {
             listings={listings}
             onEdit={openEdit}
             onSell={openSell}
-            onPublishToggle={handlePublishToggle}
+            onDeath={openDeath}
             onRemove={handleRemove}
           />
         ))}
@@ -347,6 +352,17 @@ export function VitrineManager() {
         }}
         onSubmit={handleSell}
         error={sellError}
+      />
+
+      <DeathModal
+        open={deathOpen}
+        listing={dying}
+        onClose={() => {
+          setDeathOpen(false);
+          setDying(null);
+        }}
+        onSubmit={handleDeath}
+        error={deathError}
       />
     </div>
   );

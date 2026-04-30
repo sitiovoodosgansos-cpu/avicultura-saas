@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Globe, Pencil, ShoppingCart } from "lucide-react";
+import { HeartCrack, Pencil, ShoppingCart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
@@ -29,14 +29,14 @@ export function FlockGroupCard({
   listings,
   onEdit,
   onSell,
-  onPublishToggle,
+  onDeath,
   onRemove
 }: {
   group: FlockGroupRef;
   listings: VitrineListingItem[];
   onEdit: (listing: VitrineListingItem) => void;
   onSell: (listing: VitrineListingItem) => void;
-  onPublishToggle: (listing: VitrineListingItem) => void;
+  onDeath: (listing: VitrineListingItem) => void;
   onRemove: (id: string) => void;
 }) {
   const taxonomy = [group.species.name, group.breed?.name, group.variety?.name]
@@ -113,11 +113,6 @@ export function FlockGroupCard({
                     >
                       {statusLabel(listing.status)}
                     </span>
-                    {listing.publishedToOrnamarketAt ? (
-                      <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-emerald-700">
-                        No OrnaMarket
-                      </span>
-                    ) : null}
                   </div>
                   <p className="mt-0.5 text-[11px] text-slate-500">
                     {formatAge(listing.ageInMonths)}
@@ -163,29 +158,13 @@ export function FlockGroupCard({
                   type="button"
                   size="icon"
                   variant="outline"
-                  onClick={() => onPublishToggle(listing)}
-                  aria-label={
-                    listing.publishedToOrnamarketAt
-                      ? "Despublicar do OrnaMarket"
-                      : "Publicar no OrnaMarket"
-                  }
-                  title={
-                    listing.publishedToOrnamarketAt
-                      ? "Despublicar do OrnaMarket"
-                      : "Publicar no OrnaMarket"
-                  }
-                  disabled={
-                    !listing.publishedToOrnamarketAt &&
-                    (listing.photos.length === 0 || listing.currentPrice === null)
-                  }
-                  className={
-                    "h-8 w-8 sm:h-9 sm:w-9 " +
-                    (listing.publishedToOrnamarketAt
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      : "")
-                  }
+                  onClick={() => onDeath(listing)}
+                  disabled={listing.status !== "AVAILABLE" || listing.availableQuantity === 0}
+                  aria-label="Registrar óbito"
+                  title="Registrar óbito"
+                  className="h-8 w-8 border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50 sm:h-9 sm:w-9"
                 >
-                  <Globe className="h-4 w-4" aria-hidden />
+                  <HeartCrack className="h-4 w-4" aria-hidden />
                 </Button>
                 <Button
                   type="button"

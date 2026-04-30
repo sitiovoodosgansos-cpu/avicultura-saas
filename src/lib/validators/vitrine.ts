@@ -36,8 +36,14 @@ export const saleSchema = z.object({
   notes: z.string().trim().optional().nullable()
 });
 
+export const deathSchema = z.object({
+  quantity: z.coerce.number().int().min(1, "Quantidade mínima 1."),
+  cause: z.string().trim().optional().nullable()
+});
+
 export type PriceTierEntryInput = z.infer<typeof priceTierEntrySchema>;
 export type PriceTierBatchInput = z.infer<typeof priceTierBatchSchema>;
 export type ListingCreateInput = z.infer<typeof listingCreateSchema>;
 export type ListingUpdateInput = z.infer<typeof listingUpdateSchema>;
 export type SaleInput = z.infer<typeof saleSchema>;
+export type DeathInput = z.infer<typeof deathSchema>;

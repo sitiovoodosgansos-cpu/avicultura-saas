@@ -5,6 +5,7 @@ import {
   getCurrentPrice
 } from "@/lib/vitrine/pricing";
 import type {
+  DeathInput,
   ListingCreateInput,
   ListingUpdateInput,
   SaleInput
@@ -350,5 +351,67 @@ export async function sellListing(tenantId: string, id: string, input: SaleInput
     });
 
     return { sale, financialEntry };
+  });
+}
+
+export async function recordListingDeath(tenantId: string, id: string, input: DeathInput) {
+  const listing = await prisma.vitrineListing.findFirst({
+    where: { id, tenantId },
+    include: {
+      sourceBird: { select: { id: true, status: true } }
+    }
+  });
+  if (!listing) return null;
+
+  if (input.quantity > listing.availableQuantity) {
+    throw new Error(
+      `Quantidade indisponível. Restam ${listing.availableQuantity} ave(s).`
+    );
+  }
+
+  const newAvailable = listing.availableQuantity - input.quantity;
+  const cause = input.cause?.trim() || null;
+
+  return prisma.$transaction(async (tx) => {
+    const death = await tx.vitrineDeathRecord.create({
+      data: {
+        tenantId,
+        listingId: id,
+        quantity: input.quantity,
+        cause
+      }
+    });
+
+    await tx.vitrineListing.update({
+      where: { id },
+      data: {
+        availableQuantity: newAvailable,
+        ...(newAvailable === 0 ? { status: "REMOVED" as const } : {})
+      }
+    });
+
+    // Listing 1:1 com Bird (origem Plantel) e o lote zerou: marca a ave como morta.
+    if (
+      listing.sourceBirdId &&
+      listing.sourceBird &&
+      listing.sourceBird.status !== "DEAD" &&
+      newAvailable === 0
+    ) {
+      await tx.bird.update({
+        where: { id: listing.sourceBirdId },
+        data: { status: "DEAD" }
+      });
+      await tx.birdStatusHistory.create({
+        data: {
+          tenantId,
+          birdId: listing.sourceBirdId,
+          fromStatus: listing.sourceBird.status,
+          toStatus: "DEAD",
+          reason: cause ?? "Óbito registrado pela Vitrine"
+        }
+      });
+    }
+
+    return death;
   });
 }
