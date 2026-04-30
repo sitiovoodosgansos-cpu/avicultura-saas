@@ -21,6 +21,17 @@ export async function POST(
     return NextResponse.json({ error: "Anúncio não encontrado." }, { status: 404 });
   }
 
+  const existingPhoto = await prisma.vitrineListingPhoto.findFirst({
+    where: { listingId: id },
+    select: { id: true }
+  });
+  if (existingPhoto) {
+    return NextResponse.json(
+      { error: "Cada lote aceita apenas 1 foto. Remova a foto atual antes de enviar uma nova." },
+      { status: 400 }
+    );
+  }
+
   const formData = await request.formData().catch(() => null);
   if (!formData) {
     return NextResponse.json({ error: "Envio inválido." }, { status: 400 });
