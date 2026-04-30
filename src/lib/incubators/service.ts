@@ -269,6 +269,12 @@ export async function deleteBatch(tenantId: string, userId: string | null, id: s
   return true;
 }
 
+const CONSUMING_EVENT_TYPES = ["HATCHED", "INFERTILE", "EMBRYO_LOSS", "PIPPED_DIED"] as const;
+
+export type AddBatchEventResult =
+  | { ok: true; event: Awaited<ReturnType<typeof prisma.incubatorBatchEvent.create>> }
+  | { ok: false; reason: "NOT_FOUND" | "EXCEEDS_EGGS"; message?: string };
+
 export async function addBatchEvent(
   tenantId: string,
   userId: string | null,
@@ -279,9 +285,25 @@ export async function addBatchEvent(
     eventDate: string;
     notes?: string;
   }
-) {
+): Promise<AddBatchEventResult> {
   const batch = await prisma.incubatorBatch.findFirst({ where: { id: batchId, tenantId } });
-  if (!batch) return null;
+  if (!batch) return { ok: false, reason: "NOT_FOUND" };
+
+  if ((CONSUMING_EVENT_TYPES as readonly string[]).includes(input.type)) {
+    const aggregate = await prisma.incubatorBatchEvent.aggregate({
+      _sum: { quantity: true },
+      where: { batchId, type: { in: [...CONSUMING_EVENT_TYPES] } }
+    });
+    const alreadyConsumed = aggregate._sum.quantity ?? 0;
+    const remaining = Math.max(0, batch.eggsSet - alreadyConsumed);
+    if (input.quantity > remaining) {
+      return {
+        ok: false,
+        reason: "EXCEEDS_EGGS",
+        message: `Quantidade excede os ovos disponiveis. Restam ${remaining} de ${batch.eggsSet} ovos para classificar.`
+      };
+    }
+  }
 
   const created = await prisma.incubatorBatchEvent.create({
     data: {
@@ -305,7 +327,7 @@ export async function addBatchEvent(
     }
   });
 
-  return created;
+  return { ok: true, event: created };
 }
 
 export async function getIncubatorMetrics(tenantId: string) {

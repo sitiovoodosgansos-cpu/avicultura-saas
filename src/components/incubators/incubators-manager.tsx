@@ -279,7 +279,22 @@ export function IncubatorsManager() {
     () => activeBatches.find((batch) => batch.id === eventForm.batchId) ?? null,
     [activeBatches, eventForm.batchId]
   );
-  const maxEventQuantity = selectedEventBatch?.eggsSet ?? 0;
+  const consumingEventTypes = ["HATCHED", "INFERTILE", "EMBRYO_LOSS", "PIPPED_DIED"] as const;
+  const isConsumingEvent = (consumingEventTypes as readonly string[]).includes(eventForm.type);
+  const remainingEggsForBatch = useMemo(() => {
+    if (!selectedEventBatch) return 0;
+    const consumed =
+      (selectedEventBatch.stats.hatched ?? 0) +
+      (selectedEventBatch.stats.infertile ?? 0) +
+      (selectedEventBatch.stats.embryoLoss ?? 0) +
+      (selectedEventBatch.stats.pippedDied ?? 0);
+    return Math.max(0, selectedEventBatch.eggsSet - consumed);
+  }, [selectedEventBatch]);
+  const maxEventQuantity = selectedEventBatch
+    ? isConsumingEvent
+      ? remainingEggsForBatch
+      : selectedEventBatch.eggsSet
+    : 0;
 
   const incubatorStats = useMemo(() => {
     return devices.map((device) => {
@@ -353,6 +368,7 @@ export function IncubatorsManager() {
       return {
         ...device,
         active,
+        totalBatches: byDevice.length,
         hatched,
         hatchRate: totalEggs ? (hatched / totalEggs) * 100 : 0,
         speciesCountdowns
@@ -560,12 +576,18 @@ export function IncubatorsManager() {
       setError("Lote nao encontrado para finalizar.");
       return;
     }
+    const consumed =
+      (targetBatch.stats.hatched ?? 0) +
+      (targetBatch.stats.infertile ?? 0) +
+      (targetBatch.stats.embryoLoss ?? 0) +
+      (targetBatch.stats.pippedDied ?? 0);
+    const remaining = Math.max(0, targetBatch.eggsSet - consumed);
     setError(null);
     setFinalizeBatchOnSubmit(true);
     setEventForm({
       batchId: targetBatch.id,
       type: "HATCHED",
-      quantity: targetBatch.eggsSet,
+      quantity: remaining,
       eventDate: today,
       notes: ""
     });
@@ -737,7 +759,7 @@ export function IncubatorsManager() {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-zinc-50 p-3 text-sm">
-              <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Chocagens</p><p className="text-xl font-semibold text-zinc-900">{device.active}</p></div>
+              <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Chocagens</p><p className="text-xl font-semibold text-zinc-900">{device.totalBatches}</p></div>
               <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Nascidos</p><p className="text-xl font-semibold text-zinc-900">{device.hatched}</p></div>
               <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Taxa</p><p className="text-xl font-semibold text-zinc-900">{formatPercent(device.hatchRate)}</p></div>
             </div>
@@ -939,6 +961,11 @@ export function IncubatorsManager() {
             </select>
             <Input type="number" min={0} max={maxEventQuantity || undefined} value={eventForm.quantity || ""} onChange={(e) => setEventForm((p) => ({ ...p, quantity: Math.min(Number(e.target.value) || 0, maxEventQuantity || Number(e.target.value) || 0) }))} />
           </div>
+          {selectedEventBatch && isConsumingEvent ? (
+            <p className="text-xs text-zinc-500">
+              Ovos restantes para classificar: <span className="font-semibold text-zinc-700">{remainingEggsForBatch}</span> de {selectedEventBatch.eggsSet}
+            </p>
+          ) : null}
           <Input type="date" value={eventForm.eventDate} onChange={(e) => setEventForm((p) => ({ ...p, eventDate: e.target.value }))} />
           <Input placeholder="Observacoes" value={eventForm.notes} onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))} />
           <Button type="submit" disabled={saving}>{saving ? (finalizeBatchOnSubmit ? "Finalizando..." : "Registrando...") : (finalizeBatchOnSubmit ? "Confirmar e finalizar lote" : "Registrar evento")}</Button>
