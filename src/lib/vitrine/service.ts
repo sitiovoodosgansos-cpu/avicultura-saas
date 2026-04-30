@@ -1,6 +1,14 @@
 import { prisma } from "@/lib/db/prisma";
-import { birthDateFromAgeInMonths, getCurrentPrice } from "@/lib/vitrine/pricing";
-import type { ListingCreateInput, ListingUpdateInput } from "@/lib/validators/vitrine";
+import {
+  birthDateFromAgeInMonths,
+  calculateAgeInMonths,
+  getCurrentPrice
+} from "@/lib/vitrine/pricing";
+import type {
+  ListingCreateInput,
+  ListingUpdateInput,
+  SaleInput
+} from "@/lib/validators/vitrine";
 
 export async function listVitrine(tenantId: string) {
   const [listings, tiers, flockGroups] = await Promise.all([
@@ -152,4 +160,68 @@ export async function removeListing(tenantId: string, id: string) {
   });
 
   return true;
+}
+
+export async function sellListing(tenantId: string, id: string, input: SaleInput) {
+  const listing = await prisma.vitrineListing.findFirst({
+    where: { id, tenantId },
+    include: {
+      flockGroup: { select: { title: true } }
+    }
+  });
+  if (!listing) return null;
+
+  if (input.quantity > listing.availableQuantity) {
+    throw new Error(
+      `Quantidade indisponível. Restam ${listing.availableQuantity} unidade(s).`
+    );
+  }
+
+  const totalPrice = Number((input.unitPrice * input.quantity).toFixed(2));
+  const ageInMonths = calculateAgeInMonths(listing.birthDate);
+  const category = ageInMonths < 6 ? "CHICK_SALE" : "ADULT_BIRD_SALE";
+
+  const listingLabel = listing.title?.trim() || listing.flockGroup.title;
+  const item = `Venda Vitrine: ${listingLabel}`;
+
+  return prisma.$transaction(async (tx) => {
+    const financialEntry = await tx.financialEntry.create({
+      data: {
+        tenantId,
+        date: new Date(),
+        category,
+        item,
+        amount: totalPrice,
+        customer: input.customer?.trim() || null,
+        description: `${input.quantity}x ${listing.flockGroup.title}`,
+        paymentMethod: input.paymentMethod,
+        notes: input.notes?.trim() || null
+      }
+    });
+
+    const sale = await tx.vitrineSale.create({
+      data: {
+        tenantId,
+        listingId: id,
+        quantitySold: input.quantity,
+        unitPrice: input.unitPrice,
+        totalPrice,
+        paymentMethod: input.paymentMethod,
+        customer: input.customer?.trim() || null,
+        notes: input.notes?.trim() || null,
+        financialEntryId: financialEntry.id
+      }
+    });
+
+    const newAvailable = listing.availableQuantity - input.quantity;
+    await tx.vitrineListing.update({
+      where: { id },
+      data: {
+        availableQuantity: newAvailable,
+        ...(newAvailable === 0 ? { status: "SOLD_OUT" as const } : {})
+      }
+    });
+
+    return { sale, financialEntry };
+  });
 }

@@ -10,6 +10,7 @@ import {
   type ListingFormValues
 } from "@/components/vitrine/listing-form-modal";
 import { PriceTierManager } from "@/components/vitrine/price-tier-manager";
+import { SellModal, type SaleFormValues } from "@/components/vitrine/sell-modal";
 import {
   formatBRL,
   type FlockGroupRef,
@@ -29,6 +30,9 @@ export function VitrineManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<VitrineListingItem | null>(null);
   const [pricesOpen, setPricesOpen] = useState(false);
+  const [sellOpen, setSellOpen] = useState(false);
+  const [selling, setSelling] = useState<VitrineListingItem | null>(null);
+  const [sellError, setSellError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,6 +126,38 @@ export function VitrineManager() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao remover anúncio.");
+    }
+  }
+
+  function openSell(listing: VitrineListingItem) {
+    setSelling(listing);
+    setSellError(null);
+    setSellOpen(true);
+  }
+
+  async function handleSell(values: SaleFormValues, id: string) {
+    setSellError(null);
+    try {
+      const response = await fetch(`/api/vitrine/${id}/sell`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantity: values.quantity,
+          unitPrice: values.unitPrice,
+          paymentMethod: values.paymentMethod,
+          customer: values.customer || null,
+          notes: values.notes || null
+        })
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? "Erro ao registrar venda.");
+      }
+      setSellOpen(false);
+      setSelling(null);
+      await load();
+    } catch (err) {
+      setSellError(err instanceof Error ? err.message : "Erro ao registrar venda.");
     }
   }
 
@@ -244,6 +280,7 @@ export function VitrineManager() {
             group={group}
             listings={listings}
             onEdit={openEdit}
+            onSell={openSell}
             onRemove={handleRemove}
           />
         ))}
@@ -265,6 +302,17 @@ export function VitrineManager() {
         open={pricesOpen}
         onClose={() => setPricesOpen(false)}
         onChanged={() => void load()}
+      />
+
+      <SellModal
+        open={sellOpen}
+        listing={selling}
+        onClose={() => {
+          setSellOpen(false);
+          setSelling(null);
+        }}
+        onSubmit={handleSell}
+        error={sellError}
       />
     </div>
   );

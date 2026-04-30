@@ -1,5 +1,6 @@
 "use client";
 
+import { Pencil, ShoppingCart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
@@ -26,11 +27,13 @@ export function FlockGroupCard({
   group,
   listings,
   onEdit,
+  onSell,
   onRemove
 }: {
   group: FlockGroupRef;
   listings: VitrineListingItem[];
   onEdit: (listing: VitrineListingItem) => void;
+  onSell: (listing: VitrineListingItem) => void;
   onRemove: (id: string) => void;
 }) {
   const taxonomy = [group.species.name, group.breed?.name, group.variety?.name]
@@ -126,13 +129,31 @@ export function FlockGroupCard({
               <div className="flex shrink-0 gap-1.5">
                 <Button
                   type="button"
+                  size="icon"
+                  onClick={() => onSell(listing)}
+                  disabled={listing.status !== "AVAILABLE" || listing.availableQuantity === 0}
+                  aria-label="Vender"
+                  title="Vender"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
+                >
+                  <ShoppingCart className="h-4 w-4" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
                   variant="outline"
                   onClick={() => onEdit(listing)}
-                  className="h-8 px-2 text-xs sm:h-9 sm:px-3"
+                  aria-label="Editar"
+                  title="Editar"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
                 >
-                  Editar
+                  <Pencil className="h-4 w-4" aria-hidden />
                 </Button>
-                <DeleteActionButton iconOnly onClick={() => onRemove(listing.id)} />
+                <DeleteActionButton
+                  iconOnly
+                  onClick={() => onRemove(listing.id)}
+                  className="h-8 w-8 sm:h-9 sm:w-9"
+                />
               </div>
             </div>
           </li>
