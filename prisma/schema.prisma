@@ -690,6 +690,10 @@ model VitrineListing {
   sourceIncubatorBatchId String?
   sourceBirdId           String? @unique
 
+  publishedToOrnamarketAt DateTime?
+  ornamarketListingId     String?
+  ornamarketListingUrl    String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

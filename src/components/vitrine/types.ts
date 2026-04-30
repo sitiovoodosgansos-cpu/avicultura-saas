@@ -24,6 +24,8 @@ export type VitrineListingItem = {
   status: "AVAILABLE" | "SOLD_OUT" | "REMOVED";
   flockGroup: FlockGroupRef;
   photos: ListingPhoto[];
+  publishedToOrnamarketAt: string | null;
+  ornamarketListingUrl: string | null;
   currentPrice: number | null;
   ageInMonths: number;
   missingTier: boolean;

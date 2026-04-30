@@ -115,6 +115,34 @@ export function VitrineManager() {
     }
   }
 
+  async function handlePublishToggle(listing: VitrineListingItem) {
+    setError(null);
+    const isPublished = Boolean(listing.publishedToOrnamarketAt);
+    const verb = isPublished ? "despublicar" : "publicar";
+    if (!confirm(`Deseja ${verb} este lote no OrnaMarket?`)) return;
+
+    try {
+      const response = await fetch(`/api/vitrine/${listing.id}/publish`, {
+        method: isPublished ? "DELETE" : "POST"
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? `Erro ao ${verb}.`);
+      }
+      if (!isPublished) {
+        const data = (await response.json().catch(() => ({}))) as { mock?: boolean };
+        if (data.mock) {
+          setError(
+            "Publicado em modo simulado (OrnaMarket ainda não conectado). Configure ORNAMARKET_API_URL e ORNAMARKET_API_KEY no Vercel para publicar de verdade."
+          );
+        }
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Erro ao ${verb}.`);
+    }
+  }
+
   async function handleRemove(id: string) {
     if (!confirm("Remover este anúncio da vitrine?")) return;
     try {
@@ -281,6 +309,7 @@ export function VitrineManager() {
             listings={listings}
             onEdit={openEdit}
             onSell={openSell}
+            onPublishToggle={handlePublishToggle}
             onRemove={handleRemove}
           />
         ))}
