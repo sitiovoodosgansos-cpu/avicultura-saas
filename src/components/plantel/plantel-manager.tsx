@@ -681,7 +681,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 }
               />
             </Field>
-            <Field label="Numero da baia">
+            <Field label="Baia">
               <Input
                 type="number"
                 min={1}
@@ -798,7 +798,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 onChange={(event) => setBirdForm((prev) => ({ ...prev, acquisitionDate: event.target.value }))}
               />
             </Field>
-            <Field label="Numero da baia">
+            <Field label="Baia">
               <Input
                 type="number"
                 min={1}
