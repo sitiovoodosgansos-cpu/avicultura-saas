@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AppModal } from "@/components/ui/app-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { VitrineListingItem } from "@/components/vitrine/listing-card";
+import type { FlockGroupRef, VitrineListingItem } from "@/components/vitrine/listing-card";
 
 const inputClass =
   "h-10 w-full rounded-xl border border-[color:var(--line)] bg-white/90 px-3 text-[13px] text-slate-800 outline-none focus:ring-4 focus:ring-[color:var(--brand)]/20 sm:h-11 sm:rounded-2xl sm:px-4 sm:text-sm";
@@ -22,46 +22,36 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export type ListingFormValues = {
+  flockGroupId: string;
   title: string;
-  species: string;
-  breed: string;
-  variety: string;
-  birthDate: string;
+  ageInMonths: number;
   initialQuantity: number;
   availableQuantity?: number;
+  priceOverride: string;
   description: string;
   status?: "AVAILABLE" | "SOLD_OUT" | "REMOVED";
 };
 
 const empty: ListingFormValues = {
+  flockGroupId: "",
   title: "",
-  species: "",
-  breed: "",
-  variety: "",
-  birthDate: "",
+  ageInMonths: 0,
   initialQuantity: 1,
+  priceOverride: "",
   description: ""
 };
-
-function toDateInput(value: string | undefined | null) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 export function ListingFormModal({
   open,
   editing,
+  flockGroups,
   onClose,
   onSubmit,
   error
 }: {
   open: boolean;
   editing: VitrineListingItem | null;
+  flockGroups: FlockGroupRef[];
   onClose: () => void;
   onSubmit: (values: ListingFormValues, id?: string) => Promise<void>;
   error: string | null;
@@ -73,13 +63,12 @@ export function ListingFormModal({
     if (!open) return;
     if (editing) {
       setValues({
+        flockGroupId: editing.flockGroupId,
         title: editing.title ?? "",
-        species: editing.species.name,
-        breed: editing.breed?.name ?? "",
-        variety: editing.variety?.name ?? "",
-        birthDate: toDateInput(editing.birthDate),
+        ageInMonths: editing.ageInMonths,
         initialQuantity: editing.initialQuantity,
         availableQuantity: editing.availableQuantity,
+        priceOverride: editing.priceOverride !== null ? String(editing.priceOverride) : "",
         description: editing.description ?? "",
         status: editing.status
       });
@@ -106,49 +95,48 @@ export function ListingFormModal({
       error={error}
     >
       <form onSubmit={handleSubmit} className="grid gap-3">
-        <Field label="Título (opcional)">
+        <Field label="Nome do card (Plantel)">
+          <select
+            className={inputClass}
+            required
+            value={values.flockGroupId}
+            onChange={(event) => setValues({ ...values, flockGroupId: event.target.value })}
+            disabled={Boolean(editing)}
+          >
+            <option value="">Selecione um card do Plantel</option>
+            {flockGroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.title}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {flockGroups.length === 0 ? (
+          <p className="text-xs text-amber-700">
+            Nenhum card cadastrado no Plantel ainda. Crie um grupo no Plantel para usar a Vitrine.
+          </p>
+        ) : null}
+
+        <Field label="Título do anúncio (opcional)">
           <Input
             value={values.title}
             onChange={(event) => setValues({ ...values, title: event.target.value })}
-            placeholder="Ex: Galinha Sedosa Branca - lote abril"
+            placeholder="Ex: Lote abril 2026"
           />
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Espécie">
+          <Field label="Idade (meses)">
             <Input
+              type="number"
+              min={0}
+              max={999}
               required
-              value={values.species}
-              onChange={(event) => setValues({ ...values, species: event.target.value })}
-              placeholder="Galinha"
-              disabled={Boolean(editing)}
-            />
-          </Field>
-          <Field label="Raça">
-            <Input
-              value={values.breed}
-              onChange={(event) => setValues({ ...values, breed: event.target.value })}
-              placeholder="Sedosa"
-              disabled={Boolean(editing)}
-            />
-          </Field>
-          <Field label="Variedade">
-            <Input
-              value={values.variety}
-              onChange={(event) => setValues({ ...values, variety: event.target.value })}
-              placeholder="Branca"
-              disabled={Boolean(editing)}
-            />
-          </Field>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Data de nascimento">
-            <Input
-              type="date"
-              required
-              value={values.birthDate}
-              onChange={(event) => setValues({ ...values, birthDate: event.target.value })}
+              value={values.ageInMonths}
+              onChange={(event) =>
+                setValues({ ...values, ageInMonths: Number(event.target.value || 0) })
+              }
             />
           </Field>
           <Field label="Quantidade inicial">
@@ -163,7 +151,20 @@ export function ListingFormModal({
               disabled={Boolean(editing)}
             />
           </Field>
-          {editing ? (
+          <Field label="Preço (R$, opcional)">
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={values.priceOverride}
+              onChange={(event) => setValues({ ...values, priceOverride: event.target.value })}
+              placeholder="Puxa da tabela se vazio"
+            />
+          </Field>
+        </div>
+
+        {editing ? (
+          <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Quantidade disponível">
               <Input
                 type="number"
@@ -175,26 +176,23 @@ export function ListingFormModal({
                 }
               />
             </Field>
-          ) : null}
-        </div>
-
-        {editing ? (
-          <Field label="Status">
-            <select
-              className={inputClass}
-              value={values.status ?? "AVAILABLE"}
-              onChange={(event) =>
-                setValues({
-                  ...values,
-                  status: event.target.value as "AVAILABLE" | "SOLD_OUT" | "REMOVED"
-                })
-              }
-            >
-              <option value="AVAILABLE">Disponível</option>
-              <option value="SOLD_OUT">Esgotado</option>
-              <option value="REMOVED">Removido</option>
-            </select>
-          </Field>
+            <Field label="Status">
+              <select
+                className={inputClass}
+                value={values.status ?? "AVAILABLE"}
+                onChange={(event) =>
+                  setValues({
+                    ...values,
+                    status: event.target.value as "AVAILABLE" | "SOLD_OUT" | "REMOVED"
+                  })
+                }
+              >
+                <option value="AVAILABLE">Disponível</option>
+                <option value="SOLD_OUT">Esgotado</option>
+                <option value="REMOVED">Removido</option>
+              </select>
+            </Field>
+          </div>
         ) : null}
 
         <Field label="Descrição">
@@ -210,7 +208,7 @@ export function ListingFormModal({
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting || flockGroups.length === 0}>
             {submitting ? "Salvando..." : editing ? "Salvar" : "Criar anúncio"}
           </Button>
         </div>

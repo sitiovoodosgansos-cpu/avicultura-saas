@@ -9,41 +9,36 @@ import { DeleteActionButton } from "@/components/ui/delete-action-button";
 const inputClass =
   "h-10 w-full rounded-xl border border-[color:var(--line)] bg-white/90 px-3 text-[13px] text-slate-800 outline-none focus:ring-4 focus:ring-[color:var(--brand)]/20 sm:h-11 sm:rounded-2xl sm:px-4 sm:text-sm";
 
-type Species = { id: string; name: string };
-type Breed = { id: string; name: string; speciesId: string };
-type Variety = { id: string; name: string; breedId: string };
-
-type Tier = {
+type FlockGroupOption = {
   id: string;
-  speciesId: string;
-  breedId: string | null;
-  varietyId: string | null;
-  ageInMonths: number;
-  price: string | number;
+  title: string;
   species: { id: string; name: string };
   breed: { id: string; name: string } | null;
   variety: { id: string; name: string } | null;
 };
 
+type Tier = {
+  id: string;
+  flockGroupId: string;
+  ageInMonths: number;
+  price: string | number;
+  flockGroup: {
+    id: string;
+    title: string;
+    species: { name: string };
+    breed: { name: string } | null;
+    variety: { name: string } | null;
+  };
+};
+
 type PriceTiersResponse = {
   tiers: Tier[];
-  taxonomy: { species: Species[]; breeds: Breed[]; varieties: Variety[] };
+  flockGroups: FlockGroupOption[];
 };
 
-type FormState = {
-  speciesId: string;
-  breedId: string;
-  varietyId: string;
+type Row = {
   ageInMonths: number;
   price: number;
-};
-
-const emptyForm: FormState = {
-  speciesId: "",
-  breedId: "",
-  varietyId: "",
-  ageInMonths: 0,
-  price: 0
 };
 
 function formatBRL(value: number) {
@@ -70,7 +65,8 @@ export function PriceTierManager({
   onChanged: () => void;
 }) {
   const [data, setData] = useState<PriceTiersResponse | null>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [rows, setRows] = useState<Row[]>([{ ageInMonths: 0, price: 0 }]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -98,18 +94,57 @@ export function PriceTierManager({
     }
   }
 
-  const breedsForSpecies = useMemo(() => {
-    if (!data || !form.speciesId) return [] as Breed[];
-    return data.taxonomy.breeds.filter((breed) => breed.speciesId === form.speciesId);
-  }, [data, form.speciesId]);
+  // When user picks a group, prefill rows with the existing tiers for that group
+  useEffect(() => {
+    if (!data || !selectedGroupId) {
+      setRows([{ ageInMonths: 0, price: 0 }]);
+      return;
+    }
+    const existing = data.tiers
+      .filter((tier) => tier.flockGroupId === selectedGroupId)
+      .sort((a, b) => a.ageInMonths - b.ageInMonths);
 
-  const varietiesForBreed = useMemo(() => {
-    if (!data || !form.breedId) return [] as Variety[];
-    return data.taxonomy.varieties.filter((variety) => variety.breedId === form.breedId);
-  }, [data, form.breedId]);
+    if (existing.length === 0) {
+      setRows([{ ageInMonths: 0, price: 0 }]);
+    } else {
+      setRows(
+        existing.map((tier) => ({ ageInMonths: tier.ageInMonths, price: Number(tier.price) }))
+      );
+    }
+  }, [selectedGroupId, data]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function addRow() {
+    setRows((current) => {
+      const lastAge = current.length > 0 ? current[current.length - 1].ageInMonths : -1;
+      return [...current, { ageInMonths: lastAge + 1, price: 0 }];
+    });
+  }
+
+  function updateRow(index: number, patch: Partial<Row>) {
+    setRows((current) => current.map((row, idx) => (idx === index ? { ...row, ...patch } : row)));
+  }
+
+  function removeRow(index: number) {
+    setRows((current) => current.filter((_, idx) => idx !== index));
+  }
+
+  async function handleSave() {
+    if (!selectedGroupId) {
+      setError("Selecione um card.");
+      return;
+    }
+    if (rows.length === 0) {
+      setError("Adicione pelo menos uma linha de preço.");
+      return;
+    }
+
+    const ages = rows.map((row) => row.ageInMonths);
+    const duplicate = ages.find((age, idx) => ages.indexOf(age) !== idx);
+    if (duplicate !== undefined) {
+      setError(`Idade ${duplicate} duplicada — use apenas uma linha por idade.`);
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
@@ -117,28 +152,24 @@ export function PriceTierManager({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          speciesId: form.speciesId,
-          breedId: form.breedId || null,
-          varietyId: form.varietyId || null,
-          ageInMonths: form.ageInMonths,
-          price: form.price
+          flockGroupId: selectedGroupId,
+          tiers: rows
         })
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.error ?? "Erro ao salvar preço.");
+        throw new Error(body.error ?? "Erro ao salvar tabela.");
       }
-      setForm({ ...emptyForm, speciesId: form.speciesId, breedId: form.breedId, varietyId: form.varietyId });
       await load();
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao salvar preço.");
+      setError(err instanceof Error ? err.message : "Erro ao salvar tabela.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDeleteTier(id: string) {
     setError(null);
     try {
       const response = await fetch(`/api/price-tiers/${id}`, { method: "DELETE" });
@@ -157,10 +188,17 @@ export function PriceTierManager({
     if (!data) return [] as Array<{ key: string; label: string; tiers: Tier[] }>;
     const map = new Map<string, { key: string; label: string; tiers: Tier[] }>();
     for (const tier of data.tiers) {
-      const key = `${tier.speciesId}|${tier.breedId ?? ""}|${tier.varietyId ?? ""}`;
-      const label = [tier.species.name, tier.breed?.name, tier.variety?.name]
+      const taxonomy = [
+        tier.flockGroup.species.name,
+        tier.flockGroup.breed?.name,
+        tier.flockGroup.variety?.name
+      ]
         .filter(Boolean)
         .join(" / ");
+      const label = taxonomy
+        ? `${tier.flockGroup.title} (${taxonomy})`
+        : tier.flockGroup.title;
+      const key = tier.flockGroupId;
       if (!map.has(key)) map.set(key, { key, label, tiers: [] });
       map.get(key)!.tiers.push(tier);
     }
@@ -173,96 +211,76 @@ export function PriceTierManager({
   return (
     <AppModal open={open} title="Tabela de preços por idade" onClose={onClose} error={error}>
       <p className="mb-3 text-sm text-slate-600">
-        Cadastre o preço dos animais por idade em meses. O sistema usa o preço da maior idade já
-        atingida pelo filhote.
+        Selecione um card do Plantel e cadastre o preço por idade. O sistema usa o preço da maior
+        idade já atingida pelo filhote.
       </p>
 
-      <form onSubmit={handleSubmit} className="mb-4 grid gap-3 rounded-2xl bg-[color:var(--surface-soft)] p-3 sm:p-4">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Espécie</span>
-            <select
-              className={inputClass}
-              required
-              value={form.speciesId}
-              onChange={(event) =>
-                setForm({ ...form, speciesId: event.target.value, breedId: "", varietyId: "" })
-              }
-            >
-              <option value="">Selecione</option>
-              {data?.taxonomy.species.map((species) => (
-                <option key={species.id} value={species.id}>
-                  {species.name}
-                </option>
-              ))}
-            </select>
-          </label>
+      <div className="mb-4 grid gap-3 rounded-2xl bg-[color:var(--surface-soft)] p-3 sm:p-4">
+        <label className="grid gap-1.5">
+          <span className="text-sm font-semibold text-slate-800">Card do Plantel</span>
+          <select
+            className={inputClass}
+            value={selectedGroupId}
+            onChange={(event) => setSelectedGroupId(event.target.value)}
+          >
+            <option value="">Selecione</option>
+            {data?.flockGroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.title}
+              </option>
+            ))}
+          </select>
+        </label>
 
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Raça (opcional)</span>
-            <select
-              className={inputClass}
-              value={form.breedId}
-              onChange={(event) => setForm({ ...form, breedId: event.target.value, varietyId: "" })}
-              disabled={!form.speciesId}
-            >
-              <option value="">Todas</option>
-              {breedsForSpecies.map((breed) => (
-                <option key={breed.id} value={breed.id}>
-                  {breed.name}
-                </option>
+        {selectedGroupId ? (
+          <>
+            <div className="grid gap-2">
+              <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                <span>Idade (meses)</span>
+                <span>Preço (R$)</span>
+                <span></span>
+              </div>
+              {rows.map((row, idx) => (
+                <div key={idx} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={999}
+                    value={row.ageInMonths}
+                    onChange={(event) =>
+                      updateRow(idx, { ageInMonths: Number(event.target.value || 0) })
+                    }
+                  />
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={row.price}
+                    onChange={(event) => updateRow(idx, { price: Number(event.target.value || 0) })}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => removeRow(idx)}
+                    disabled={rows.length === 1}
+                  >
+                    Remover
+                  </Button>
+                </div>
               ))}
-            </select>
-          </label>
+            </div>
 
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Variedade (opcional)</span>
-            <select
-              className={inputClass}
-              value={form.varietyId}
-              onChange={(event) => setForm({ ...form, varietyId: event.target.value })}
-              disabled={!form.breedId}
-            >
-              <option value="">Todas</option>
-              {varietiesForBreed.map((variety) => (
-                <option key={variety.id} value={variety.id}>
-                  {variety.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Idade (meses)</span>
-            <Input
-              type="number"
-              min={0}
-              max={999}
-              required
-              value={form.ageInMonths}
-              onChange={(event) =>
-                setForm({ ...form, ageInMonths: Number(event.target.value || 0) })
-              }
-            />
-          </label>
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Preço (R$)</span>
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              required
-              value={form.price}
-              onChange={(event) => setForm({ ...form, price: Number(event.target.value || 0) })}
-            />
-          </label>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? "Salvando..." : "Salvar preço"}
-          </Button>
-        </div>
-      </form>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Button type="button" variant="outline" onClick={addRow}>
+                + Adicionar idade
+              </Button>
+              <Button type="button" onClick={handleSave} disabled={submitting}>
+                {submitting ? "Salvando..." : "Salvar tabela"}
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </div>
 
       {loading ? <p className="text-sm text-slate-500">Carregando...</p> : null}
 
@@ -283,7 +301,7 @@ export function PriceTierManager({
                   <span className="text-slate-700">
                     {formatAge(tier.ageInMonths)}: <strong>{formatBRL(Number(tier.price))}</strong>
                   </span>
-                  <DeleteActionButton iconOnly onClick={() => handleDelete(tier.id)} />
+                  <DeleteActionButton iconOnly onClick={() => handleDeleteTier(tier.id)} />
                 </li>
               ))}
             </ul>

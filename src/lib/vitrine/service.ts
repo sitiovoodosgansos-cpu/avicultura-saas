@@ -1,90 +1,94 @@
 import { prisma } from "@/lib/db/prisma";
-import { ensureTaxonomy } from "@/lib/taxonomy/ensure";
-import { getCurrentPrice } from "@/lib/vitrine/pricing";
+import { birthDateFromAgeInMonths, getCurrentPrice } from "@/lib/vitrine/pricing";
 import type { ListingCreateInput, ListingUpdateInput } from "@/lib/validators/vitrine";
 
 export async function listVitrine(tenantId: string) {
-  const [listings, tiers, taxonomy] = await Promise.all([
+  const [listings, tiers, flockGroups] = await Promise.all([
     prisma.vitrineListing.findMany({
       where: { tenantId, status: { not: "REMOVED" } },
       include: {
-        species: { select: { id: true, name: true } },
-        breed: { select: { id: true, name: true } },
-        variety: { select: { id: true, name: true } },
+        flockGroup: {
+          select: {
+            id: true,
+            title: true,
+            species: { select: { id: true, name: true } },
+            breed: { select: { id: true, name: true } },
+            variety: { select: { id: true, name: true } }
+          }
+        },
         photos: { orderBy: { order: "asc" } }
       },
       orderBy: { createdAt: "desc" }
     }),
     prisma.priceTier.findMany({ where: { tenantId } }),
-    Promise.all([
-      prisma.species.findMany({
-        where: { tenantId },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" }
-      }),
-      prisma.breed.findMany({
-        where: { tenantId },
-        select: { id: true, name: true, speciesId: true },
-        orderBy: { name: "asc" }
-      }),
-      prisma.variety.findMany({
-        where: { tenantId },
-        select: { id: true, name: true, breedId: true },
-        orderBy: { name: "asc" }
-      })
-    ])
+    prisma.flockGroup.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        title: true,
+        species: { select: { id: true, name: true } },
+        breed: { select: { id: true, name: true } },
+        variety: { select: { id: true, name: true } }
+      },
+      orderBy: { title: "asc" }
+    })
   ]);
 
   const enriched = listings.map((listing) => {
     const result = getCurrentPrice(
-      {
-        speciesId: listing.speciesId,
-        breedId: listing.breedId,
-        varietyId: listing.varietyId
-      },
+      listing.flockGroupId,
       listing.birthDate,
-      tiers
+      tiers,
+      listing.priceOverride !== null && listing.priceOverride !== undefined
+        ? Number(listing.priceOverride)
+        : null
     );
 
     return {
       ...listing,
+      priceOverride:
+        listing.priceOverride !== null && listing.priceOverride !== undefined
+          ? Number(listing.priceOverride)
+          : null,
       currentPrice: result.price,
       ageInMonths: result.ageInMonths,
-      missingTier: result.missingTier
+      missingTier: result.missingTier,
+      isOverride: result.isOverride
     };
   });
 
-  const [species, breeds, varieties] = taxonomy;
-
   return {
     listings: enriched,
-    taxonomy: { species, breeds, varieties }
+    flockGroups
   };
 }
 
-export async function createListing(tenantId: string, input: ListingCreateInput) {
-  const taxonomy = await ensureTaxonomy(
-    tenantId,
-    input.species,
-    input.breed ?? undefined,
-    input.variety ?? undefined
-  );
+async function ensureFlockGroup(tenantId: string, flockGroupId: string) {
+  const group = await prisma.flockGroup.findFirst({
+    where: { id: flockGroupId, tenantId },
+    select: { id: true }
+  });
+  if (!group) throw new Error("Card não encontrado.");
+  return group;
+}
 
-  const birthDate = new Date(input.birthDate);
-  if (Number.isNaN(birthDate.getTime())) {
-    throw new Error("Data de nascimento inválida.");
-  }
+export async function createListing(tenantId: string, input: ListingCreateInput) {
+  await ensureFlockGroup(tenantId, input.flockGroupId);
+
+  const birthDate = birthDateFromAgeInMonths(input.ageInMonths);
 
   return prisma.vitrineListing.create({
     data: {
       tenantId,
+      flockGroupId: input.flockGroupId,
       title: input.title?.trim() || null,
-      speciesId: taxonomy.speciesId,
-      breedId: taxonomy.breedId,
-      varietyId: taxonomy.varietyId,
       birthDate,
       initialQuantity: input.initialQuantity,
       availableQuantity: input.initialQuantity,
+      priceOverride:
+        input.priceOverride !== null && input.priceOverride !== undefined
+          ? input.priceOverride
+          : null,
       description: input.description?.trim() || null
     }
   });
@@ -107,12 +111,8 @@ export async function updateListing(tenantId: string, id: string, input: Listing
     data.description = input.description?.trim() || null;
   }
 
-  if (input.birthDate !== undefined) {
-    const date = new Date(input.birthDate);
-    if (Number.isNaN(date.getTime())) {
-      throw new Error("Data de nascimento inválida.");
-    }
-    data.birthDate = date;
+  if (input.ageInMonths !== undefined) {
+    data.birthDate = birthDateFromAgeInMonths(input.ageInMonths);
   }
 
   if (input.availableQuantity !== undefined) {
@@ -123,6 +123,10 @@ export async function updateListing(tenantId: string, id: string, input: Listing
     if (input.availableQuantity === 0 && !input.status) {
       data.status = "SOLD_OUT";
     }
+  }
+
+  if (input.priceOverride !== undefined) {
+    data.priceOverride = input.priceOverride;
   }
 
   if (input.status !== undefined) {

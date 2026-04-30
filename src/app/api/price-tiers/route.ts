@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
-import { priceTierSchema } from "@/lib/validators/vitrine";
-import { listPriceTiers, upsertPriceTier } from "@/lib/vitrine/price-tiers";
+import { priceTierBatchSchema } from "@/lib/validators/vitrine";
+import { listPriceTiers, upsertPriceTiersBatch } from "@/lib/vitrine/price-tiers";
 
 export async function GET() {
   const auth = await getApiSessionOr401({ ownerOnly: true });
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
-  const parsed = priceTierSchema.safeParse(body);
+  const parsed = priceTierBatchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Dados inválidos." },
@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const saved = await upsertPriceTier(auth.session.user.tenantId, parsed.data);
-    return NextResponse.json(saved, { status: 201 });
+    const saved = await upsertPriceTiersBatch(auth.session.user.tenantId, parsed.data);
+    return NextResponse.json({ saved }, { status: 201 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro ao salvar preço.";
+    const message = error instanceof Error ? error.message : "Erro ao salvar preços.";
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }

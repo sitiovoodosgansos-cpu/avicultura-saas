@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ListingCard, type VitrineListingItem } from "@/components/vitrine/listing-card";
+import {
+  ListingCard,
+  type FlockGroupRef,
+  type VitrineListingItem
+} from "@/components/vitrine/listing-card";
 import {
   ListingFormModal,
   type ListingFormValues
@@ -13,11 +17,7 @@ import { PriceTierManager } from "@/components/vitrine/price-tier-manager";
 
 type VitrineResponse = {
   listings: VitrineListingItem[];
-  taxonomy: {
-    species: Array<{ id: string; name: string }>;
-    breeds: Array<{ id: string; name: string; speciesId: string }>;
-    varieties: Array<{ id: string; name: string; breedId: string }>;
-  };
+  flockGroups: FlockGroupRef[];
 };
 
 function formatBRL(value: number) {
@@ -73,21 +73,25 @@ export function VitrineManager() {
       const url = id ? `/api/vitrine/${id}` : "/api/vitrine";
       const method = id ? "PATCH" : "POST";
 
+      const overrideValue = values.priceOverride.trim();
+      const priceOverride =
+        overrideValue === "" ? null : Number(overrideValue);
+
       const payload = id
         ? {
             title: values.title || null,
-            birthDate: values.birthDate,
+            ageInMonths: values.ageInMonths,
             availableQuantity: values.availableQuantity,
+            priceOverride,
             description: values.description || null,
             status: values.status
           }
         : {
+            flockGroupId: values.flockGroupId,
             title: values.title || null,
-            species: values.species,
-            breed: values.breed || null,
-            variety: values.variety || null,
-            birthDate: values.birthDate,
+            ageInMonths: values.ageInMonths,
             initialQuantity: values.initialQuantity,
+            priceOverride,
             description: values.description || null
           };
 
@@ -140,7 +144,7 @@ export function VitrineManager() {
     <div className="grid gap-4">
       <PageTitle
         title="Vitrine"
-        description="Catálogo dos animais disponíveis para venda. Cadastre a tabela de preços por idade para acompanhar o valor automaticamente."
+        description="Catálogo dos animais disponíveis para venda. O preço atualiza automaticamente conforme o filhote envelhece, com base na tabela de preços por idade."
         icon="🛍️"
       />
 
@@ -175,7 +179,11 @@ export function VitrineManager() {
           <Button type="button" variant="outline" onClick={() => setPricesOpen(true)}>
             Tabela de preços
           </Button>
-          <Button type="button" onClick={openCreate}>
+          <Button
+            type="button"
+            onClick={openCreate}
+            disabled={!data || data.flockGroups.length === 0}
+          >
             Adicionar
           </Button>
         </div>
@@ -194,9 +202,18 @@ export function VitrineManager() {
         </div>
       ) : null}
 
+      {!loading && data && data.flockGroups.length === 0 ? (
+        <Card>
+          <p className="text-sm text-slate-600">
+            Nenhum card cadastrado no Plantel. Cadastre um grupo no Plantel primeiro para começar a
+            usar a Vitrine.
+          </p>
+        </Card>
+      ) : null}
+
       {loading ? <p className="text-sm text-slate-500">Carregando vitrine...</p> : null}
 
-      {!loading && data && data.listings.length === 0 ? (
+      {!loading && data && data.listings.length === 0 && data.flockGroups.length > 0 ? (
         <Card>
           <p className="text-sm text-slate-600">
             Nenhum anúncio na vitrine ainda. Clique em <strong>Adicionar</strong> para criar o primeiro
@@ -220,6 +237,7 @@ export function VitrineManager() {
       <ListingFormModal
         open={formOpen}
         editing={editing}
+        flockGroups={data?.flockGroups ?? []}
         onClose={() => {
           setFormOpen(false);
           setEditing(null);

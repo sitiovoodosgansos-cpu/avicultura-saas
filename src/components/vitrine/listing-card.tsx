@@ -4,23 +4,29 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
 
-export type VitrineListingItem = {
+export type FlockGroupRef = {
   id: string;
-  title: string | null;
-  speciesId: string;
-  breedId: string | null;
-  varietyId: string | null;
-  birthDate: string;
-  initialQuantity: number;
-  availableQuantity: number;
-  description: string | null;
-  status: "AVAILABLE" | "SOLD_OUT" | "REMOVED";
+  title: string;
   species: { id: string; name: string };
   breed: { id: string; name: string } | null;
   variety: { id: string; name: string } | null;
+};
+
+export type VitrineListingItem = {
+  id: string;
+  flockGroupId: string;
+  title: string | null;
+  birthDate: string;
+  initialQuantity: number;
+  availableQuantity: number;
+  priceOverride: number | null;
+  description: string | null;
+  status: "AVAILABLE" | "SOLD_OUT" | "REMOVED";
+  flockGroup: FlockGroupRef;
   currentPrice: number | null;
   ageInMonths: number;
   missingTier: boolean;
+  isOverride: boolean;
 };
 
 function formatBRL(value: number | null) {
@@ -47,24 +53,28 @@ export function ListingCard({
   onEdit: (listing: VitrineListingItem) => void;
   onRemove: (id: string) => void;
 }) {
-  const titleFallback = [listing.species.name, listing.breed?.name, listing.variety?.name]
+  const taxonomy = [
+    listing.flockGroup.species.name,
+    listing.flockGroup.breed?.name,
+    listing.flockGroup.variety?.name
+  ]
     .filter(Boolean)
-    .join(" / ");
-  const headline = listing.title?.trim() || titleFallback || "Anúncio";
+    .join(" · ");
+  const headline = listing.title?.trim() || listing.flockGroup.title;
 
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--brand-strong)]">
-            {listing.species.name}
-            {listing.breed ? ` · ${listing.breed.name}` : ""}
-            {listing.variety ? ` · ${listing.variety.name}` : ""}
+            {listing.flockGroup.title}
           </p>
           <h3 className="mt-1 text-base font-semibold leading-tight text-slate-900 sm:text-lg">
             {headline}
           </h3>
-          <p className="mt-1 text-xs text-slate-500">{formatAge(listing.ageInMonths)}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {taxonomy ? `${taxonomy} · ` : ""}{formatAge(listing.ageInMonths)}
+          </p>
         </div>
         <span
           className={
@@ -101,6 +111,9 @@ export function ListingCard({
           <p className="mt-0.5 text-2xl font-semibold leading-none text-slate-900">
             {formatBRL(listing.currentPrice)}
           </p>
+          {listing.isOverride ? (
+            <p className="mt-0.5 text-[10px] font-medium text-sky-700">Preço próprio do anúncio</p>
+          ) : null}
           {listing.missingTier ? (
             <p className="mt-0.5 text-[10px] font-medium text-amber-600">
               Cadastre o preço para esta idade

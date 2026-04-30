@@ -8,44 +8,55 @@ export function calculateAgeInMonths(birthDate: Date, now: Date = new Date()): n
   return Math.max(0, months);
 }
 
+/**
+ * Returns the birth date that corresponds to a given age in months from `now`.
+ * Used to convert UX input ("the chick is 2 months old") into a stable timestamp.
+ */
+export function birthDateFromAgeInMonths(ageInMonths: number, now: Date = new Date()): Date {
+  const safe = Math.max(0, Math.floor(ageInMonths));
+  const date = new Date(now);
+  date.setMonth(date.getMonth() - safe);
+  return date;
+}
+
 export type CurrentPriceResult = {
   price: number | null;
   ageInMonths: number;
   matchedTier: PriceTier | null;
   missingTier: boolean;
+  isOverride: boolean;
 };
-
-type PriceTierKey = {
-  speciesId: string;
-  breedId: string | null;
-  varietyId: string | null;
-};
-
-function tierMatchesKey(tier: PriceTier, key: PriceTierKey): boolean {
-  if (tier.speciesId !== key.speciesId) return false;
-  if ((tier.breedId ?? null) !== (key.breedId ?? null)) return false;
-  if ((tier.varietyId ?? null) !== (key.varietyId ?? null)) return false;
-  return true;
-}
 
 /**
  * Picks the highest-aged tier whose ageInMonths is <= the listing's current age.
- * Returns the price as a number (or null when no tier matches).
+ * Falls back to the lowest tier if the chick is younger than the youngest tier.
+ * If `priceOverride` is provided, it always wins.
  */
 export function getCurrentPrice(
-  listingKey: PriceTierKey,
+  flockGroupId: string,
   birthDate: Date,
   tiers: PriceTier[],
+  priceOverride: number | null,
   now: Date = new Date()
 ): CurrentPriceResult {
   const ageInMonths = calculateAgeInMonths(birthDate, now);
 
+  if (priceOverride !== null && priceOverride !== undefined) {
+    return {
+      price: Number(priceOverride),
+      ageInMonths,
+      matchedTier: null,
+      missingTier: false,
+      isOverride: true
+    };
+  }
+
   const matchingTiers = tiers
-    .filter((tier) => tierMatchesKey(tier, listingKey))
+    .filter((tier) => tier.flockGroupId === flockGroupId)
     .sort((a, b) => a.ageInMonths - b.ageInMonths);
 
   if (matchingTiers.length === 0) {
-    return { price: null, ageInMonths, matchedTier: null, missingTier: true };
+    return { price: null, ageInMonths, matchedTier: null, missingTier: true, isOverride: false };
   }
 
   const eligible = matchingTiers.filter((tier) => tier.ageInMonths <= ageInMonths);
@@ -55,6 +66,7 @@ export function getCurrentPrice(
     price: Number(matchedTier.price),
     ageInMonths,
     matchedTier,
-    missingTier: false
+    missingTier: false,
+    isOverride: false
   };
 }

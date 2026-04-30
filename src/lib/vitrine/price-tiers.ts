@@ -1,91 +1,87 @@
 import { prisma } from "@/lib/db/prisma";
-import type { PriceTierInput } from "@/lib/validators/vitrine";
+import type { PriceTierBatchInput } from "@/lib/validators/vitrine";
 
 export async function listPriceTiers(tenantId: string) {
-  const [tiers, species, breeds, varieties] = await Promise.all([
+  const [tiers, flockGroups] = await Promise.all([
     prisma.priceTier.findMany({
       where: { tenantId },
       include: {
+        flockGroup: {
+          select: {
+            id: true,
+            title: true,
+            species: { select: { name: true } },
+            breed: { select: { name: true } },
+            variety: { select: { name: true } }
+          }
+        }
+      },
+      orderBy: [{ flockGroupId: "asc" }, { ageInMonths: "asc" }]
+    }),
+    prisma.flockGroup.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        title: true,
         species: { select: { id: true, name: true } },
         breed: { select: { id: true, name: true } },
         variety: { select: { id: true, name: true } }
       },
-      orderBy: [{ speciesId: "asc" }, { breedId: "asc" }, { varietyId: "asc" }, { ageInMonths: "asc" }]
-    }),
-    prisma.species.findMany({
-      where: { tenantId },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" }
-    }),
-    prisma.breed.findMany({
-      where: { tenantId },
-      select: { id: true, name: true, speciesId: true },
-      orderBy: { name: "asc" }
-    }),
-    prisma.variety.findMany({
-      where: { tenantId },
-      select: { id: true, name: true, breedId: true },
-      orderBy: { name: "asc" }
+      orderBy: { title: "asc" }
     })
   ]);
 
-  return {
-    tiers,
-    taxonomy: { species, breeds, varieties }
-  };
+  return { tiers, flockGroups };
 }
 
-export async function upsertPriceTier(tenantId: string, input: PriceTierInput) {
-  const speciesOk = await prisma.species.findFirst({
-    where: { id: input.speciesId, tenantId },
+export async function upsertPriceTiersBatch(tenantId: string, input: PriceTierBatchInput) {
+  const group = await prisma.flockGroup.findFirst({
+    where: { id: input.flockGroupId, tenantId },
     select: { id: true }
   });
-  if (!speciesOk) throw new Error("Espécie não encontrada.");
+  if (!group) throw new Error("Card não encontrado.");
 
-  if (input.breedId) {
-    const breedOk = await prisma.breed.findFirst({
-      where: { id: input.breedId, tenantId, speciesId: input.speciesId },
-      select: { id: true }
-    });
-    if (!breedOk) throw new Error("Raça não encontrada para a espécie.");
-  }
-
-  if (input.varietyId) {
-    if (!input.breedId) throw new Error("Variedade exige uma raça.");
-    const varietyOk = await prisma.variety.findFirst({
-      where: { id: input.varietyId, tenantId, breedId: input.breedId },
-      select: { id: true }
-    });
-    if (!varietyOk) throw new Error("Variedade não encontrada para a raça.");
-  }
-
-  const existing = await prisma.priceTier.findFirst({
-    where: {
-      tenantId,
-      speciesId: input.speciesId,
-      breedId: input.breedId ?? null,
-      varietyId: input.varietyId ?? null,
-      ageInMonths: input.ageInMonths
-    },
-    select: { id: true }
-  });
-
-  if (existing) {
-    return prisma.priceTier.update({
-      where: { id: existing.id },
-      data: { price: input.price }
-    });
-  }
-
-  return prisma.priceTier.create({
-    data: {
-      tenantId,
-      speciesId: input.speciesId,
-      breedId: input.breedId ?? null,
-      varietyId: input.varietyId ?? null,
-      ageInMonths: input.ageInMonths,
-      price: input.price
+  const seen = new Set<number>();
+  for (const entry of input.tiers) {
+    if (seen.has(entry.ageInMonths)) {
+      throw new Error(`Idade ${entry.ageInMonths} duplicada.`);
     }
+    seen.add(entry.ageInMonths);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const saved = [] as Array<{ id: string }>;
+    for (const entry of input.tiers) {
+      const existing = await tx.priceTier.findFirst({
+        where: {
+          tenantId,
+          flockGroupId: input.flockGroupId,
+          ageInMonths: entry.ageInMonths
+        },
+        select: { id: true }
+      });
+
+      if (existing) {
+        const updated = await tx.priceTier.update({
+          where: { id: existing.id },
+          data: { price: entry.price },
+          select: { id: true }
+        });
+        saved.push(updated);
+      } else {
+        const created = await tx.priceTier.create({
+          data: {
+            tenantId,
+            flockGroupId: input.flockGroupId,
+            ageInMonths: entry.ageInMonths,
+            price: entry.price
+          },
+          select: { id: true }
+        });
+        saved.push(created);
+      }
+    }
+    return saved;
   });
 }
 

@@ -209,42 +209,36 @@ model PaymentEvent {
 }
 
 model Species {
-  id              String           @id @default(cuid())
-  tenantId        String
-  name            String
-  createdAt       DateTime         @default(now())
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  breeds          Breed[]
-  groups          FlockGroup[]
-  priceTiers      PriceTier[]
-  vitrineListings VitrineListing[]
+  id        String       @id @default(cuid())
+  tenantId  String
+  name      String
+  createdAt DateTime     @default(now())
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  breeds    Breed[]
+  groups    FlockGroup[]
 }
 
 model Breed {
-  id              String           @id @default(cuid())
-  tenantId        String
-  speciesId       String
-  name            String
-  createdAt       DateTime         @default(now())
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  species         Species          @relation(fields: [speciesId], references: [id], onDelete: Cascade)
-  varieties       Variety[]
-  groups          FlockGroup[]
-  priceTiers      PriceTier[]
-  vitrineListings VitrineListing[]
+  id        String       @id @default(cuid())
+  tenantId  String
+  speciesId String
+  name      String
+  createdAt DateTime     @default(now())
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  species   Species      @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  varieties Variety[]
+  groups    FlockGroup[]
 }
 
 model Variety {
-  id              String           @id @default(cuid())
-  tenantId        String
-  breedId         String
-  name            String
-  createdAt       DateTime         @default(now())
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  breed           Breed            @relation(fields: [breedId], references: [id], onDelete: Cascade)
-  groups          FlockGroup[]
-  priceTiers      PriceTier[]
-  vitrineListings VitrineListing[]
+  id        String       @id @default(cuid())
+  tenantId  String
+  breedId   String
+  name      String
+  createdAt DateTime     @default(now())
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  breed     Breed        @relation(fields: [breedId], references: [id], onDelete: Cascade)
+  groups    FlockGroup[]
 }
 
 model FlockGroup {
@@ -271,6 +265,8 @@ model FlockGroup {
   eggCollections          EggCollection[]
   batches                 IncubatorBatch[]
   trays                   EggTray[]
+  priceTiers              PriceTier[]
+  vitrineListings         VitrineListing[]
 }
 
 model Bird {
@@ -655,35 +651,30 @@ model EmployeeSession {
 }
 
 model PriceTier {
-  id          String   @id @default(cuid())
-  tenantId    String
-  speciesId   String
-  breedId     String?
-  varietyId   String?
-  ageInMonths Int
-  price       Decimal  @db.Decimal(10, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  tenantId     String
+  flockGroupId String
+  ageInMonths  Int
+  price        Decimal  @db.Decimal(10, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  species Species  @relation(fields: [speciesId], references: [id], onDelete: Restrict)
-  breed   Breed?   @relation(fields: [breedId], references: [id], onDelete: Restrict)
-  variety Variety? @relation(fields: [varietyId], references: [id], onDelete: SetNull)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  flockGroup FlockGroup @relation(fields: [flockGroupId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, speciesId, breedId, varietyId, ageInMonths])
-  @@index([tenantId, speciesId, breedId, varietyId])
+  @@unique([tenantId, flockGroupId, ageInMonths])
+  @@index([tenantId, flockGroupId])
 }
 
 model VitrineListing {
   id                String        @id @default(cuid())
   tenantId          String
+  flockGroupId      String
   title             String?
-  speciesId         String
-  breedId           String?
-  varietyId         String?
   birthDate         DateTime
   initialQuantity   Int
   availableQuantity Int
+  priceOverride     Decimal?      @db.Decimal(10, 2)
   description       String?
   status            ListingStatus @default(AVAILABLE)
 
@@ -693,10 +684,8 @@ model VitrineListing {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  species Species  @relation(fields: [speciesId], references: [id], onDelete: Restrict)
-  breed   Breed?   @relation(fields: [breedId], references: [id], onDelete: Restrict)
-  variety Variety? @relation(fields: [varietyId], references: [id], onDelete: SetNull)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  flockGroup FlockGroup @relation(fields: [flockGroupId], references: [id], onDelete: Restrict)
 
   sourceIncubatorBatch IncubatorBatch? @relation(fields: [sourceIncubatorBatchId], references: [id], onDelete: SetNull)
   sourceBird           Bird?           @relation(fields: [sourceBirdId], references: [id], onDelete: SetNull)
@@ -704,6 +693,7 @@ model VitrineListing {
   photos VitrineListingPhoto[]
 
   @@index([tenantId, status])
+  @@index([tenantId, flockGroupId])
 }
 
 model VitrineListingPhoto {
