@@ -26,7 +26,8 @@ export async function listIncubatorContext(tenantId: string) {
             species: { select: { name: true } }
           }
         },
-        events: { orderBy: { eventDate: "desc" } }
+        events: { orderBy: { eventDate: "desc" } },
+        sources: { orderBy: { collectionDate: "asc" } }
       },
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }]
     }),

@@ -299,6 +299,7 @@ export function EggCollectionManager() {
 
       await loadDayRows(selectedDate);
       await loadData();
+      setShowDayModal(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao salvar as coletas do dia.");
     } finally {

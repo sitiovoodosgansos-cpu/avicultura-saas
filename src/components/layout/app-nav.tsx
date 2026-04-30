@@ -9,6 +9,7 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", emoji: "🏠" },
   { href: "/plantel", label: "Plantel", emoji: "🦚" },
   { href: "/coleta-ovos", label: "Coleta", emoji: "🥚" },
+  { href: "/prateleira", label: "Prateleira", emoji: "🪺" },
   { href: "/chocadeiras", label: "Chocadeiras", emoji: "🐣" },
   { href: "/sanidade", label: "Sanidade", emoji: "💊" },
   { href: "/financeiro", label: "Financeiro", emoji: "💰" },

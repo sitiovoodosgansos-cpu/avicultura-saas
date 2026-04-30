@@ -83,6 +83,17 @@ enum ReportType {
   FINANCIAL
 }
 
+enum EggTrayStatus {
+  ACTIVE
+  EXHAUSTED
+  ARCHIVED
+}
+
+enum EggTraySource {
+  COLLECTION
+  EXTERNAL
+}
+
 model User {
   id           String         @id @default(cuid())
   email        String         @unique
@@ -120,6 +131,7 @@ model Tenant {
   incubators     Incubator[]
   batches        IncubatorBatch[]
   batchEvents    IncubatorBatchEvent[]
+  batchSources   IncubatorBatchSource[]
   infirmaries    Infirmary[]
   infirmaryCases InfirmaryCase[]
   infirmaryCaseEvents InfirmaryCaseEvent[]
@@ -133,6 +145,10 @@ model Tenant {
   workerLinks    WorkerAccessLink[]
   reports        Report[]
   auditLogs      AuditLog[]
+  eggTrays       EggTray[]
+  eggTrayEntries EggTrayEntry[]
+  eggSales       EggSale[]
+  eggSaleItems   EggSaleItem[]
 }
 
 model TenantMember {
@@ -240,6 +256,7 @@ model FlockGroup {
   birds                   Bird[]
   eggCollections          EggCollection[]
   batches                 IncubatorBatch[]
+  trays                   EggTray[]
 }
 
 model Bird {
@@ -290,6 +307,7 @@ model EggCollection {
   updatedAt   DateTime @updatedAt
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   flockGroup  FlockGroup @relation(fields: [flockGroupId], references: [id], onDelete: Cascade)
+  trayEntry   EggTrayEntry?
 }
 
 model Incubator {
@@ -321,6 +339,7 @@ model IncubatorBatch {
   incubator         Incubator   @relation(fields: [incubatorId], references: [id], onDelete: Cascade)
   flockGroup        FlockGroup  @relation(fields: [flockGroupId], references: [id], onDelete: Restrict)
   events            IncubatorBatchEvent[]
+  sources           IncubatorBatchSource[]
 }
 
 model IncubatorBatchEvent {
@@ -334,6 +353,20 @@ model IncubatorBatchEvent {
   createdAt DateTime @default(now())
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   batch     IncubatorBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+}
+
+model IncubatorBatchSource {
+  id            String   @id @default(cuid())
+  tenantId      String
+  batchId       String
+  trayEntryId   String?
+  collectionDate DateTime
+  quantity      Int
+  createdAt     DateTime @default(now())
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  batch         IncubatorBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, batchId])
 }
 
 model Infirmary {
@@ -441,6 +474,79 @@ model FinancialEntry {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  eggSale     EggSale?
+}
+
+model EggTray {
+  id           String         @id @default(cuid())
+  tenantId     String
+  flockGroupId String?
+  speciesLabel String
+  breedLabel   String
+  varietyLabel String?
+  expiryDays   Int            @default(10)
+  status       EggTrayStatus  @default(ACTIVE)
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  flockGroup   FlockGroup?    @relation(fields: [flockGroupId], references: [id], onDelete: SetNull)
+  entries      EggTrayEntry[]
+
+  @@index([tenantId, status])
+}
+
+model EggTrayEntry {
+  id               String        @id @default(cuid())
+  tenantId         String
+  trayId           String
+  eggCollectionId  String?       @unique
+  source           EggTraySource @default(COLLECTION)
+  entryDate        DateTime
+  initialCount     Int
+  soldCount        Int           @default(0)
+  discardedCount   Int           @default(0)
+  transferredCount Int           @default(0)
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tray             EggTray       @relation(fields: [trayId], references: [id], onDelete: Cascade)
+  eggCollection    EggCollection? @relation(fields: [eggCollectionId], references: [id], onDelete: SetNull)
+  saleItems        EggSaleItem[]
+
+  @@index([tenantId, trayId, entryDate])
+}
+
+model EggSale {
+  id               String          @id @default(cuid())
+  tenantId         String
+  customer         String?
+  totalAmount      Decimal         @db.Decimal(12, 2)
+  soldAt           DateTime
+  financialEntryId String?         @unique
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  financialEntry   FinancialEntry? @relation(fields: [financialEntryId], references: [id], onDelete: SetNull)
+  items            EggSaleItem[]
+
+  @@index([tenantId, soldAt])
+}
+
+model EggSaleItem {
+  id          String       @id @default(cuid())
+  tenantId    String
+  saleId      String
+  trayEntryId String
+  quantity    Int
+  unitPrice   Decimal      @db.Decimal(10, 2)
+  subtotal    Decimal      @db.Decimal(12, 2)
+  createdAt   DateTime     @default(now())
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sale        EggSale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  trayEntry   EggTrayEntry @relation(fields: [trayEntryId], references: [id], onDelete: Restrict)
 }
 
 model FinancialExpense {
