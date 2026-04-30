@@ -495,12 +495,6 @@ export function PrateleiraManager() {
         </Card>
       </section>
 
-      <div className="flex justify-end">
-        <Button type="button" variant="outline" onClick={openExternalModal}>
-          <Plus className="mr-1 h-4 w-4" /> Bandeja externa
-        </Button>
-      </div>
-
       {error && !showFinalizeModal && !showExternalModal ? (
         <p className="rounded-xl bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</p>
       ) : null}
@@ -624,6 +618,19 @@ export function PrateleiraManager() {
             </Card>
           );
         })}
+        <button
+          type="button"
+          onClick={openExternalModal}
+          className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-zinc-300 bg-white/40 p-4 text-zinc-500 transition hover:border-emerald-400 hover:bg-emerald-50/40 hover:text-emerald-700"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-100 transition group-hover:bg-emerald-100">
+            <Plus className="h-5 w-5" />
+          </span>
+          <span className="text-sm font-semibold">Adicionar bandeja externa</span>
+          <span className="max-w-[18rem] text-center text-[11px] text-zinc-400">
+            Ovos comprados de fora ou de especies que ainda nao estao no plantel
+          </span>
+        </button>
       </section>
 
       {selectionMode && selection.size > 0 ? (

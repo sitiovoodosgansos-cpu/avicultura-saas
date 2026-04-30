@@ -109,7 +109,11 @@ export async function listTrays(tenantId: string) {
 
   return trays
     .map((tray) => {
-      const entries = tray.entries.map((entry) => {
+      const entries = tray.entries
+        .filter(
+          (entry) => entry.initialCount - entry.soldCount - entry.discardedCount - entry.transferredCount > 0
+        )
+        .map((entry) => {
         const expiresAt = new Date(entry.entryDate);
         expiresAt.setDate(expiresAt.getDate() + tray.expiryDays);
         const remainingDays = Math.ceil((startOfDay(expiresAt).getTime() - today.getTime()) / 86400000);
@@ -151,7 +155,7 @@ export async function listTrays(tenantId: string) {
         entries
       };
     })
-    .filter((tray) => tray.totalAvailable > 0 || tray.entries.length > 0);
+    .filter((tray) => tray.totalAvailable > 0);
 }
 
 export async function addExternalTray(
