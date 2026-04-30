@@ -9,6 +9,24 @@ import { Input } from "@/components/ui/input";
 type ReportType = "GENERAL" | "FLOCK" | "EGG" | "INCUBATOR" | "HEALTH" | "FINANCIAL";
 type ReportPreset = "7d" | "30d" | "365d" | "custom";
 
+type EstoqueGroup = {
+  flockGroupId: string;
+  title: string;
+  species: string;
+  breed: string | null;
+  variety: string | null;
+  quantity: number;
+  value: number;
+  listings: number;
+  hasMissingTier: boolean;
+};
+
+type EstoqueResumo = {
+  totalAnimals: number;
+  totalValue: number;
+  groups: EstoqueGroup[];
+};
+
 type ReportData = {
   reportType: ReportType;
   period: { from: string; to: string; label: string };
@@ -84,6 +102,7 @@ export function ReportsManager() {
   const [to, setTo] = useState("");
 
   const [data, setData] = useState<ReportData | null>(null);
+  const [estoque, setEstoque] = useState<EstoqueResumo | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -97,15 +116,25 @@ export function ReportsManager() {
       if (to) params.set("to", to);
     }
 
-    const res = await fetch(`/api/reports/data?${params.toString()}`, { cache: "no-store" });
-    if (!res.ok) {
+    const [reportRes, estoqueRes] = await Promise.all([
+      fetch(`/api/reports/data?${params.toString()}`, { cache: "no-store" }),
+      fetch(`/api/reports/estoque`, { cache: "no-store" })
+    ]);
+
+    if (!reportRes.ok) {
       setError("Não foi possível gerar o relatório.");
       setLoading(false);
       return;
     }
 
-    const payload = (await res.json()) as ReportData;
+    const payload = (await reportRes.json()) as ReportData;
     setData(payload);
+
+    if (estoqueRes.ok) {
+      const estoquePayload = (await estoqueRes.json()) as EstoqueResumo;
+      setEstoque(estoquePayload);
+    }
+
     setLoading(false);
   }
 
@@ -256,6 +285,72 @@ export function ReportsManager() {
               </div>
             )}
           </Card>
+
+          {estoque ? (
+            <Card>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-base font-semibold text-zinc-900">
+                  🛍️ Estoque para venda (Vitrine)
+                </h3>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <span className="text-zinc-500">
+                    Total:{" "}
+                    <strong className="text-zinc-900">{estoque.totalAnimals}</strong> ave(s)
+                  </span>
+                  <span className="text-zinc-500">
+                    Valor:{" "}
+                    <strong className="text-zinc-900">{formatMoney(estoque.totalValue)}</strong>
+                  </span>
+                </div>
+              </div>
+
+              {estoque.groups.length === 0 ? (
+                <p className="mt-3 text-sm text-zinc-500">
+                  Nenhum animal disponível na Vitrine no momento.
+                </p>
+              ) : (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                        <th className="py-2 pr-3">Card</th>
+                        <th className="py-2 pr-3">Taxonomia</th>
+                        <th className="py-2 pr-3">Lotes</th>
+                        <th className="py-2 pr-3">Disponíveis</th>
+                        <th className="py-2 pr-3">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {estoque.groups.map((group) => {
+                        const taxonomy = [group.species, group.breed, group.variety]
+                          .filter(Boolean)
+                          .join(" / ");
+                        return (
+                          <tr
+                            key={group.flockGroupId}
+                            className="border-b border-zinc-100"
+                          >
+                            <td className="py-2 pr-3 font-medium text-zinc-900">
+                              {group.title}
+                              {group.hasMissingTier ? (
+                                <span className="ml-2 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-amber-700">
+                                  sem preço
+                                </span>
+                              ) : null}
+                            </td>
+                            <td className="py-2 pr-3 text-zinc-600">{taxonomy}</td>
+                            <td className="py-2 pr-3">{group.listings}</td>
+                            <td className="py-2 pr-3">{group.quantity}</td>
+                            <td className="py-2 pr-3">{formatMoney(group.value)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          ) : null}
 
           <Card>
             <h3 className="text-base font-semibold text-zinc-900">Conclusão automática</h3>
