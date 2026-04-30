@@ -1065,10 +1065,7 @@ export function IncubatorsManager() {
             {!editingBatchId ? <Button type="button" variant="outline" onClick={addBatchLine}>+ Adicionar ave</Button> : null}
             <p className="text-sm font-medium text-zinc-700">Total de ovos no lote: {totalBatchEggs}</p>
           </div>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Input type="date" value={batchForm.entryDate} onChange={(e) => setBatchForm((p) => ({ ...p, entryDate: e.target.value }))} />
-            <Input type="date" value={batchForm.lockdownDate} onChange={(e) => setBatchForm((p) => ({ ...p, lockdownDate: e.target.value }))} />
-          </div>
+          <Input type="date" value={batchForm.entryDate} onChange={(e) => setBatchForm((p) => ({ ...p, entryDate: e.target.value }))} />
           <Input placeholder="Observacoes do lote" value={batchForm.notes} onChange={(e) => setBatchForm((p) => ({ ...p, notes: e.target.value }))} />
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={batchForm.status} onChange={(e) => setBatchForm((p) => ({ ...p, status: e.target.value as BatchForm["status"] }))}>
             <option value="ACTIVE">Ativo</option><option value="HATCHED">Finalizado com eclosao</option><option value="FAILED">Falhou</option><option value="CANCELED">Cancelado</option>
