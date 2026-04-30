@@ -46,29 +46,29 @@ export function FlockGroupCard({
 
   return (
     <Card className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--brand-strong)]">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--brand-strong)] sm:text-xs">
             {taxonomy || "Sem taxonomia"}
           </p>
-          <h3 className="mt-1 text-base font-semibold leading-tight text-slate-900 sm:text-lg">
+          <h3 className="mt-0.5 truncate text-base font-semibold leading-tight text-slate-900 sm:text-lg">
             {group.title}
           </h3>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-right">
-          <div className="rounded-xl bg-[color:var(--surface-soft)] px-2.5 py-1.5">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+        <div className="flex shrink-0 gap-1.5 text-right">
+          <div className="rounded-lg bg-[color:var(--surface-soft)] px-2 py-1">
+            <p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-slate-400">
               Disp.
             </p>
-            <p className="text-base font-semibold leading-none text-slate-900 sm:text-lg">
+            <p className="text-sm font-semibold leading-none text-slate-900 sm:text-base">
               {totalAvailable}
             </p>
           </div>
-          <div className="rounded-xl bg-[color:var(--surface-soft)] px-2.5 py-1.5">
-            <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+          <div className="rounded-lg bg-[color:var(--surface-soft)] px-2 py-1">
+            <p className="text-[8px] font-semibold uppercase tracking-[0.1em] text-slate-400">
               Valor
             </p>
-            <p className="text-base font-semibold leading-none text-slate-900 sm:text-lg">
+            <p className="text-sm font-semibold leading-none text-slate-900 sm:text-base">
               {formatBRL(totalValue)}
             </p>
           </div>
@@ -79,48 +79,57 @@ export function FlockGroupCard({
         {listings.map((listing) => (
           <li
             key={listing.id}
-            className="rounded-2xl border border-[color:var(--line)] bg-white/70 p-3"
+            className="rounded-2xl border border-[color:var(--line)] bg-white/70 p-2.5 sm:p-3"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-slate-900">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <p className="truncate text-sm font-semibold text-slate-900">
                     {listing.title?.trim() || `Lote ${listing.id.slice(-4).toUpperCase()}`}
                   </p>
                   <span
                     className={
-                      "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] " +
+                      "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] " +
                       statusClass(listing.status)
                     }
                   >
                     {statusLabel(listing.status)}
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs text-slate-500">{formatAge(listing.ageInMonths)}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">
+                  {formatAge(listing.ageInMonths)}
+                </p>
                 {listing.description ? (
-                  <p className="mt-1 text-xs text-slate-600">{listing.description}</p>
+                  <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
+                    {listing.description}
+                  </p>
                 ) : null}
               </div>
+            </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5 rounded-xl bg-[color:var(--surface-soft)] px-2.5 py-1.5 text-xs">
-                  <span className="font-semibold text-slate-900">
-                    {listing.availableQuantity}
-                  </span>
-                  <span className="text-slate-500">/ {listing.initialQuantity}</span>
-                </div>
-                <div className="rounded-xl bg-[color:var(--surface-soft)] px-2.5 py-1.5 text-right">
-                  <p className="text-sm font-semibold leading-none text-slate-900">
-                    {formatBRL(listing.currentPrice)}
-                  </p>
-                  {listing.isOverride ? (
-                    <p className="mt-0.5 text-[9px] font-medium text-sky-700">próprio</p>
-                  ) : null}
-                  {listing.missingTier ? (
-                    <p className="mt-0.5 text-[9px] font-medium text-amber-600">sem tabela</p>
-                  ) : null}
-                </div>
-                <Button type="button" variant="outline" onClick={() => onEdit(listing)}>
+            <div className="mt-2 flex min-w-0 flex-wrap items-center justify-between gap-1.5">
+              <div className="flex min-w-0 items-center gap-1.5 text-xs">
+                <span className="rounded-lg bg-[color:var(--surface-soft)] px-2 py-1">
+                  <strong className="text-slate-900">{listing.availableQuantity}</strong>
+                  <span className="text-slate-500">/{listing.initialQuantity}</span>
+                </span>
+                <span className="rounded-lg bg-[color:var(--surface-soft)] px-2 py-1 font-semibold text-slate-900">
+                  {formatBRL(listing.currentPrice)}
+                </span>
+                {listing.isOverride ? (
+                  <span className="text-[9px] font-medium text-sky-700">próprio</span>
+                ) : null}
+                {listing.missingTier ? (
+                  <span className="text-[9px] font-medium text-amber-600">sem tabela</span>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onEdit(listing)}
+                  className="h-8 px-2 text-xs sm:h-9 sm:px-3"
+                >
                   Editar
                 </Button>
                 <DeleteActionButton iconOnly onClick={() => onRemove(listing.id)} />
