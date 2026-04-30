@@ -349,7 +349,7 @@ export function PrateleiraManager() {
           customer: saleCustomer || undefined,
           soldAt: saleSoldAt,
           items: items.map((it) => ({
-            trayId: it.trayId,
+            trayEntryId: it.entryId,
             quantity: it.quantity,
             unitPrice: it.unitPrice ?? 0
           })),
@@ -373,7 +373,7 @@ export function PrateleiraManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           incubatorId: transferIncubatorId,
-          items: items.map((it) => ({ trayId: it.trayId, quantity: it.quantity })),
+          items: items.map((it) => ({ trayEntryId: it.entryId, quantity: it.quantity })),
           notes: transferNotes || undefined
         })
       });

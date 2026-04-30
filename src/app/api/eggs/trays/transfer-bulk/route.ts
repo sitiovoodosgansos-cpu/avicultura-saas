@@ -21,12 +21,6 @@ export async function POST(request: NextRequest) {
     if (result.reason === "INCUBATOR_NOT_FOUND") {
       return NextResponse.json({ error: "Chocadeira não encontrada." }, { status: 404 });
     }
-    if (result.reason === "TRAY_NOT_FOUND") {
-      return NextResponse.json({ error: "Bandeja não encontrada." }, { status: 404 });
-    }
-    if (result.reason === "NO_FLOCK_GROUP") {
-      return NextResponse.json({ error: result.message ?? "Bandeja externa sem grupo no plantel." }, { status: 400 });
-    }
     return NextResponse.json({ error: result.message ?? "Falha ao transferir." }, { status: 400 });
   }
   return NextResponse.json({ count: result.batches.length }, { status: 201 });

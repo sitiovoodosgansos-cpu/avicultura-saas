@@ -394,51 +394,51 @@ export async function transferTrayToIncubator(
 export async function transferTraysBulkToIncubator(
   tenantId: string,
   userId: string | null,
-  input: { incubatorId: string; items: Array<{ trayId: string; quantity: number }>; notes?: string }
+  input: { incubatorId: string; items: Array<{ trayEntryId: string; quantity: number }>; notes?: string }
 ) {
   const incubator = await prisma.incubator.findFirst({ where: { id: input.incubatorId, tenantId } });
   if (!incubator) return { ok: false as const, reason: "INCUBATOR_NOT_FOUND" as const };
-
-  const trays = await prisma.eggTray.findMany({
-    where: { tenantId, id: { in: input.items.map((i) => i.trayId) } }
-  });
-  if (trays.length !== new Set(input.items.map((i) => i.trayId)).size) {
-    return { ok: false as const, reason: "TRAY_NOT_FOUND" as const };
-  }
-  for (const tray of trays) {
-    if (!tray.flockGroupId) {
-      return { ok: false as const, reason: "NO_FLOCK_GROUP" as const, message: `Bandeja "${tray.speciesLabel}" e externa sem grupo do plantel.` };
-    }
-  }
 
   try {
     const batches = await prisma.$transaction(async (tx) => {
       const created = [];
       for (const item of input.items) {
-        const tray = trays.find((t) => t.id === item.trayId)!;
-        const consumption = await consumeFifo(tx, tenantId, tray.id, item.quantity, "transferredCount");
+        const entry = await tx.eggTrayEntry.findFirst({
+          where: { id: item.trayEntryId, tenantId },
+          include: { tray: true }
+        });
+        if (!entry) throw new Error("Entrada nao encontrada.");
+        if (!entry.tray.flockGroupId) {
+          throw new Error(`Bandeja externa "${entry.tray.speciesLabel}" sem grupo do plantel.`);
+        }
+        const available = entry.initialCount - entry.soldCount - entry.discardedCount - entry.transferredCount;
+        if (item.quantity > available) {
+          throw new Error(`Quantidade indisponivel. Restam ${available} ovos nessa data.`);
+        }
+        await tx.eggTrayEntry.update({
+          where: { id: entry.id },
+          data: { transferredCount: { increment: item.quantity } }
+        });
         const batch = await tx.incubatorBatch.create({
           data: {
             tenantId,
             incubatorId: input.incubatorId,
-            flockGroupId: tray.flockGroupId!,
+            flockGroupId: entry.tray.flockGroupId,
             entryDate: new Date(),
             eggsSet: item.quantity,
             status: "ACTIVE",
-            notes: input.notes ?? `Transferido em lote da prateleira (${tray.speciesLabel} ${tray.breedLabel}).`
+            notes: input.notes ?? `Transferido da prateleira (${entry.tray.speciesLabel} ${entry.tray.breedLabel}).`
           }
         });
-        for (const slice of consumption.consumed) {
-          await tx.incubatorBatchSource.create({
-            data: {
-              tenantId,
-              batchId: batch.id,
-              trayEntryId: slice.entryId,
-              collectionDate: slice.entryDate,
-              quantity: slice.quantity
-            }
-          });
-        }
+        await tx.incubatorBatchSource.create({
+          data: {
+            tenantId,
+            batchId: batch.id,
+            trayEntryId: entry.id,
+            collectionDate: entry.entryDate,
+            quantity: item.quantity
+          }
+        });
         created.push(batch);
       }
       return created;
@@ -467,21 +467,34 @@ export async function createEggSale(
   input: {
     customer?: string;
     soldAt: string;
-    items: Array<{ trayId: string; quantity: number; unitPrice: number }>;
+    items: Array<{ trayEntryId: string; quantity: number; unitPrice: number }>;
     notes?: string;
   }
 ) {
   if (input.items.length === 0) return { ok: false as const, reason: "EMPTY" as const };
 
-  const trays = await prisma.eggTray.findMany({
-    where: { tenantId, id: { in: input.items.map((i) => i.trayId) } }
-  });
-  if (trays.length !== new Set(input.items.map((i) => i.trayId)).size) {
-    return { ok: false as const, reason: "TRAY_NOT_FOUND" as const };
-  }
-
   const totalAmount = input.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const soldAt = toDate(input.soldAt);
+
+  // Resolve labels do flockGroup para usar como "item" no financeiro
+  const entries = await prisma.eggTrayEntry.findMany({
+    where: { tenantId, id: { in: input.items.map((i) => i.trayEntryId) } },
+    include: { tray: { include: { flockGroup: { select: { title: true } } } } }
+  });
+  const labelSet = new Set<string>();
+  for (const e of entries) {
+    const label =
+      e.tray.flockGroup?.title?.trim() ||
+      [e.tray.speciesLabel, e.tray.breedLabel, e.tray.varietyLabel].filter(Boolean).join(" ") ||
+      "Bandeja";
+    labelSet.add(label);
+  }
+  const itemLabel =
+    labelSet.size === 0
+      ? "Venda de ovos"
+      : labelSet.size === 1
+        ? Array.from(labelSet)[0]
+        : `${Array.from(labelSet).slice(0, 2).join(", ")}${labelSet.size > 2 ? ` +${labelSet.size - 2}` : ""}`;
 
   try {
     const sale = await prisma.$transaction(async (tx) => {
@@ -490,7 +503,7 @@ export async function createEggSale(
           tenantId,
           date: soldAt,
           category: "EGG_SALE",
-          item: "Venda de ovos",
+          item: itemLabel,
           amount: totalAmount,
           customer: input.customer || null,
           description: input.items.map((i) => `${i.quantity}x R$${i.unitPrice.toFixed(2)}`).join(" + "),
@@ -510,23 +523,27 @@ export async function createEggSale(
       });
 
       for (const item of input.items) {
-        const subtotal = item.quantity * item.unitPrice;
-        const consumption = await consumeFifo(tx, tenantId, item.trayId, item.quantity, "soldCount");
-        // Cria SaleItem por entry consumida (preserva trilha FIFO)
-        for (const slice of consumption.consumed) {
-          const sliceSubtotal = Number((slice.quantity * item.unitPrice).toFixed(2));
-          await tx.eggSaleItem.create({
-            data: {
-              tenantId,
-              saleId: created.id,
-              trayEntryId: slice.entryId,
-              quantity: slice.quantity,
-              unitPrice: item.unitPrice,
-              subtotal: sliceSubtotal
-            }
-          });
+        const entry = await tx.eggTrayEntry.findFirst({ where: { id: item.trayEntryId, tenantId } });
+        if (!entry) throw new Error("Entrada nao encontrada.");
+        const available = entry.initialCount - entry.soldCount - entry.discardedCount - entry.transferredCount;
+        if (item.quantity > available) {
+          throw new Error(`Quantidade indisponivel. Restam ${available} ovos nessa data.`);
         }
-        void subtotal;
+        await tx.eggTrayEntry.update({
+          where: { id: entry.id },
+          data: { soldCount: { increment: item.quantity } }
+        });
+        const subtotal = Number((item.quantity * item.unitPrice).toFixed(2));
+        await tx.eggSaleItem.create({
+          data: {
+            tenantId,
+            saleId: created.id,
+            trayEntryId: entry.id,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            subtotal
+          }
+        });
       }
 
       return created;

@@ -18,9 +18,6 @@ export async function POST(request: NextRequest) {
 
   const result = await createEggSale(auth.session.user.tenantId, auth.session.user.id, parsed.data);
   if (!result.ok) {
-    if (result.reason === "TRAY_NOT_FOUND") {
-      return NextResponse.json({ error: "Bandeja inválida." }, { status: 404 });
-    }
     if (result.reason === "EMPTY") {
       return NextResponse.json({ error: "Adicione ao menos um item." }, { status: 400 });
     }

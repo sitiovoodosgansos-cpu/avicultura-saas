@@ -67,7 +67,7 @@ export const trayTransferBulkSchema = z.object({
   items: z
     .array(
       z.object({
-        trayId: z.string().cuid("Bandeja inválida."),
+        trayEntryId: z.string().cuid("Entrada inválida."),
         quantity: z.coerce.number().int().min(1, "Quantidade deve ser maior que zero.")
       })
     )
@@ -82,7 +82,7 @@ export const eggSaleSchema = z
     items: z
       .array(
         z.object({
-          trayId: z.string().cuid("Bandeja inválida."),
+          trayEntryId: z.string().cuid("Entrada inválida."),
           quantity: z.coerce.number().int().min(1, "Quantidade deve ser maior que zero."),
           unitPrice: z.coerce.number().min(0, "Preço inválido.")
         })
