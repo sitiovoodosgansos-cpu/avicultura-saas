@@ -20,11 +20,14 @@ export async function POST(
     );
   }
 
-  const created = await addBatchEvent(auth.session.user.tenantId, auth.session.user.id, id, parsed.data);
-  if (!created) {
-    return NextResponse.json({ error: "Lote não encontrado." }, { status: 404 });
+  const result = await addBatchEvent(auth.session.user.tenantId, auth.session.user.id, id, parsed.data);
+  if (!result.ok) {
+    if (result.reason === "NOT_FOUND") {
+      return NextResponse.json({ error: "Lote não encontrado." }, { status: 404 });
+    }
+    return NextResponse.json({ error: result.message ?? "Não foi possível registrar o evento." }, { status: 400 });
   }
 
-  return NextResponse.json(created, { status: 201 });
+  return NextResponse.json(result.event, { status: 201 });
 }
 

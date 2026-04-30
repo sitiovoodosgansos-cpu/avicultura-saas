@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
-import { Clock3, Pencil } from "lucide-react";
+import { Check, Clock3, Pencil } from "lucide-react";
 
 type Incubator = {
   id: string;
@@ -213,6 +213,18 @@ function withLotMetadata(notes: string, lotCode: string | null) {
   return cleanNotes ? `${cleanNotes} ${marker}` : marker;
 }
 
+function IncubatorIcon({ active }: { active: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-700" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" fill="white" />
+      <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="12" cy="14" r="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+      <ellipse cx="12" cy="14" rx="1.3" ry="1.7" fill="currentColor" opacity="0.55" />
+      <circle cx="18" cy="7" r="0.9" className={active ? "fill-emerald-500 animate-pulse" : "fill-zinc-300"} />
+    </svg>
+  );
+}
+
 function batchStatusLabel(status: Batch["status"]) {
   if (status === "ACTIVE") return "Ativo";
   if (status === "HATCHED") return "Finalizado com eclosao";
@@ -242,6 +254,7 @@ export function IncubatorsManager() {
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [finalizeBatchOnSubmit, setFinalizeBatchOnSubmit] = useState(false);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
   const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
@@ -278,7 +291,22 @@ export function IncubatorsManager() {
     () => activeBatches.find((batch) => batch.id === eventForm.batchId) ?? null,
     [activeBatches, eventForm.batchId]
   );
-  const maxEventQuantity = selectedEventBatch?.eggsSet ?? 0;
+  const consumingEventTypes = ["HATCHED", "INFERTILE", "EMBRYO_LOSS", "PIPPED_DIED"] as const;
+  const isConsumingEvent = (consumingEventTypes as readonly string[]).includes(eventForm.type);
+  const remainingEggsForBatch = useMemo(() => {
+    if (!selectedEventBatch) return 0;
+    const consumed =
+      (selectedEventBatch.stats.hatched ?? 0) +
+      (selectedEventBatch.stats.infertile ?? 0) +
+      (selectedEventBatch.stats.embryoLoss ?? 0) +
+      (selectedEventBatch.stats.pippedDied ?? 0);
+    return Math.max(0, selectedEventBatch.eggsSet - consumed);
+  }, [selectedEventBatch]);
+  const maxEventQuantity = selectedEventBatch
+    ? isConsumingEvent
+      ? remainingEggsForBatch
+      : selectedEventBatch.eggsSet
+    : 0;
 
   const incubatorStats = useMemo(() => {
     return devices.map((device) => {
@@ -288,40 +316,25 @@ export function IncubatorsManager() {
       const hatched = byDevice.reduce((sum, batch) => sum + batch.stats.hatched, 0);
       const active = activeByDevice.length;
 
-      const speciesMap = new Map<
-        string,
-        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number; totalDays: number }
-      >();
-      for (const batch of activeByDevice) {
+      const batchCountdowns = activeByDevice.map((batch) => {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
         const rule = inferSpeciesRuleFromText(speciesName || batch.flockGroup.title);
         const speciesLabel = speciesName || rule.label;
-        const speciesKey = normalizeSpeciesText(speciesLabel);
         const entryDate = toDateStart(batch.entryDate);
         const hatchDate = addDaysToDate(entryDate, rule.days);
         const remainingDays = getDaysUntil(hatchDate);
-        const existing = speciesMap.get(speciesKey);
-        if (existing) {
-          existing.eggs += batch.eggsSet;
-          existing.lineCount += 1;
-          if (remainingDays < existing.remainingDays) {
-            existing.remainingDays = remainingDays;
-            existing.hatchDate = hatchDate;
-            existing.totalDays = rule.days;
-          }
-          continue;
-        }
-        speciesMap.set(speciesKey, {
+        return {
           species: speciesLabel,
           eggs: batch.eggsSet,
           remainingDays,
           hatchDate,
           lineCount: 1,
-          totalDays: rule.days
-        });
-      }
+          totalDays: rule.days,
+          batchIds: [batch.id]
+        };
+      });
 
-      const speciesCountdowns = Array.from(speciesMap.values())
+      const speciesCountdowns = batchCountdowns
         .sort((a, b) => a.remainingDays - b.remainingDays || b.eggs - a.eggs)
         .map((item) => {
           const countdownState = item.remainingDays < 0 ? "overdue" : item.remainingDays === 0 ? "today" : "counting";
@@ -350,6 +363,7 @@ export function IncubatorsManager() {
       return {
         ...device,
         active,
+        totalBatches: byDevice.length,
         hatched,
         hatchRate: totalEggs ? (hatched / totalEggs) * 100 : 0,
         speciesCountdowns
@@ -546,7 +560,32 @@ export function IncubatorsManager() {
       return;
     }
     setError(null);
+    setFinalizeBatchOnSubmit(false);
     setEventForm((prev) => ({ ...prev, batchId: firstActiveBatch.id }));
+    setShowEventModal(true);
+  }
+
+  function openFinalizeForSpecies(batchIds: string[]) {
+    const targetBatch = activeBatches.find((batch) => batchIds.includes(batch.id));
+    if (!targetBatch) {
+      setError("Lote nao encontrado para finalizar.");
+      return;
+    }
+    const consumed =
+      (targetBatch.stats.hatched ?? 0) +
+      (targetBatch.stats.infertile ?? 0) +
+      (targetBatch.stats.embryoLoss ?? 0) +
+      (targetBatch.stats.pippedDied ?? 0);
+    const remaining = Math.max(0, targetBatch.eggsSet - consumed);
+    setError(null);
+    setFinalizeBatchOnSubmit(true);
+    setEventForm({
+      batchId: targetBatch.id,
+      type: "HATCHED",
+      quantity: remaining,
+      eventDate: today,
+      notes: ""
+    });
     setShowEventModal(true);
   }
 
@@ -577,6 +616,32 @@ export function IncubatorsManager() {
       setError(payload.error ?? "Falha ao registrar evento.");
       setSaving(false);
       return;
+    }
+
+    if (finalizeBatchOnSubmit) {
+      const batch = activeBatches.find((b) => b.id === eventForm.batchId);
+      if (batch) {
+        const finalizeRes = await fetch(`/api/incubators/batches/${batch.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            incubatorId: batch.incubatorId,
+            flockGroupId: batch.flockGroupId,
+            entryDate: toDateInput(batch.entryDate),
+            eggsSet: batch.eggsSet,
+            expectedHatchDate: batch.expectedHatchDate ? toDateInput(batch.expectedHatchDate) : "",
+            notes: batch.notes ?? "",
+            status: "HATCHED"
+          })
+        });
+        if (!finalizeRes.ok) {
+          const payload = (await finalizeRes.json().catch(() => ({}))) as { error?: string };
+          setError(payload.error ?? "Evento registrado, mas falha ao finalizar lote.");
+          setSaving(false);
+          return;
+        }
+      }
+      setFinalizeBatchOnSubmit(false);
     }
 
     setEventForm((prev) => ({ ...emptyEvent, batchId: prev.batchId }));
@@ -642,9 +707,8 @@ export function IncubatorsManager() {
           <Card key={device.id} className="border border-amber-200">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className="relative mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-base">
-                  <span>{device.active > 0 ? "♨️" : "🥚"}</span>
-                  {device.active > 0 ? <span className="absolute -top-1 -right-1 text-[10px] animate-bounce">💨</span> : null}
+                <div className="relative mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+                  <IncubatorIcon active={device.active > 0} />
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-zinc-900">{device.name}</p>
@@ -689,7 +753,7 @@ export function IncubatorsManager() {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-zinc-50 p-3 text-sm">
-              <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Chocagens</p><p className="text-xl font-semibold text-zinc-900">{device.active}</p></div>
+              <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Chocagens</p><p className="text-xl font-semibold text-zinc-900">{device.totalBatches}</p></div>
               <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Nascidos</p><p className="text-xl font-semibold text-zinc-900">{device.hatched}</p></div>
               <div><p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Taxa</p><p className="text-xl font-semibold text-zinc-900">{formatPercent(device.hatchRate)}</p></div>
             </div>
@@ -698,7 +762,7 @@ export function IncubatorsManager() {
                 <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Contagem por especie</p>
                 <div className="mt-2 space-y-2">
                   {device.speciesCountdowns.slice(0, 6).map((item) => (
-                    <div key={`${device.id}-${item.species}`} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5">
+                    <div key={`${device.id}-${item.batchIds[0]}`} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-zinc-800">{item.species}</p>
                         <div
@@ -734,6 +798,18 @@ export function IncubatorsManager() {
                           style={{ width: `${item.progressPercent}%` }}
                         />
                       </div>
+                      {(item.countdownState === "overdue" || item.countdownState === "today") && item.batchIds.length > 0 ? (
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => openFinalizeForSpecies(item.batchIds)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 transition hover:text-emerald-900 hover:underline"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Finalizar lote
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -861,8 +937,18 @@ export function IncubatorsManager() {
         </form>
       </AppModal>
 
-      <AppModal open={showEventModal} title="Registrar evento do lote" error={error} onClose={() => setShowEventModal(false)}>
+      <AppModal
+        open={showEventModal}
+        title={finalizeBatchOnSubmit ? "Finalizar lote" : "Registrar evento do lote"}
+        error={error}
+        onClose={() => { setShowEventModal(false); setFinalizeBatchOnSubmit(false); }}
+      >
         <form className="grid gap-3" onSubmit={createEvent}>
+          {finalizeBatchOnSubmit ? (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              Ao confirmar, o evento sera registrado e o lote sera marcado como finalizado, saindo da lista de ativos. Ajuste a quantidade real de pintinhos nascidos antes de confirmar.
+            </p>
+          ) : null}
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
             <option value="">Selecione o lote</option>{activeBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.incubator.name} - {batch.flockGroup.title} - {new Date(batch.entryDate).toLocaleDateString("pt-BR")} - {batch.eggsSet} ovos</option>)}
           </select>
@@ -872,9 +958,14 @@ export function IncubatorsManager() {
             </select>
             <Input type="number" min={0} max={maxEventQuantity || undefined} value={eventForm.quantity || ""} onChange={(e) => setEventForm((p) => ({ ...p, quantity: Math.min(Number(e.target.value) || 0, maxEventQuantity || Number(e.target.value) || 0) }))} />
           </div>
+          {selectedEventBatch && isConsumingEvent ? (
+            <p className="text-xs text-zinc-500">
+              Ovos restantes para classificar: <span className="font-semibold text-zinc-700">{remainingEggsForBatch}</span> de {selectedEventBatch.eggsSet}
+            </p>
+          ) : null}
           <Input type="date" value={eventForm.eventDate} onChange={(e) => setEventForm((p) => ({ ...p, eventDate: e.target.value }))} />
           <Input placeholder="Observacoes" value={eventForm.notes} onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))} />
-          <Button type="submit" disabled={saving}>{saving ? "Registrando..." : "Registrar evento"}</Button>
+          <Button type="submit" disabled={saving}>{saving ? (finalizeBatchOnSubmit ? "Finalizando..." : "Registrando...") : (finalizeBatchOnSubmit ? "Confirmar e finalizar lote" : "Registrar evento")}</Button>
         </form>
       </AppModal>
     </main>
