@@ -24,7 +24,7 @@ export function AppNav() {
   return (
     <>
       <aside className="hidden w-72 shrink-0 p-4 md:block">
-        <div className="sticky top-4 rounded-[30px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,249,255,0.94))] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+        <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,249,255,0.94))] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
           <div className="mb-8">
             <div className="flex items-center gap-3">
               <Image
