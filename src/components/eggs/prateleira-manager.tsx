@@ -224,42 +224,6 @@ export function PrateleiraManager() {
     setSelectionMode(null);
   }
 
-  function toggleEntry(entry: TrayEntry, tray: Tray, mode: SelectionMode) {
-    if (mode === null) return;
-    if (entry.available <= 0) return;
-
-    const trayLabel = trayHeader(tray);
-    const trayHasFlockGroup = Boolean(tray.flockGroupId);
-
-    setSelection((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(entry.id);
-      if (existing) {
-        next.delete(entry.id);
-      } else {
-        next.set(entry.id, {
-          entryId: entry.id,
-          trayId: tray.id,
-          trayLabel,
-          trayHasFlockGroup,
-          quantity: entry.available,
-          available: entry.available,
-          unitPrice: 0
-        });
-      }
-      return next;
-    });
-
-    setSelectionMode((current) => {
-      if (selection.size === 0 || (selection.size === 1 && selection.has(entry.id))) {
-        // Going to empty (was the last one) — clear mode
-        const nextSize = selection.has(entry.id) ? selection.size - 1 : selection.size + 1;
-        if (nextSize === 0) return null;
-      }
-      return current ?? mode;
-    });
-  }
-
   function handleEntryAction(entry: TrayEntry, tray: Tray, mode: NonNullable<SelectionMode>) {
     if (entry.available <= 0) return;
 
@@ -288,37 +252,6 @@ export function PrateleiraManager() {
       }
       // se ficou vazio, sai do modo
       if (next.size === 0) setSelectionMode(null);
-      return next;
-    });
-    setError(null);
-    void toggleEntry; // evita warning
-  }
-
-  function handleTrayBulkAction(tray: Tray, mode: NonNullable<SelectionMode>) {
-    if (tray.totalAvailable <= 0) return;
-
-    if (selectionMode && selectionMode !== mode && selection.size > 0) {
-      setError(`Voce ja tem itens selecionados em "${modeLabel(selectionMode)}". Finalize ou cancele antes de mudar.`);
-      return;
-    }
-
-    if (!selectionMode) setSelectionMode(mode);
-
-    setSelection((prev) => {
-      const next = new Map(prev);
-      for (const entry of tray.entries) {
-        if (entry.available > 0) {
-          next.set(entry.id, {
-            entryId: entry.id,
-            trayId: tray.id,
-            trayLabel: trayHeader(tray),
-            trayHasFlockGroup: Boolean(tray.flockGroupId),
-            quantity: entry.available,
-            available: entry.available,
-            unitPrice: 0
-          });
-        }
-      }
       return next;
     });
     setError(null);
@@ -514,7 +447,7 @@ export function PrateleiraManager() {
     title: string;
   }) {
     const base =
-      "inline-flex h-8 w-8 items-center justify-center rounded-lg transition disabled:cursor-not-allowed disabled:opacity-30";
+      "inline-flex h-7 w-7 items-center justify-center rounded-md transition disabled:cursor-not-allowed disabled:opacity-30";
     const palette =
       mode === "sale"
         ? selected
@@ -530,7 +463,7 @@ export function PrateleiraManager() {
     const Icon = mode === "sale" ? ShoppingBasket : mode === "transfer" ? Flame : Trash2;
     return (
       <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${palette}`} aria-label={title} title={title}>
-        <Icon className="h-4 w-4" />
+        <Icon className="h-3.5 w-3.5" />
       </button>
     );
   }
@@ -562,17 +495,11 @@ export function PrateleiraManager() {
         </Card>
       </section>
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-semibold text-zinc-900">Bandejas ativas</h3>
-            <p className="text-sm text-zinc-500">FIFO automatico: ao vender ou transferir, os ovos mais antigos saem primeiro.</p>
-          </div>
-          <Button type="button" variant="outline" onClick={openExternalModal}>
-            <Plus className="mr-1 h-4 w-4" /> Bandeja externa
-          </Button>
-        </div>
-      </Card>
+      <div className="flex justify-end">
+        <Button type="button" variant="outline" onClick={openExternalModal}>
+          <Plus className="mr-1 h-4 w-4" /> Bandeja externa
+        </Button>
+      </div>
 
       {error && !showFinalizeModal && !showExternalModal ? (
         <p className="rounded-xl bg-rose-50 px-4 py-2 text-sm text-rose-700">{error}</p>
@@ -597,7 +524,7 @@ export function PrateleiraManager() {
         </Card>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {trays.map((tray) => {
           const tone = urgencyTone(tray.oldestRemaining);
           const palette = tonePalette(tone);
@@ -605,31 +532,31 @@ export function PrateleiraManager() {
           const trayLabel = trayHeader(tray);
           return (
             <Card key={tray.id} className={`${palette.border} ${palette.bg}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${palette.chipBg}`}>
-                    <Egg className={`h-6 w-6 ${palette.accent}`} />
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${palette.chipBg}`}>
+                    <Egg className={`h-4 w-4 ${palette.accent}`} />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-base font-semibold text-zinc-900">{trayLabel}</p>
-                    <p className="text-xs text-zinc-500">
-                      {tray.entries.length} {tray.entries.length === 1 ? "data" : "datas"} · validade {tray.expiryDays}d
+                    <p className="truncate text-sm font-semibold text-zinc-900">{trayLabel}</p>
+                    <p className="text-[11px] text-zinc-500">
+                      {tray.entries.length} {tray.entries.length === 1 ? "data" : "datas"} · {tray.expiryDays}d
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Disponiveis</p>
-                  <p className="text-2xl font-semibold text-zinc-900">{tray.totalAvailable}</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-400">Disponiveis</p>
+                  <p className="text-xl font-semibold text-zinc-900">{tray.totalAvailable}</p>
                 </div>
               </div>
 
               {tray.oldestRemaining !== null ? (
-                <div className={`mt-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${palette.chipBg} ${palette.chipText}`}>
-                  ⏱ Mais antiga: {countdownLabel(tray.oldestRemaining)}
+                <div className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${palette.chipBg} ${palette.chipText}`}>
+                  ⏱ {countdownLabel(tray.oldestRemaining)}
                 </div>
               ) : null}
 
-              <div className="mt-3 space-y-2">
+              <div className="mt-2 space-y-1.5">
                 {(expanded ? tray.entries : tray.entries.slice(0, 3)).map((entry) => {
                   const entryTone = urgencyTone(entry.remainingDays);
                   const entryPalette = tonePalette(entryTone);
@@ -637,20 +564,20 @@ export function PrateleiraManager() {
                   const selected = selection.get(entry.id);
                   const disabledOther = selectionMode !== null && selection.size > 0;
                   return (
-                    <div key={entry.id} className={`rounded-xl border bg-white/80 p-2.5 ${selected ? "border-emerald-300 ring-1 ring-emerald-200" : "border-white"}`}>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-zinc-600">{formatDateBr(entry.entryDate)}</span>
+                    <div key={entry.id} className={`rounded-lg border bg-white/80 p-2 ${selected ? "border-emerald-300 ring-1 ring-emerald-200" : "border-white"}`}>
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="text-[11px] font-semibold text-zinc-600">{formatDateBr(entry.entryDate)}</span>
                           {entry.source === "EXTERNAL" ? (
-                            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-700">
-                              externo
+                            <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-700">
+                              ext
                             </span>
                           ) : null}
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${entryPalette.chipBg} ${entryPalette.chipText}`}>
+                          <span className={`truncate rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${entryPalette.chipBg} ${entryPalette.chipText}`}>
                             {countdownLabel(entry.remainingDays)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex shrink-0 items-center gap-0.5">
                           <ActionIcon
                             mode="sale"
                             selected={Boolean(selected) && selectionMode === "sale"}
@@ -674,17 +601,10 @@ export function PrateleiraManager() {
                           />
                         </div>
                       </div>
-                      <div className="mt-1.5 flex items-center justify-between text-[11px] text-zinc-500">
-                        <span>{entry.available} de {entry.initialCount} disponiveis</span>
-                        {entry.soldCount + entry.discardedCount + entry.transferredCount > 0 ? (
-                          <span className="text-zinc-400">
-                            {entry.soldCount > 0 ? `${entry.soldCount} vendidos · ` : ""}
-                            {entry.transferredCount > 0 ? `${entry.transferredCount} chocando · ` : ""}
-                            {entry.discardedCount > 0 ? `${entry.discardedCount} descartados` : ""}
-                          </span>
-                        ) : null}
+                      <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-500">
+                        <span>{entry.available}/{entry.initialCount}</span>
                       </div>
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-200">
+                      <div className="mt-1 h-1 overflow-hidden rounded-full bg-zinc-200">
                         <div className={`h-full rounded-full ${entryPalette.bar}`} style={{ width: `${progress}%` }} />
                       </div>
                     </div>
@@ -694,39 +614,13 @@ export function PrateleiraManager() {
                   <button
                     type="button"
                     onClick={() => setExpandedTrayId(expanded ? null : tray.id)}
-                    className="w-full rounded-xl border border-dashed border-zinc-300 py-1.5 text-xs font-semibold text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700"
+                    className="w-full rounded-lg border border-dashed border-zinc-300 py-1 text-[11px] font-semibold text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-700"
                   >
-                    {expanded ? "Recolher" : `Ver as ${tray.entries.length} datas`}
+                    {expanded ? "Recolher" : `+${tray.entries.length - 3} datas`}
                   </button>
                 ) : null}
               </div>
 
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleTrayBulkAction(tray, "sale")}
-                  disabled={tray.totalAvailable === 0 || (selectionMode !== null && selectionMode !== "sale")}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ShoppingBasket className="h-3.5 w-3.5" /> Venda
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTrayBulkAction(tray, "transfer")}
-                  disabled={tray.totalAvailable === 0 || (selectionMode !== null && selectionMode !== "transfer")}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Flame className="h-3.5 w-3.5" /> Chocadeira
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTrayBulkAction(tray, "discard")}
-                  disabled={tray.totalAvailable === 0 || (selectionMode !== null && selectionMode !== "discard")}
-                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Descarte
-                </button>
-              </div>
             </Card>
           );
         })}
