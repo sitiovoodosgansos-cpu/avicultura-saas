@@ -6,6 +6,12 @@ export type FlockGroupRef = {
   variety: { id: string; name: string } | null;
 };
 
+export type ListingPhoto = {
+  id: string;
+  url: string;
+  order: number;
+};
+
 export type VitrineListingItem = {
   id: string;
   flockGroupId: string;
@@ -17,6 +23,7 @@ export type VitrineListingItem = {
   description: string | null;
   status: "AVAILABLE" | "SOLD_OUT" | "REMOVED";
   flockGroup: FlockGroupRef;
+  photos: ListingPhoto[];
   currentPrice: number | null;
   ageInMonths: number;
   missingTier: boolean;

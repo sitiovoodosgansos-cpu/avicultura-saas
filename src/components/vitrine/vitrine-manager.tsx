@@ -288,8 +288,13 @@ export function VitrineManager() {
 
       <ListingFormModal
         open={formOpen}
-        editing={editing}
+        editing={
+          editing
+            ? data?.listings.find((listing) => listing.id === editing.id) ?? editing
+            : null
+        }
         flockGroups={data?.flockGroups ?? []}
+        onPhotosChanged={() => void load()}
         onClose={() => {
           setFormOpen(false);
           setEditing(null);
