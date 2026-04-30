@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
-import { Clock3, Pencil } from "lucide-react";
+import { Check, Clock3, Pencil } from "lucide-react";
 
 type Incubator = {
   id: string;
@@ -213,6 +213,18 @@ function withLotMetadata(notes: string, lotCode: string | null) {
   return cleanNotes ? `${cleanNotes} ${marker}` : marker;
 }
 
+function IncubatorIcon({ active }: { active: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-amber-700" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" fill="white" />
+      <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="12" cy="14" r="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+      <ellipse cx="12" cy="14" rx="1.3" ry="1.7" fill="currentColor" opacity="0.55" />
+      <circle cx="18" cy="7" r="0.9" className={active ? "fill-emerald-500 animate-pulse" : "fill-zinc-300"} />
+    </svg>
+  );
+}
+
 function batchStatusLabel(status: Batch["status"]) {
   if (status === "ACTIVE") return "Ativo";
   if (status === "HATCHED") return "Finalizado com eclosao";
@@ -304,31 +316,14 @@ export function IncubatorsManager() {
       const hatched = byDevice.reduce((sum, batch) => sum + batch.stats.hatched, 0);
       const active = activeByDevice.length;
 
-      const speciesMap = new Map<
-        string,
-        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number; totalDays: number; batchIds: string[] }
-      >();
-      for (const batch of activeByDevice) {
+      const batchCountdowns = activeByDevice.map((batch) => {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
         const rule = inferSpeciesRuleFromText(speciesName || batch.flockGroup.title);
         const speciesLabel = speciesName || rule.label;
-        const speciesKey = normalizeSpeciesText(speciesLabel);
         const entryDate = toDateStart(batch.entryDate);
         const hatchDate = addDaysToDate(entryDate, rule.days);
         const remainingDays = getDaysUntil(hatchDate);
-        const existing = speciesMap.get(speciesKey);
-        if (existing) {
-          existing.eggs += batch.eggsSet;
-          existing.lineCount += 1;
-          existing.batchIds.push(batch.id);
-          if (remainingDays < existing.remainingDays) {
-            existing.remainingDays = remainingDays;
-            existing.hatchDate = hatchDate;
-            existing.totalDays = rule.days;
-          }
-          continue;
-        }
-        speciesMap.set(speciesKey, {
+        return {
           species: speciesLabel,
           eggs: batch.eggsSet,
           remainingDays,
@@ -336,10 +331,10 @@ export function IncubatorsManager() {
           lineCount: 1,
           totalDays: rule.days,
           batchIds: [batch.id]
-        });
-      }
+        };
+      });
 
-      const speciesCountdowns = Array.from(speciesMap.values())
+      const speciesCountdowns = batchCountdowns
         .sort((a, b) => a.remainingDays - b.remainingDays || b.eggs - a.eggs)
         .map((item) => {
           const countdownState = item.remainingDays < 0 ? "overdue" : item.remainingDays === 0 ? "today" : "counting";
@@ -712,9 +707,8 @@ export function IncubatorsManager() {
           <Card key={device.id} className="border border-amber-200">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className="relative mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-base">
-                  <span>{device.active > 0 ? "♨️" : "🥚"}</span>
-                  {device.active > 0 ? <span className="absolute -top-1 -right-1 text-[10px] animate-bounce">💨</span> : null}
+                <div className="relative mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
+                  <IncubatorIcon active={device.active > 0} />
                 </div>
                 <div>
                   <p className="text-lg font-semibold text-zinc-900">{device.name}</p>
@@ -768,7 +762,7 @@ export function IncubatorsManager() {
                 <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Contagem por especie</p>
                 <div className="mt-2 space-y-2">
                   {device.speciesCountdowns.slice(0, 6).map((item) => (
-                    <div key={`${device.id}-${item.species}`} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5">
+                    <div key={`${device.id}-${item.batchIds[0]}`} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-zinc-800">{item.species}</p>
                         <div
@@ -805,13 +799,16 @@ export function IncubatorsManager() {
                         />
                       </div>
                       {(item.countdownState === "overdue" || item.countdownState === "today") && item.batchIds.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => openFinalizeForSpecies(item.batchIds)}
-                          className="mt-2 w-full rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-                        >
-                          Finalizar lote
-                        </button>
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => openFinalizeForSpecies(item.batchIds)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 transition hover:text-emerald-900 hover:underline"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Finalizar lote
+                          </button>
+                        </div>
                       ) : null}
                     </div>
                   ))}
