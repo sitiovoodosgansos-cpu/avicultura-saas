@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AppModal } from "@/components/ui/app-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhotoGallery } from "@/components/vitrine/photo-gallery";
 import type { FlockGroupRef, VitrineListingItem } from "@/components/vitrine/types";
 
 const inputClass =
@@ -47,6 +48,7 @@ export function ListingFormModal({
   flockGroups,
   onClose,
   onSubmit,
+  onPhotosChanged,
   error
 }: {
   open: boolean;
@@ -54,6 +56,7 @@ export function ListingFormModal({
   flockGroups: FlockGroupRef[];
   onClose: () => void;
   onSubmit: (values: ListingFormValues, id?: string) => Promise<void>;
+  onPhotosChanged?: () => void;
   error: string | null;
 }) {
   const [values, setValues] = useState<ListingFormValues>(empty);
@@ -203,6 +206,16 @@ export function ListingFormModal({
             placeholder="Detalhes do anúncio (opcional)"
           />
         </Field>
+
+        {editing && onPhotosChanged ? (
+          <div className="mt-2 rounded-2xl border border-dashed border-[color:var(--line)] p-3">
+            <PhotoGallery
+              listingId={editing.id}
+              photos={editing.photos ?? []}
+              onChanged={onPhotosChanged}
+            />
+          </div>
+        ) : null}
 
         <div className="mt-2 flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>

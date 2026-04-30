@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Pencil, ShoppingCart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -85,28 +86,41 @@ export function FlockGroupCard({
             className="rounded-2xl border border-[color:var(--line)] bg-white/70 p-2.5 sm:p-3"
           >
             <div className="flex min-w-0 items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                  <p className="truncate text-sm font-semibold text-slate-900">
-                    {listing.title?.trim() || `Lote ${listing.id.slice(-4).toUpperCase()}`}
-                  </p>
-                  <span
-                    className={
-                      "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] " +
-                      statusClass(listing.status)
-                    }
-                  >
-                    {statusLabel(listing.status)}
-                  </span>
-                </div>
-                <p className="mt-0.5 text-[11px] text-slate-500">
-                  {formatAge(listing.ageInMonths)}
-                </p>
-                {listing.description ? (
-                  <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
-                    {listing.description}
-                  </p>
+              <div className="flex min-w-0 flex-1 items-start gap-2">
+                {listing.photos.length > 0 ? (
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-slate-100 sm:h-14 sm:w-14">
+                    <Image
+                      src={listing.photos[0].url}
+                      alt={listing.title ?? "Foto do lote"}
+                      fill
+                      sizes="56px"
+                      className="object-cover"
+                    />
+                  </div>
                 ) : null}
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    <p className="truncate text-sm font-semibold text-slate-900">
+                      {listing.title?.trim() || `Lote ${listing.id.slice(-4).toUpperCase()}`}
+                    </p>
+                    <span
+                      className={
+                        "shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] " +
+                        statusClass(listing.status)
+                      }
+                    >
+                      {statusLabel(listing.status)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-slate-500">
+                    {formatAge(listing.ageInMonths)}
+                  </p>
+                  {listing.description ? (
+                    <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
+                      {listing.description}
+                    </p>
+                  ) : null}
+                </div>
               </div>
             </div>
 
