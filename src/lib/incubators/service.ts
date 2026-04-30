@@ -248,7 +248,17 @@ export async function updateBatch(
     }
   });
 
-  return updated;
+  // Quando o lote acabou de ser finalizado (transição -> HATCHED), criar o
+  // listing automaticamente na Vitrine. Lazy import evita ciclo.
+  let vitrineAutoListing: Awaited<
+    ReturnType<typeof import("@/lib/vitrine/service").createListingsFromHatchedBatch>
+  > | null = null;
+  if (existing.status !== "HATCHED" && updated.status === "HATCHED") {
+    const { createListingsFromHatchedBatch } = await import("@/lib/vitrine/service");
+    vitrineAutoListing = await createListingsFromHatchedBatch(tenantId, id);
+  }
+
+  return { ...updated, vitrineAutoListing };
 }
 
 export async function deleteBatch(tenantId: string, userId: string | null, id: string) {

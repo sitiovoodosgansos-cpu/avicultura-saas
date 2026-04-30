@@ -244,6 +244,7 @@ export function IncubatorsManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [vitrineInfo, setVitrineInfo] = useState<string | null>(null);
 
   const [devices, setDevices] = useState<Incubator[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -703,6 +704,9 @@ export function IncubatorsManager() {
     }
 
     if (finalizeBatchOnSubmit) {
+      let totalCreated = 0;
+      let totalAnimals = 0;
+      let anyMissingTier = false;
       for (const batch of groupBatches) {
         const finalizeRes = await fetch(`/api/incubators/batches/${batch.id}`, {
           method: "PUT",
@@ -723,8 +727,28 @@ export function IncubatorsManager() {
           setSaving(false);
           return;
         }
+        const payload = (await finalizeRes.json().catch(() => ({}))) as {
+          vitrineAutoListing?: {
+            kind: "created" | "skipped";
+            quantity?: number;
+            missingTier?: boolean;
+          } | null;
+        };
+        if (payload.vitrineAutoListing?.kind === "created") {
+          totalCreated += 1;
+          totalAnimals += payload.vitrineAutoListing.quantity ?? 0;
+          if (payload.vitrineAutoListing.missingTier) anyMissingTier = true;
+        }
       }
       setFinalizeBatchOnSubmit(false);
+
+      if (totalCreated > 0) {
+        const base = `${totalAnimals} filhote(s) enviado(s) para a Vitrine.`;
+        const tail = anyMissingTier
+          ? " Cadastre os preços por idade na Vitrine para que apareçam corretamente."
+          : "";
+        setVitrineInfo(base + tail);
+      }
     }
 
     setEventForm((prev) => ({ ...emptyEvent, batchId: prev.batchId }));
@@ -760,6 +784,21 @@ export function IncubatorsManager() {
         <Card>
           <p className="text-sm text-red-600">{error}</p>
         </Card>
+      ) : null}
+
+      {vitrineInfo ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium text-emerald-800">{vitrineInfo}</p>
+            <button
+              type="button"
+              onClick={() => setVitrineInfo(null)}
+              className="text-xs font-semibold text-emerald-700 hover:underline"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
       ) : null}
 
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
