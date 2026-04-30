@@ -242,6 +242,7 @@ export function IncubatorsManager() {
   const [showDeviceModal, setShowDeviceModal] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [finalizeBatchOnSubmit, setFinalizeBatchOnSubmit] = useState(false);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
   const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
@@ -290,7 +291,7 @@ export function IncubatorsManager() {
 
       const speciesMap = new Map<
         string,
-        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number; totalDays: number }
+        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number; totalDays: number; batchIds: string[] }
       >();
       for (const batch of activeByDevice) {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
@@ -304,6 +305,7 @@ export function IncubatorsManager() {
         if (existing) {
           existing.eggs += batch.eggsSet;
           existing.lineCount += 1;
+          existing.batchIds.push(batch.id);
           if (remainingDays < existing.remainingDays) {
             existing.remainingDays = remainingDays;
             existing.hatchDate = hatchDate;
@@ -317,7 +319,8 @@ export function IncubatorsManager() {
           remainingDays,
           hatchDate,
           lineCount: 1,
-          totalDays: rule.days
+          totalDays: rule.days,
+          batchIds: [batch.id]
         });
       }
 
@@ -546,7 +549,26 @@ export function IncubatorsManager() {
       return;
     }
     setError(null);
+    setFinalizeBatchOnSubmit(false);
     setEventForm((prev) => ({ ...prev, batchId: firstActiveBatch.id }));
+    setShowEventModal(true);
+  }
+
+  function openFinalizeForSpecies(batchIds: string[]) {
+    const targetBatch = activeBatches.find((batch) => batchIds.includes(batch.id));
+    if (!targetBatch) {
+      setError("Lote nao encontrado para finalizar.");
+      return;
+    }
+    setError(null);
+    setFinalizeBatchOnSubmit(true);
+    setEventForm({
+      batchId: targetBatch.id,
+      type: "HATCHED",
+      quantity: targetBatch.eggsSet,
+      eventDate: today,
+      notes: ""
+    });
     setShowEventModal(true);
   }
 
@@ -577,6 +599,32 @@ export function IncubatorsManager() {
       setError(payload.error ?? "Falha ao registrar evento.");
       setSaving(false);
       return;
+    }
+
+    if (finalizeBatchOnSubmit) {
+      const batch = activeBatches.find((b) => b.id === eventForm.batchId);
+      if (batch) {
+        const finalizeRes = await fetch(`/api/incubators/batches/${batch.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            incubatorId: batch.incubatorId,
+            flockGroupId: batch.flockGroupId,
+            entryDate: batch.entryDate,
+            eggsSet: batch.eggsSet,
+            expectedHatchDate: batch.expectedHatchDate ?? "",
+            notes: batch.notes ?? "",
+            status: "HATCHED"
+          })
+        });
+        if (!finalizeRes.ok) {
+          const payload = (await finalizeRes.json().catch(() => ({}))) as { error?: string };
+          setError(payload.error ?? "Evento registrado, mas falha ao finalizar lote.");
+          setSaving(false);
+          return;
+        }
+      }
+      setFinalizeBatchOnSubmit(false);
     }
 
     setEventForm((prev) => ({ ...emptyEvent, batchId: prev.batchId }));
@@ -734,6 +782,15 @@ export function IncubatorsManager() {
                           style={{ width: `${item.progressPercent}%` }}
                         />
                       </div>
+                      {(item.countdownState === "overdue" || item.countdownState === "today") && item.batchIds.length > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => openFinalizeForSpecies(item.batchIds)}
+                          className="mt-2 w-full rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                        >
+                          Finalizar lote
+                        </button>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -861,8 +918,18 @@ export function IncubatorsManager() {
         </form>
       </AppModal>
 
-      <AppModal open={showEventModal} title="Registrar evento do lote" error={error} onClose={() => setShowEventModal(false)}>
+      <AppModal
+        open={showEventModal}
+        title={finalizeBatchOnSubmit ? "Finalizar lote" : "Registrar evento do lote"}
+        error={error}
+        onClose={() => { setShowEventModal(false); setFinalizeBatchOnSubmit(false); }}
+      >
         <form className="grid gap-3" onSubmit={createEvent}>
+          {finalizeBatchOnSubmit ? (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              Ao confirmar, o evento sera registrado e o lote sera marcado como finalizado, saindo da lista de ativos. Ajuste a quantidade real de pintinhos nascidos antes de confirmar.
+            </p>
+          ) : null}
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
             <option value="">Selecione o lote</option>{activeBatches.map((batch) => <option key={batch.id} value={batch.id}>{batch.incubator.name} - {batch.flockGroup.title} - {new Date(batch.entryDate).toLocaleDateString("pt-BR")} - {batch.eggsSet} ovos</option>)}
           </select>
@@ -874,7 +941,7 @@ export function IncubatorsManager() {
           </div>
           <Input type="date" value={eventForm.eventDate} onChange={(e) => setEventForm((p) => ({ ...p, eventDate: e.target.value }))} />
           <Input placeholder="Observacoes" value={eventForm.notes} onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))} />
-          <Button type="submit" disabled={saving}>{saving ? "Registrando..." : "Registrar evento"}</Button>
+          <Button type="submit" disabled={saving}>{saving ? (finalizeBatchOnSubmit ? "Finalizando..." : "Registrando...") : (finalizeBatchOnSubmit ? "Confirmar e finalizar lote" : "Registrar evento")}</Button>
         </form>
       </AppModal>
     </main>
