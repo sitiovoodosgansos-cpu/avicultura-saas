@@ -316,14 +316,27 @@ export function IncubatorsManager() {
       const hatched = byDevice.reduce((sum, batch) => sum + batch.stats.hatched, 0);
       const active = activeByDevice.length;
 
-      const batchCountdowns = activeByDevice.map((batch) => {
+      const groupMap = new Map<
+        string,
+        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number; totalDays: number; batchIds: string[] }
+      >();
+      for (const batch of activeByDevice) {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
         const rule = inferSpeciesRuleFromText(speciesName || batch.flockGroup.title);
         const speciesLabel = speciesName || rule.label;
+        const speciesKey = normalizeSpeciesText(speciesLabel);
         const entryDate = toDateStart(batch.entryDate);
         const hatchDate = addDaysToDate(entryDate, rule.days);
         const remainingDays = getDaysUntil(hatchDate);
-        return {
+        const groupKey = `${speciesKey}|${entryDate.toISOString().slice(0, 10)}`;
+        const existing = groupMap.get(groupKey);
+        if (existing) {
+          existing.eggs += batch.eggsSet;
+          existing.lineCount += 1;
+          existing.batchIds.push(batch.id);
+          continue;
+        }
+        groupMap.set(groupKey, {
           species: speciesLabel,
           eggs: batch.eggsSet,
           remainingDays,
@@ -331,8 +344,9 @@ export function IncubatorsManager() {
           lineCount: 1,
           totalDays: rule.days,
           batchIds: [batch.id]
-        };
-      });
+        });
+      }
+      const batchCountdowns = Array.from(groupMap.values());
 
       const speciesCountdowns = batchCountdowns
         .sort((a, b) => a.remainingDays - b.remainingDays || b.eggs - a.eggs)
