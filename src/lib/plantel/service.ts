@@ -129,6 +129,20 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
     orderBy: { createdAt: "desc" }
   });
 
+  const activeListings = await prisma.vitrineListing.findMany({
+    where: {
+      tenantId,
+      sourceBirdId: { not: null },
+      status: { not: "REMOVED" }
+    },
+    select: { sourceBirdId: true, status: true }
+  });
+  const inVitrineSet = new Set(
+    activeListings
+      .filter((listing) => listing.status === "AVAILABLE")
+      .map((listing) => listing.sourceBirdId!)
+  );
+
   const filteredBirds = allBirds.filter((bird) => {
     const statusOk = filters.status ? bird.status === filters.status : true;
     const ringOk = filters.ring
@@ -170,6 +184,11 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
       const visible = filters.status || filters.ring ? groupFilteredBirds.length > 0 : true;
       if (!visible) return null;
 
+      const birdsWithVitrine = groupFilteredBirds.map((bird) => ({
+        ...bird,
+        inVitrine: inVitrineSet.has(bird.id)
+      }));
+
       return {
         ...group,
         summary: {
@@ -178,7 +197,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
           males,
           ...countByStatus
         },
-        birds: groupFilteredBirds
+        birds: birdsWithVitrine
       };
     })
     .filter(Boolean);

@@ -162,6 +162,61 @@ export async function removeListing(tenantId: string, id: string) {
   return true;
 }
 
+export type FromBirdResult =
+  | { kind: "created"; listingId: string; missingTier: boolean }
+  | { kind: "skipped"; reason: "ALREADY_LISTED" | "BIRD_NOT_FOUND" };
+
+export async function createListingFromBird(
+  tenantId: string,
+  birdId: string,
+  input: { ageInMonths: number; priceOverride?: number | null; title?: string | null }
+): Promise<FromBirdResult> {
+  const bird = await prisma.bird.findFirst({
+    where: { id: birdId, tenantId },
+    include: {
+      flockGroup: { select: { id: true, title: true } },
+      vitrineListing: { select: { id: true, status: true } }
+    }
+  });
+  if (!bird) {
+    return { kind: "skipped", reason: "BIRD_NOT_FOUND" };
+  }
+
+  if (bird.vitrineListing && bird.vitrineListing.status !== "REMOVED") {
+    return { kind: "skipped", reason: "ALREADY_LISTED" };
+  }
+
+  const birthDate = birthDateFromAgeInMonths(input.ageInMonths);
+  const titleFallback = bird.nickname?.trim() || `Anilha ${bird.ringNumber}`;
+
+  const listing = await prisma.vitrineListing.create({
+    data: {
+      tenantId,
+      flockGroupId: bird.flockGroupId,
+      title: input.title?.trim() || titleFallback,
+      birthDate,
+      initialQuantity: 1,
+      availableQuantity: 1,
+      priceOverride:
+        input.priceOverride !== null && input.priceOverride !== undefined
+          ? input.priceOverride
+          : null,
+      sourceBirdId: bird.id
+    }
+  });
+
+  const tierExists = await prisma.priceTier.findFirst({
+    where: { tenantId, flockGroupId: bird.flockGroupId },
+    select: { id: true }
+  });
+
+  return {
+    kind: "created",
+    listingId: listing.id,
+    missingTier: !tierExists
+  };
+}
+
 export type AutoListingResult =
   | { kind: "created"; listingId: string; quantity: number; missingTier: boolean }
   | { kind: "skipped"; reason: "ALREADY_EXISTS" | "NO_HATCHED" | "BATCH_NOT_FOUND" };
