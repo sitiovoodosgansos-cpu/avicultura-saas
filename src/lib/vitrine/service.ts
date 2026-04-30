@@ -162,6 +162,78 @@ export async function removeListing(tenantId: string, id: string) {
   return true;
 }
 
+export type AutoListingResult =
+  | { kind: "created"; listingId: string; quantity: number; missingTier: boolean }
+  | { kind: "skipped"; reason: "ALREADY_EXISTS" | "NO_HATCHED" | "BATCH_NOT_FOUND" };
+
+/**
+ * Called when an IncubatorBatch finishes (status -> HATCHED). Reads all HATCHED
+ * events on the batch, sums quantities, and creates a single VitrineListing
+ * tied to the batch (sourceIncubatorBatchId). Idempotent: re-running on the
+ * same batch returns ALREADY_EXISTS.
+ */
+export async function createListingsFromHatchedBatch(
+  tenantId: string,
+  batchId: string
+): Promise<AutoListingResult> {
+  const alreadyExists = await prisma.vitrineListing.findFirst({
+    where: { tenantId, sourceIncubatorBatchId: batchId },
+    select: { id: true }
+  });
+  if (alreadyExists) {
+    return { kind: "skipped", reason: "ALREADY_EXISTS" };
+  }
+
+  const batch = await prisma.incubatorBatch.findFirst({
+    where: { id: batchId, tenantId },
+    include: {
+      events: { where: { type: "HATCHED" } },
+      flockGroup: { select: { id: true, title: true } }
+    }
+  });
+  if (!batch) {
+    return { kind: "skipped", reason: "BATCH_NOT_FOUND" };
+  }
+
+  const totalHatched = batch.events.reduce((acc, event) => acc + (event.quantity ?? 0), 0);
+  if (totalHatched <= 0) {
+    return { kind: "skipped", reason: "NO_HATCHED" };
+  }
+
+  const lastEvent = [...batch.events].sort(
+    (a, b) => b.eventDate.getTime() - a.eventDate.getTime()
+  )[0];
+  const birthDate = lastEvent?.eventDate ?? new Date();
+
+  const monthLabel = birthDate.toLocaleDateString("pt-BR", { month: "long" });
+  const capitalized = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+  const title = `Lote ${capitalized}/${birthDate.getFullYear()}`;
+
+  const listing = await prisma.vitrineListing.create({
+    data: {
+      tenantId,
+      flockGroupId: batch.flockGroupId,
+      title,
+      birthDate,
+      initialQuantity: totalHatched,
+      availableQuantity: totalHatched,
+      sourceIncubatorBatchId: batch.id
+    }
+  });
+
+  const tierExists = await prisma.priceTier.findFirst({
+    where: { tenantId, flockGroupId: batch.flockGroupId },
+    select: { id: true }
+  });
+
+  return {
+    kind: "created",
+    listingId: listing.id,
+    quantity: totalHatched,
+    missingTier: !tierExists
+  };
+}
+
 export async function sellListing(tenantId: string, id: string, input: SaleInput) {
   const listing = await prisma.vitrineListing.findFirst({
     where: { id, tenantId },
