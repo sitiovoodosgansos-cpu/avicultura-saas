@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { createTrayEntryFromCollection } from "@/lib/eggs/tray-service";
 
 function startOfDay(date: Date) {
   const next = new Date(date);
@@ -99,6 +100,10 @@ export async function createEggCollection(
       }
     }
   });
+
+  if (goodEggs > 0) {
+    await createTrayEntryFromCollection(tenantId, created.id, input.flockGroupId, created.date, goodEggs);
+  }
 
   return created;
 }
