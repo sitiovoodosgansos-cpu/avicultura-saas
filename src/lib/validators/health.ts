@@ -30,7 +30,7 @@ export const quarantineTemplateSchema = z.object({
 });
 
 export const quarantineCaseSchema = z.object({
-  birdId: z.string().cuid("Ave inválida."),
+  birdIds: z.array(z.string().cuid()).min(1, "Selecione pelo menos uma ave."),
   infirmaryId: z.string().cuid("Enfermaria inválida."),
   entryDate: z.string().min(1, "Informe a data de entrada."),
   expectedExitDate: z.string().min(1, "Informe a data prevista de saída."),

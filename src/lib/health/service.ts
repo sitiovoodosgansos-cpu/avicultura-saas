@@ -104,7 +104,7 @@ export async function createQuarantineCase(
   tenantId: string,
   userId: string | null,
   input: {
-    birdId: string;
+    birdIds: string[];
     infirmaryId: string;
     entryDate: string;
     expectedExitDate: string;
@@ -112,45 +112,56 @@ export async function createQuarantineCase(
     treatments: Array<{ label: string; startDate: string; notes?: string; templateId?: string }>;
   }
 ) {
-  const [bird, infirmary] = await Promise.all([
-    prisma.bird.findFirst({ where: { id: input.birdId, tenantId } }),
+  const [birds, infirmary] = await Promise.all([
+    prisma.bird.findMany({ where: { id: { in: input.birdIds }, tenantId }, select: { id: true } }),
     prisma.infirmary.findFirst({ where: { id: input.infirmaryId, tenantId } })
   ]);
 
-  if (!bird || !infirmary) return null;
+  if (!infirmary || birds.length === 0) return null;
+  const validIds = birds.map((b) => b.id);
+  if (validIds.length === 0) return null;
 
-  const created = await prisma.quarantineCase.create({
-    data: {
-      tenantId,
-      birdId: input.birdId,
-      infirmaryId: input.infirmaryId,
-      entryDate: toDate(input.entryDate),
-      expectedExitDate: toDate(input.expectedExitDate),
-      notes: input.notes,
-      treatments: {
-        create: input.treatments.map((item) => ({
+  const created = await prisma.$transaction(async (tx) => {
+    const cases = [] as Array<{ id: string; birdId: string }>;
+    for (const birdId of validIds) {
+      const c = await tx.quarantineCase.create({
+        data: {
           tenantId,
-          label: item.label.trim(),
-          startDate: toDate(item.startDate),
-          notes: item.notes,
-          templateId: item.templateId
-        }))
+          birdId,
+          infirmaryId: input.infirmaryId,
+          entryDate: toDate(input.entryDate),
+          expectedExitDate: toDate(input.expectedExitDate),
+          notes: input.notes,
+          treatments: {
+            create: input.treatments.map((item) => ({
+              tenantId,
+              label: item.label.trim(),
+              startDate: toDate(item.startDate),
+              notes: item.notes,
+              templateId: item.templateId
+            }))
+          }
+        }
+      });
+      cases.push({ id: c.id, birdId: c.birdId });
+    }
+    return cases;
+  });
+
+  for (const c of created) {
+    await prisma.auditLog.create({
+      data: {
+        tenantId,
+        userId: userId ?? undefined,
+        action: "QUARANTINE_CASE_CREATE",
+        entity: "QuarantineCase",
+        entityId: c.id,
+        after: { birdId: c.birdId, infirmaryId: input.infirmaryId }
       }
-    }
-  });
+    });
+  }
 
-  await prisma.auditLog.create({
-    data: {
-      tenantId,
-      userId: userId ?? undefined,
-      action: "QUARANTINE_CASE_CREATE",
-      entity: "QuarantineCase",
-      entityId: created.id,
-      after: { birdId: created.birdId, infirmaryId: created.infirmaryId }
-    }
-  });
-
-  return created;
+  return { count: created.length, cases: created };
 }
 
 export async function createInfirmary(

@@ -141,7 +141,7 @@ type EventDraft = {
 };
 
 type QuarantineForm = {
-  birdId: string;
+  birdIds: string[];
   infirmaryId: string;
   entryDate: string;
   expectedExitDate: string;
@@ -179,10 +179,10 @@ const emptyCase: CaseForm = {
   notes: ""
 };
 const emptyQuarantine: QuarantineForm = {
-  birdId: "",
+  birdIds: [],
   infirmaryId: "",
   entryDate: today,
-  expectedExitDate: addDays(today, 21),
+  expectedExitDate: addDays(today, 15),
   notes: ""
 };
 
@@ -274,12 +274,13 @@ export function HealthManager() {
     const infirmaryList = nextInfirmaries ?? infirmaries;
     const entryDate = today;
     setQuarantineForm({
-      birdId: birdList[0]?.id ?? "",
+      birdIds: [],
       infirmaryId: infirmaryList[0]?.id ?? "",
       entryDate,
-      expectedExitDate: addDays(entryDate, 21),
+      expectedExitDate: addDays(entryDate, 15),
       notes: ""
     });
+    void birdList;
     setOptionalTreatments(ensureOptionalTreatmentMap(quarantineTemplates));
     setNewTemplateName("");
   }
@@ -321,10 +322,9 @@ export function HealthManager() {
 
     setQuarantineForm((prev) => ({
       ...prev,
-      birdId: prev.birdId || ctx.birds[0]?.id || "",
       infirmaryId: prev.infirmaryId || ctx.infirmaries[0]?.id || "",
       entryDate: prev.entryDate || today,
-      expectedExitDate: prev.expectedExitDate || addDays(prev.entryDate || today, 21)
+      expectedExitDate: prev.expectedExitDate || addDays(prev.entryDate || today, 15)
     }));
 
     setOptionalTreatments((prev) => ensureOptionalTreatmentMap(templatesPayload.templates, prev));
@@ -548,7 +548,7 @@ export function HealthManager() {
     setQuarantineForm((prev) => ({
       ...prev,
       entryDate: nextDate,
-      expectedExitDate: prev.expectedExitDate || addDays(nextDate, 21)
+      expectedExitDate: prev.expectedExitDate || addDays(nextDate, 15)
     }));
     setOptionalTreatments((prev) => {
       const next = { ...prev };
@@ -564,8 +564,8 @@ export function HealthManager() {
     setSaving(true);
     setError(null);
 
-    if (!quarantineForm.birdId) {
-      setError("Selecione uma ave para iniciar a quarentena.");
+    if (quarantineForm.birdIds.length === 0) {
+      setError("Selecione pelo menos uma ave para iniciar a quarentena.");
       setSaving(false);
       return;
     }
@@ -1074,58 +1074,107 @@ export function HealthManager() {
             const filtered = quarantineFlockGroupId
               ? birds.filter((b) => b.flockGroup.id === quarantineFlockGroupId)
               : [];
+            const availableBirds = filtered.filter((b) => !quarantineForm.birdIds.includes(b.id));
+            const selectedBirds = birds.filter((b) => quarantineForm.birdIds.includes(b.id));
             return (
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-slate-800">Lote</span>
-                  <select
-                    className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-                    value={quarantineFlockGroupId}
-                    onChange={(e) => {
-                      setQuarantineFlockGroupId(e.target.value);
-                      setQuarantineForm((p) => ({ ...p, birdId: "" }));
-                    }}
-                  >
-                    <option value="">Selecione o lote</option>
-                    {groupsWithBirds.map(([id, title]) => (
-                      <option key={id} value={id}>{title}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-sm font-semibold text-slate-800">Ave</span>
-                  <select
-                    className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                    value={quarantineForm.birdId}
-                    onChange={(e) => setQuarantineForm((p) => ({ ...p, birdId: e.target.value }))}
-                    disabled={!quarantineFlockGroupId}
-                  >
-                    <option value="">{quarantineFlockGroupId ? "Selecione a ave" : "Selecione um lote primeiro"}</option>
-                    {filtered.map((bird) => (
-                      <option key={bird.id} value={bird.id}>
-                        {birdRoleLabel(bird.sex)} · {bird.ringNumber}
-                        {bird.nickname ? ` (${bird.nickname})` : ""}
+              <div className="grid gap-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="grid gap-1.5">
+                    <span className="text-sm font-semibold text-slate-800">Lote</span>
+                    <select
+                      className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+                      value={quarantineFlockGroupId}
+                      onChange={(e) => setQuarantineFlockGroupId(e.target.value)}
+                    >
+                      <option value="">Selecione o lote</option>
+                      {groupsWithBirds.map(([id, title]) => (
+                        <option key={id} value={id}>{title}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid gap-1.5">
+                    <span className="text-sm font-semibold text-slate-800">Adicionar ave</span>
+                    <select
+                      className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                      value=""
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        if (!id) return;
+                        setQuarantineForm((p) => ({ ...p, birdIds: [...p.birdIds, id] }));
+                      }}
+                      disabled={!quarantineFlockGroupId || availableBirds.length === 0}
+                    >
+                      <option value="">
+                        {!quarantineFlockGroupId
+                          ? "Selecione um lote primeiro"
+                          : availableBirds.length === 0
+                            ? "Todas as aves do lote ja foram adicionadas"
+                            : "Selecione uma ave para adicionar"}
                       </option>
-                    ))}
-                  </select>
-                </label>
+                      {availableBirds.map((bird) => (
+                        <option key={bird.id} value={bird.id}>
+                          {birdRoleLabel(bird.sex)} · {bird.ringNumber}
+                          {bird.nickname ? ` (${bird.nickname})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                {selectedBirds.length > 0 ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-2">
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                      {selectedBirds.length} {selectedBirds.length === 1 ? "ave selecionada" : "aves selecionadas"}
+                    </p>
+                    <ul className="flex flex-wrap gap-1.5">
+                      {selectedBirds.map((b) => (
+                        <li key={b.id} className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs text-zinc-700">
+                          <span className="font-mono">{b.ringNumber}</span>
+                          <span className="text-zinc-400">·</span>
+                          <span className="text-zinc-500">{b.flockGroup.title}</span>
+                          <button
+                            type="button"
+                            aria-label="Remover ave"
+                            onClick={() =>
+                              setQuarantineForm((p) => ({
+                                ...p,
+                                birdIds: p.birdIds.filter((x) => x !== b.id)
+                              }))
+                            }
+                            className="ml-1 text-zinc-400 hover:text-rose-600"
+                          >
+                            ×
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             );
           })()}
-          <div className="grid gap-3 md:grid-cols-2">
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-slate-800">Enfermaria de quarentena</span>
             <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={quarantineForm.infirmaryId} onChange={(e) => setQuarantineForm((p) => ({ ...p, infirmaryId: e.target.value }))}>
               <option value="">Selecione a enfermaria de quarentena</option>
               {infirmaries.map((inf) => (
                 <option key={inf.id} value={inf.id}>{inf.name}</option>
               ))}
             </select>
-            <Input type="date" value={quarantineForm.entryDate} onChange={(e) => onEntryDateChange(e.target.value)} />
-            <Input type="date" value={quarantineForm.expectedExitDate} onChange={(e) => setQuarantineForm((p) => ({ ...p, expectedExitDate: e.target.value }))} />
+          </label>
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="grid gap-1.5">
+              <span className="text-sm font-semibold text-slate-800">Data de entrada</span>
+              <Input type="date" value={quarantineForm.entryDate} onChange={(e) => onEntryDateChange(e.target.value)} />
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-sm font-semibold text-slate-800">Data de saída prevista</span>
+              <Input type="date" value={quarantineForm.expectedExitDate} onChange={(e) => setQuarantineForm((p) => ({ ...p, expectedExitDate: e.target.value }))} />
+            </label>
           </div>
           <Input placeholder="Observacoes gerais da quarentena" value={quarantineForm.notes} onChange={(e) => setQuarantineForm((p) => ({ ...p, notes: e.target.value }))} />
 
           <div className="rounded-lg border border-zinc-200 p-3">
-            <p className="text-sm font-semibold text-zinc-900">Checklist extra reutilizavel</p>
+            <p className="text-sm font-semibold text-zinc-900">Checklist da Quarentena</p>
             <p className="text-xs text-zinc-500">Cadastre vacinas e tratamentos especificos para reaproveitar em toda nova quarentena.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Input
