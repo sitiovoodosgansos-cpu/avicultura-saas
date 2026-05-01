@@ -32,7 +32,10 @@ export async function listIncubatorContext(tenantId: string) {
       orderBy: [{ entryDate: "desc" }, { createdAt: "desc" }]
     }),
     prisma.flockGroup.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        NOT: { title: { startsWith: "Chocada " } }
+      },
       select: { id: true, title: true },
       orderBy: { title: "asc" }
     })

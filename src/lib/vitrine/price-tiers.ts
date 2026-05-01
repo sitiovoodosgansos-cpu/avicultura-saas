@@ -19,7 +19,10 @@ export async function listPriceTiers(tenantId: string) {
       orderBy: [{ flockGroupId: "asc" }, { ageInMonths: "asc" }]
     }),
     prisma.flockGroup.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        NOT: { title: { startsWith: "Chocada " } }
+      },
       select: {
         id: true,
         title: true,

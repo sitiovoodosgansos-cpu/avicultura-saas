@@ -7,7 +7,10 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const groups = await prisma.flockGroup.findMany({
-    where: { tenantId: auth.session.user.tenantId },
+    where: {
+      tenantId: auth.session.user.tenantId,
+      NOT: { title: { startsWith: "Chocada " } }
+    },
     select: {
       id: true,
       title: true,

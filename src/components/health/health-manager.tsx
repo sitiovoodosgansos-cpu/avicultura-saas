@@ -22,7 +22,7 @@ type BirdOption = {
   nickname: string | null;
   status: string;
   sex: "FEMALE" | "MALE" | "UNKNOWN";
-  flockGroup: { title: string };
+  flockGroup: { id: string; title: string };
 };
 
 function birdRoleLabel(sex: BirdOption["sex"]): string {
@@ -232,6 +232,8 @@ export function HealthManager() {
 
   const [infirmaryForm, setInfirmaryForm] = useState<InfirmaryForm>(emptyInfirmary);
   const [caseForm, setCaseForm] = useState<CaseForm>(emptyCase);
+  const [caseFlockGroupId, setCaseFlockGroupId] = useState<string>("");
+  const [quarantineFlockGroupId, setQuarantineFlockGroupId] = useState<string>("");
   const [editingInfirmaryId, setEditingInfirmaryId] = useState<string | null>(null);
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [showInfirmaryModal, setShowInfirmaryModal] = useState(false);
@@ -961,14 +963,54 @@ export function HealthManager() {
         }}
       >
         <form className="grid gap-3" onSubmit={saveCase}>
-          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={caseForm.birdId} onChange={(e) => setCaseForm((p) => ({ ...p, birdId: e.target.value }))}>
-            <option value="">Selecione a ave (anilha)</option>
-            {birds.map((bird) => (
-              <option key={bird.id} value={bird.id}>
-                {birdOptionLabel(bird)}
-              </option>
-            ))}
-          </select>
+          {(() => {
+            const groupsWithBirds = Array.from(
+              birds.reduce((acc, b) => {
+                if (!acc.has(b.flockGroup.id)) acc.set(b.flockGroup.id, b.flockGroup.title);
+                return acc;
+              }, new Map<string, string>()).entries()
+            ).sort((a, b) => a[1].localeCompare(b[1]));
+            const filtered = caseFlockGroupId
+              ? birds.filter((b) => b.flockGroup.id === caseFlockGroupId)
+              : [];
+            return (
+              <>
+                <label className="grid gap-1.5">
+                  <span className="text-sm font-semibold text-slate-800">Lote</span>
+                  <select
+                    className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+                    value={caseFlockGroupId}
+                    onChange={(e) => {
+                      setCaseFlockGroupId(e.target.value);
+                      setCaseForm((p) => ({ ...p, birdId: "" }));
+                    }}
+                  >
+                    <option value="">Selecione o lote</option>
+                    {groupsWithBirds.map(([id, title]) => (
+                      <option key={id} value={id}>{title}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-sm font-semibold text-slate-800">Ave</span>
+                  <select
+                    className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                    value={caseForm.birdId}
+                    onChange={(e) => setCaseForm((p) => ({ ...p, birdId: e.target.value }))}
+                    disabled={!caseFlockGroupId}
+                  >
+                    <option value="">{caseFlockGroupId ? "Selecione a ave" : "Selecione um lote primeiro"}</option>
+                    {filtered.map((bird) => (
+                      <option key={bird.id} value={bird.id}>
+                        {birdRoleLabel(bird.sex)} · {bird.ringNumber}
+                        {bird.nickname ? ` (${bird.nickname})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            );
+          })()}
           <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={caseForm.infirmaryId} onChange={(e) => setCaseForm((p) => ({ ...p, infirmaryId: e.target.value }))}>
             <option value="">Selecione a enfermaria</option>
             {infirmaries.map((inf) => (
@@ -1000,15 +1042,55 @@ export function HealthManager() {
         }}
       >
         <form className="grid gap-4" onSubmit={saveQuarantineCase}>
+          {(() => {
+            const groupsWithBirds = Array.from(
+              birds.reduce((acc, b) => {
+                if (!acc.has(b.flockGroup.id)) acc.set(b.flockGroup.id, b.flockGroup.title);
+                return acc;
+              }, new Map<string, string>()).entries()
+            ).sort((a, b) => a[1].localeCompare(b[1]));
+            const filtered = quarantineFlockGroupId
+              ? birds.filter((b) => b.flockGroup.id === quarantineFlockGroupId)
+              : [];
+            return (
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="grid gap-1.5">
+                  <span className="text-sm font-semibold text-slate-800">Lote</span>
+                  <select
+                    className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+                    value={quarantineFlockGroupId}
+                    onChange={(e) => {
+                      setQuarantineFlockGroupId(e.target.value);
+                      setQuarantineForm((p) => ({ ...p, birdId: "" }));
+                    }}
+                  >
+                    <option value="">Selecione o lote</option>
+                    {groupsWithBirds.map(([id, title]) => (
+                      <option key={id} value={id}>{title}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-sm font-semibold text-slate-800">Ave</span>
+                  <select
+                    className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                    value={quarantineForm.birdId}
+                    onChange={(e) => setQuarantineForm((p) => ({ ...p, birdId: e.target.value }))}
+                    disabled={!quarantineFlockGroupId}
+                  >
+                    <option value="">{quarantineFlockGroupId ? "Selecione a ave" : "Selecione um lote primeiro"}</option>
+                    {filtered.map((bird) => (
+                      <option key={bird.id} value={bird.id}>
+                        {birdRoleLabel(bird.sex)} · {bird.ringNumber}
+                        {bird.nickname ? ` (${bird.nickname})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            );
+          })()}
           <div className="grid gap-3 md:grid-cols-2">
-            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={quarantineForm.birdId} onChange={(e) => setQuarantineForm((p) => ({ ...p, birdId: e.target.value }))}>
-              <option value="">Selecione a ave (anilha)</option>
-              {birds.map((bird) => (
-                <option key={bird.id} value={bird.id}>
-                  {bird.ringNumber}{bird.nickname ? ` - ${bird.nickname}` : ""}
-                </option>
-              ))}
-            </select>
             <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={quarantineForm.infirmaryId} onChange={(e) => setQuarantineForm((p) => ({ ...p, infirmaryId: e.target.value }))}>
               <option value="">Selecione a enfermaria de quarentena</option>
               {infirmaries.map((inf) => (

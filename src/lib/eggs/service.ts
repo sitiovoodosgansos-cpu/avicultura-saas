@@ -198,7 +198,10 @@ export async function getEggMetrics(tenantId: string) {
 
   const [groups, rows365, rows30] = await Promise.all([
     prisma.flockGroup.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        NOT: { title: { startsWith: "Chocada " } }
+      },
       select: {
         id: true,
         title: true,

@@ -45,7 +45,10 @@ export async function listVitrine(tenantId: string) {
     }),
     prisma.priceTier.findMany({ where: { tenantId } }),
     prisma.flockGroup.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        NOT: { title: { startsWith: "Chocada " } }
+      },
       select: {
         id: true,
         title: true,

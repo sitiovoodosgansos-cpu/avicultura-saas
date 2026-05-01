@@ -34,16 +34,16 @@ export async function listHealthContext(tenantId: string) {
       orderBy: [{ openedAt: "desc" }, { createdAt: "desc" }]
     }),
     prisma.bird.findMany({
-      where: { tenantId },
+      where: { tenantId, status: { notIn: ["DEAD", "SOLD"] } },
       select: {
         id: true,
         ringNumber: true,
         nickname: true,
         status: true,
         sex: true,
-        flockGroup: { select: { title: true } }
+        flockGroup: { select: { id: true, title: true } }
       },
-      orderBy: { ringNumber: "asc" }
+      orderBy: [{ flockGroup: { title: "asc" } }, { ringNumber: "asc" }]
     }),
     prisma.quarantineChecklistTemplate.findMany({
       where: { tenantId },
