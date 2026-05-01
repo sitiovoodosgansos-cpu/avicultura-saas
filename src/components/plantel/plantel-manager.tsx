@@ -975,6 +975,11 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                         <span className="truncate text-[11px] text-slate-500">
                           · {bird.flockGroupTitle}
                         </span>
+                        {bird.acquisitionDate ? (
+                          <span className="text-[11px] text-slate-500">
+                            · Nasceu em {new Date(bird.acquisitionDate).toLocaleDateString("pt-BR")}
+                          </span>
+                        ) : null}
                         {bird.inVitrine ? (
                           <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
                             Vitrine

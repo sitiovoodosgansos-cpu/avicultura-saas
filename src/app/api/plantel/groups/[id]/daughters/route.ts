@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { prisma } from "@/lib/db/prisma";
+import { materializeBirthsForParent } from "@/lib/vitrine/service";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiSessionOr401({ employeePermission: "plantel" });
@@ -16,6 +17,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!parent) {
     return NextResponse.json({ error: "Lote não encontrado." }, { status: 404 });
   }
+
+  // Backfill idempotente: materializa Birds individuais para chocadas
+  // antigas (pre-feature) que ainda apontam pro proprio lote pai.
+  await materializeBirthsForParent(tenantId, parentId);
 
   const hatchedListings = await prisma.vitrineListing.findMany({
     where: {

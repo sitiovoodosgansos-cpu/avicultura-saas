@@ -332,6 +332,105 @@ export async function createListingsFromHatchedBatch(
   };
 }
 
+/**
+ * Backfill idempotente: para chocadas finalizadas ANTES da feature de criacao
+ * automatica de Bird+FlockGroup-filhote (com VitrineListing apontando direto
+ * pro lote pai), cria retroativamente o FlockGroup-filhote dedicado + N Birds
+ * (anilha auto) e remapeia a listing. Permite que o modal de Filhas mostre
+ * aves individuais para todas as chocadas, antigas ou novas.
+ */
+export async function materializeBirthsForParent(
+  tenantId: string,
+  parentFlockGroupId: string
+): Promise<{ materializedCount: number; birdsCreated: number }> {
+  const oldListings = await prisma.vitrineListing.findMany({
+    where: {
+      tenantId,
+      flockGroupId: parentFlockGroupId,
+      sourceIncubatorBatchId: { not: null },
+      status: { not: "REMOVED" }
+    },
+    include: {
+      sourceIncubatorBatch: {
+        select: {
+          id: true,
+          flockGroup: {
+            select: {
+              id: true,
+              title: true,
+              speciesId: true,
+              breedId: true,
+              varietyId: true,
+              bayNumber: true
+            }
+          },
+          events: { where: { type: "HATCHED" }, select: { eventDate: true, quantity: true } }
+        }
+      }
+    }
+  });
+
+  let materializedCount = 0;
+  let birdsCreated = 0;
+
+  for (const listing of oldListings) {
+    if (!listing.sourceIncubatorBatch) continue;
+    if (listing.sourceIncubatorBatch.flockGroup.id !== parentFlockGroupId) continue;
+    if (listing.availableQuantity <= 0) continue;
+
+    const events = listing.sourceIncubatorBatch.events;
+    const lastEvent = [...events].sort(
+      (a, b) => b.eventDate.getTime() - a.eventDate.getTime()
+    )[0];
+    const birthDate = lastEvent?.eventDate ?? listing.birthDate ?? new Date();
+
+    const monthLabel = birthDate.toLocaleDateString("pt-BR", { month: "long" });
+    const capitalized = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+    const parent = listing.sourceIncubatorBatch.flockGroup;
+    const hatchTitle = `Chocada ${capitalized}/${birthDate.getFullYear()} · ${parent.title}`;
+
+    const ringNumbers = await generateRingNumbers(tenantId, listing.availableQuantity);
+
+    await prisma.$transaction(async (tx) => {
+      const newGroup = await tx.flockGroup.create({
+        data: {
+          tenantId,
+          title: hatchTitle,
+          speciesId: parent.speciesId,
+          breedId: parent.breedId,
+          varietyId: parent.varietyId,
+          bayNumber: parent.bayNumber,
+          matrixCount: 0,
+          reproducerCount: 0
+        }
+      });
+
+      if (ringNumbers.length > 0) {
+        await tx.bird.createMany({
+          data: ringNumbers.map((ringNumber) => ({
+            tenantId,
+            flockGroupId: newGroup.id,
+            ringNumber,
+            sex: "UNKNOWN" as const,
+            status: "ACTIVE" as const,
+            acquisitionDate: birthDate
+          }))
+        });
+      }
+
+      await tx.vitrineListing.update({
+        where: { id: listing.id },
+        data: { flockGroupId: newGroup.id }
+      });
+    });
+
+    materializedCount += 1;
+    birdsCreated += ringNumbers.length;
+  }
+
+  return { materializedCount, birdsCreated };
+}
+
 export async function sellListing(tenantId: string, id: string, input: SaleInput) {
   const listing = await prisma.vitrineListing.findFirst({
     where: { id, tenantId },
