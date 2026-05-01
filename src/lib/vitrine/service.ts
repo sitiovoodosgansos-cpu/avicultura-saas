@@ -26,6 +26,19 @@ export async function listVitrine(tenantId: string) {
             variety: { select: { id: true, name: true } }
           }
         },
+        sourceIncubatorBatch: {
+          select: {
+            flockGroup: {
+              select: {
+                id: true,
+                title: true,
+                species: { select: { id: true, name: true } },
+                breed: { select: { id: true, name: true } },
+                variety: { select: { id: true, name: true } }
+              }
+            }
+          }
+        },
         photos: { orderBy: { order: "asc" } }
       },
       orderBy: { createdAt: "desc" }
@@ -45,8 +58,16 @@ export async function listVitrine(tenantId: string) {
   ]);
 
   const enriched = listings.map((listing) => {
+    // Agrupamento da Vitrine sempre pelo lote pai original (raca/especie):
+    // se a listing veio de uma chocada, o flockGroup direto eh um
+    // FlockGroup-filhote interno - usar o FlockGroup do IncubatorBatch como
+    // 'card raiz' pra agrupar todos os lotes de filhotes dessa raca juntos.
+    const parentGroup = listing.sourceIncubatorBatch?.flockGroup ?? listing.flockGroup;
+    const parentFlockGroupId = parentGroup.id;
+
+    // Pricing usa o parent (tabela de precos eh por raca, nao por chocada).
     const result = getCurrentPrice(
-      listing.flockGroupId,
+      parentFlockGroupId,
       listing.birthDate,
       tiers,
       listing.priceOverride !== null && listing.priceOverride !== undefined
@@ -60,6 +81,8 @@ export async function listVitrine(tenantId: string) {
         listing.priceOverride !== null && listing.priceOverride !== undefined
           ? Number(listing.priceOverride)
           : null,
+      flockGroup: parentGroup,
+      flockGroupId: parentFlockGroupId,
       currentPrice: result.price,
       ageInMonths: result.ageInMonths,
       missingTier: result.missingTier,
