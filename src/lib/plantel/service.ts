@@ -66,6 +66,55 @@ async function ensureTaxonomy(tenantId: string, speciesName: string, breedName: 
   };
 }
 
+export async function generateRingNumbers(tenantId: string, count: number): Promise<string[]> {
+  if (count <= 0) return [];
+
+  const total = await prisma.bird.count({ where: { tenantId } });
+
+  for (let blockOffset = 0; blockOffset < 200; blockOffset += count) {
+    const candidates: string[] = [];
+    let valid = true;
+    for (let i = 0; i < count; i += 1) {
+      const seq = total + blockOffset + i + 1;
+      const letterIndex = Math.floor((seq - 1) / 10000);
+      const number = ((seq - 1) % 10000) + 1;
+      if (letterIndex >= 26) {
+        valid = false;
+        break;
+      }
+      candidates.push(`${String.fromCharCode(65 + letterIndex)}${String(number).padStart(4, "0")}`);
+    }
+    if (!valid) break;
+    const existing = await prisma.bird.findMany({
+      where: { tenantId, ringNumber: { in: candidates } },
+      select: { ringNumber: true }
+    });
+    if (existing.length === 0) return candidates;
+  }
+
+  const used = new Set<string>();
+  const fallback: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    let candidate = "";
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      const number = Math.floor(Math.random() * 9999) + 1;
+      candidate = `${letter}${String(number).padStart(4, "0")}`;
+      if (used.has(candidate)) continue;
+      const exists = await prisma.bird.findFirst({
+        where: { tenantId, ringNumber: candidate },
+        select: { id: true }
+      });
+      if (!exists) break;
+      candidate = "";
+    }
+    if (!candidate) throw new Error("Não foi possível gerar anilhas automáticas únicas.");
+    used.add(candidate);
+    fallback.push(candidate);
+  }
+  return fallback;
+}
+
 async function resolveRingNumber(tenantId: string, inputRingNumber?: string, fallbackRingNumber?: string) {
   const cleanedInput = inputRingNumber?.trim();
   if (cleanedInput) return cleanedInput;
@@ -73,33 +122,8 @@ async function resolveRingNumber(tenantId: string, inputRingNumber?: string, fal
   const cleanedFallback = fallbackRingNumber?.trim();
   if (cleanedFallback) return cleanedFallback;
 
-  const total = await prisma.bird.count({ where: { tenantId } });
-
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    const seq = total + attempt + 1;
-    const letterIndex = Math.floor((seq - 1) / 10000);
-    const number = ((seq - 1) % 10000) + 1;
-    if (letterIndex >= 26) break;
-    const candidate = `${String.fromCharCode(65 + letterIndex)}${String(number).padStart(4, "0")}`;
-    const exists = await prisma.bird.findFirst({
-      where: { tenantId, ringNumber: candidate },
-      select: { id: true }
-    });
-    if (!exists) return candidate;
-  }
-
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-    const number = Math.floor(Math.random() * 9999) + 1;
-    const candidate = `${letter}${String(number).padStart(4, "0")}`;
-    const exists = await prisma.bird.findFirst({
-      where: { tenantId, ringNumber: candidate },
-      select: { id: true }
-    });
-    if (!exists) return candidate;
-  }
-
-  throw new Error("Não foi possível gerar uma anilha automática.");
+  const [ring] = await generateRingNumbers(tenantId, 1);
+  return ring;
 }
 
 export async function listPlantel(tenantId: string, filters: PlantelFilters) {
