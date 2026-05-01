@@ -66,6 +66,55 @@ async function ensureTaxonomy(tenantId: string, speciesName: string, breedName: 
   };
 }
 
+export async function generateRingNumbers(tenantId: string, count: number): Promise<string[]> {
+  if (count <= 0) return [];
+
+  const total = await prisma.bird.count({ where: { tenantId } });
+
+  for (let blockOffset = 0; blockOffset < 200; blockOffset += count) {
+    const candidates: string[] = [];
+    let valid = true;
+    for (let i = 0; i < count; i += 1) {
+      const seq = total + blockOffset + i + 1;
+      const letterIndex = Math.floor((seq - 1) / 10000);
+      const number = ((seq - 1) % 10000) + 1;
+      if (letterIndex >= 26) {
+        valid = false;
+        break;
+      }
+      candidates.push(`${String.fromCharCode(65 + letterIndex)}${String(number).padStart(4, "0")}`);
+    }
+    if (!valid) break;
+    const existing = await prisma.bird.findMany({
+      where: { tenantId, ringNumber: { in: candidates } },
+      select: { ringNumber: true }
+    });
+    if (existing.length === 0) return candidates;
+  }
+
+  const used = new Set<string>();
+  const fallback: string[] = [];
+  for (let i = 0; i < count; i += 1) {
+    let candidate = "";
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+      const number = Math.floor(Math.random() * 9999) + 1;
+      candidate = `${letter}${String(number).padStart(4, "0")}`;
+      if (used.has(candidate)) continue;
+      const exists = await prisma.bird.findFirst({
+        where: { tenantId, ringNumber: candidate },
+        select: { id: true }
+      });
+      if (!exists) break;
+      candidate = "";
+    }
+    if (!candidate) throw new Error("Não foi possível gerar anilhas automáticas únicas.");
+    used.add(candidate);
+    fallback.push(candidate);
+  }
+  return fallback;
+}
+
 async function resolveRingNumber(tenantId: string, inputRingNumber?: string, fallbackRingNumber?: string) {
   const cleanedInput = inputRingNumber?.trim();
   if (cleanedInput) return cleanedInput;
@@ -73,20 +122,8 @@ async function resolveRingNumber(tenantId: string, inputRingNumber?: string, fal
   const cleanedFallback = fallbackRingNumber?.trim();
   if (cleanedFallback) return cleanedFallback;
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const candidate = `SEM-ANILHA-${Date.now().toString(36).toUpperCase()}-${suffix}`;
-    const exists = await prisma.bird.findFirst({
-      where: { tenantId, ringNumber: candidate },
-      select: { id: true }
-    });
-    if (!exists) return candidate;
-  }
-
-  return `SEM-ANILHA-${Date.now().toString(36).toUpperCase()}-${Math.random()
-    .toString(36)
-    .slice(2, 10)
-    .toUpperCase()}`;
+  const [ring] = await generateRingNumbers(tenantId, 1);
+  return ring;
 }
 
 export async function listPlantel(tenantId: string, filters: PlantelFilters) {
@@ -143,6 +180,55 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
       .map((listing) => listing.sourceBirdId!)
   );
 
+  const hatchedListings = await prisma.vitrineListing.findMany({
+    where: {
+      tenantId,
+      sourceIncubatorBatchId: { not: null }
+    },
+    select: {
+      flockGroupId: true,
+      sourceIncubatorBatch: { select: { flockGroupId: true } }
+    }
+  });
+
+  const childGroupIdsByParent = new Map<string, Set<string>>();
+  const allChildGroupIds = new Set<string>();
+  for (const listing of hatchedListings) {
+    const parentId = listing.sourceIncubatorBatch?.flockGroupId;
+    if (!parentId) continue;
+    if (parentId === listing.flockGroupId) continue;
+    allChildGroupIds.add(listing.flockGroupId);
+    const bucket = childGroupIdsByParent.get(parentId) ?? new Set<string>();
+    bucket.add(listing.flockGroupId);
+    childGroupIdsByParent.set(parentId, bucket);
+  }
+
+  let aliveByChildGroup = new Map<string, number>();
+  if (allChildGroupIds.size > 0) {
+    const childBirds = await prisma.bird.findMany({
+      where: {
+        tenantId,
+        flockGroupId: { in: Array.from(allChildGroupIds) },
+        status: { not: "DEAD" }
+      },
+      select: { flockGroupId: true }
+    });
+    aliveByChildGroup = childBirds.reduce((acc, bird) => {
+      acc.set(bird.flockGroupId, (acc.get(bird.flockGroupId) ?? 0) + 1);
+      return acc;
+    }, new Map<string, number>());
+  }
+
+  function daughtersFor(parentGroupId: string): number {
+    const childIds = childGroupIdsByParent.get(parentGroupId);
+    if (!childIds) return 0;
+    let total = 0;
+    for (const childId of childIds) {
+      total += aliveByChildGroup.get(childId) ?? 0;
+    }
+    return total;
+  }
+
   const filteredBirds = allBirds.filter((bird) => {
     const statusOk = filters.status ? bird.status === filters.status : true;
     const ringOk = filters.ring
@@ -195,6 +281,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
           totalBirds: Math.max(groupAllBirds.length, configuredTotal),
           females,
           males,
+          daughters: daughtersFor(group.id),
           ...countByStatus
         },
         birds: birdsWithVitrine

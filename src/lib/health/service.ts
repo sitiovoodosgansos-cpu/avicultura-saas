@@ -35,7 +35,14 @@ export async function listHealthContext(tenantId: string) {
     }),
     prisma.bird.findMany({
       where: { tenantId },
-      select: { id: true, ringNumber: true, nickname: true, status: true },
+      select: {
+        id: true,
+        ringNumber: true,
+        nickname: true,
+        status: true,
+        sex: true,
+        flockGroup: { select: { title: true } }
+      },
       orderBy: { ringNumber: "asc" }
     }),
     prisma.quarantineChecklistTemplate.findMany({

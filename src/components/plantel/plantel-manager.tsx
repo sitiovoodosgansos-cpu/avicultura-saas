@@ -1,14 +1,14 @@
 ﻿"use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
+import { DollarSign, History, Pencil } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type PlantelGroup = {
   id: string;
@@ -24,6 +24,7 @@ type PlantelGroup = {
     totalBirds: number;
     females: number;
     males: number;
+    daughters: number;
     ACTIVE: number;
     SICK: number;
     DEAD: number;
@@ -174,20 +175,38 @@ function StatChip({
 function CompactStatChip({
   emoji,
   label,
-  value
+  value,
+  onClick
 }: {
   emoji: string;
   label: string;
   value: number;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="flex h-full min-h-[84px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center sm:min-h-[92px]">
+  const baseClass =
+    "flex h-full min-h-[84px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center sm:min-h-[92px]";
+  const content = (
+    <>
       <p className="max-w-full truncate text-[11px] leading-tight text-slate-500 sm:text-[12px]">
         {emoji} {label}
       </p>
       <p className="mt-1 text-[28px] font-semibold leading-none text-slate-900 sm:text-[30px]">{value}</p>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${baseClass} cursor-pointer transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)]/30`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={baseClass}>{content}</div>;
 }
 
 function toDateInput(value: string | null | undefined) {
@@ -229,13 +248,40 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [sellListingError, setSellListingError] = useState<string | null>(null);
   const [sellListingSubmitting, setSellListingSubmitting] = useState(false);
   const [vitrineToast, setVitrineToast] = useState<string | null>(null);
-  const [growthByMonth, setGrowthByMonth] = useState<Array<{ key: string; label: string; total: number }>>([]);
-  const [growthByYear, setGrowthByYear] = useState<Array<{ key: string; label: string; total: number }>>([]);
-  const [growthView, setGrowthView] = useState<"monthly" | "yearly" | "specific-month">("monthly");
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedMonthKey, setSelectedMonthKey] = useState("");
+  const [daughtersGroup, setDaughtersGroup] = useState<{
+    parent: { id: string; title: string };
+    birds: Array<PlantelBird & { flockGroupTitle: string }>;
+  } | null>(null);
+  const [daughtersLoading, setDaughtersLoading] = useState(false);
 
   const canSubmitBird = useMemo(() => Boolean(birdForm.flockGroupId), [birdForm.flockGroupId]);
+
+  async function openDaughters(parentGroupId: string) {
+    setDaughtersLoading(true);
+    setDaughtersGroup(null);
+    try {
+      const res = await fetch(`/api/plantel/groups/${parentGroupId}/daughters`, { cache: "no-store" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Não foi possível carregar as filhas.");
+        return;
+      }
+      const data = (await res.json()) as {
+        parent: { id: string; title: string };
+        birds: Array<PlantelBird & { flockGroupTitle: string }>;
+      };
+      setDaughtersGroup({ parent: data.parent, birds: data.birds });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar filhas.");
+    } finally {
+      setDaughtersLoading(false);
+    }
+  }
+
+  async function reloadDaughters() {
+    if (!daughtersGroup) return;
+    await openDaughters(daughtersGroup.parent.id);
+  }
 
   async function loadData() {
     setLoading(true);
@@ -263,8 +309,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
     const data: PlantelResponse = await response.json();
     setGroups(data.groups);
-    setGrowthByMonth(data.growth?.byMonth ?? []);
-    setGrowthByYear(data.growth?.byYear ?? []);
     if (showWorkerLinks && workerLinksRes) {
       const linksData = (await workerLinksRes.json()) as { links: WorkerLink[] };
       setWorkerLinks(linksData.links);
@@ -369,8 +413,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     await loadData();
   }
 
-  async function applyBirdStatus(id: string) {
-    const nextStatus = statusDraftByBird[id];
+  async function applyBirdStatus(id: string, override?: BirdStatus) {
+    const nextStatus = override ?? statusDraftByBird[id];
     if (!nextStatus) return;
 
     const reason = window.prompt("Motivo da alteracao de status (opcional):") ?? "";
@@ -454,31 +498,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       { total: 0, active: 0, sick: 0, dead: 0 }
     );
   }, [groups]);
-
-  const availableYears = useMemo(() => growthByYear.map((item) => item.key), [growthByYear]);
-
-  useEffect(() => {
-    if (!selectedYear && availableYears.length > 0) {
-      setSelectedYear(availableYears[availableYears.length - 1] ?? "");
-    }
-  }, [availableYears, selectedYear]);
-
-  const monthlyOptions = useMemo(
-    () => growthByMonth.filter((point) => (selectedYear ? point.key.startsWith(`${selectedYear}-`) : true)),
-    [growthByMonth, selectedYear]
-  );
-
-  useEffect(() => {
-    if (!selectedMonthKey && monthlyOptions.length > 0) {
-      setSelectedMonthKey(monthlyOptions[monthlyOptions.length - 1]?.key ?? "");
-    }
-  }, [monthlyOptions, selectedMonthKey]);
-
-  const growthChartData = useMemo(() => {
-    if (growthView === "yearly") return growthByYear;
-    if (growthView === "specific-month") return monthlyOptions.filter((item) => item.key === selectedMonthKey);
-    return monthlyOptions;
-  }, [growthView, growthByYear, monthlyOptions, selectedMonthKey]);
 
   return (
     <main className="space-y-6">
@@ -585,59 +604,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               Cadastrar Ave Individual
             </Button>
           </div>
-        </div>
-      </Card>
-      <Card>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Evolucao de aves novas</h3>
-            <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-              Acompanhe novos cadastros por ano, por mes e por um mes especifico.
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <select className={selectClass} value={growthView} onChange={(e) => setGrowthView(e.target.value as "monthly" | "yearly" | "specific-month")}>
-              <option value="monthly">Por mes</option>
-              <option value="yearly">Por ano</option>
-              <option value="specific-month">Mes especifico</option>
-            </select>
-            <select className={selectClass} value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} disabled={availableYears.length === 0 || growthView === "yearly"}>
-              {availableYears.length === 0 ? <option value="">Sem dados</option> : null}
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-            <select
-              className={selectClass}
-              value={selectedMonthKey}
-              onChange={(e) => setSelectedMonthKey(e.target.value)}
-              disabled={growthView !== "specific-month" || monthlyOptions.length === 0}
-            >
-              {monthlyOptions.length === 0 ? <option value="">Sem meses</option> : null}
-              {monthlyOptions.map((month) => (
-                <option key={month.key} value={month.key}>
-                  {month.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="mt-5 h-72 rounded-xl bg-[color:var(--surface-soft)] p-3 sm:rounded-2xl">
-          {growthChartData.length === 0 ? (
-            <div className="grid h-full place-items-center text-sm text-[color:var(--ink-soft)]">Sem dados suficientes ainda.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={growthChartData} margin={{ left: 4, right: 10, top: 8, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="4 4" stroke="#dbe3f2" />
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="total" name="Aves novas" radius={[8, 8, 0, 0]} fill="#0ea5a4" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
         </div>
       </Card>
       <AppModal
@@ -960,6 +926,144 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         ) : null}
       </AppModal>
 
+      <AppModal
+        open={Boolean(daughtersGroup) || daughtersLoading}
+        title={
+          daughtersGroup
+            ? `🐣 Filhas — ${daughtersGroup.parent.title}`
+            : "Carregando filhas..."
+        }
+        onClose={() => setDaughtersGroup(null)}
+      >
+        {daughtersLoading ? (
+          <p className="text-sm text-slate-500">Carregando...</p>
+        ) : daughtersGroup ? (
+          daughtersGroup.birds.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
+              Nenhum filhote vivo nas chocadas deste grupo.
+            </p>
+          ) : (
+            <ul className="grid gap-2">
+              {daughtersGroup.birds.map((bird) => {
+                const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : "?";
+                const sexLabel =
+                  bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "Não informado";
+                const iconBtn =
+                  "inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 sm:size-9";
+                return (
+                  <li
+                    key={bird.id}
+                    className="rounded-2xl border border-[color:var(--line)] bg-white/80 px-3 py-2.5"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
+                          {bird.ringNumber}
+                        </span>
+                        <span
+                          className="text-sm leading-none text-slate-500"
+                          aria-label={sexLabel}
+                          title={sexLabel}
+                        >
+                          {sexGlyph}
+                        </span>
+                        {bird.nickname ? (
+                          <span className="truncate text-sm font-medium text-slate-800">
+                            {bird.nickname}
+                          </span>
+                        ) : null}
+                        <span className="truncate text-[11px] text-slate-500">
+                          · {bird.flockGroupTitle}
+                        </span>
+                        {bird.inVitrine ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                            Vitrine
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          aria-label="Status da ave"
+                          className={`h-8 rounded-lg border border-[color:var(--line)] bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[color:var(--brand)]/20 ${statusBadge[bird.status]}`}
+                          value={statusDraftByBird[bird.id] ?? bird.status}
+                          onChange={async (event) => {
+                            const next = event.target.value as BirdStatus;
+                            setStatusDraftByBird((prev) => ({ ...prev, [bird.id]: next }));
+                            if (next !== bird.status) {
+                              await applyBirdStatus(bird.id, next);
+                              await reloadDaughters();
+                            }
+                          }}
+                        >
+                          <option value="ACTIVE">Ativa</option>
+                          <option value="SICK">Doente</option>
+                          <option value="DEAD">Morta</option>
+                          <option value="BROODY">Choca</option>
+                        </select>
+
+                        {!bird.inVitrine ? (
+                          <button
+                            type="button"
+                            aria-label="Colocar à venda"
+                            title="Colocar à venda"
+                            className={iconBtn}
+                            onClick={() => {
+                              setSellingBird(bird);
+                              setSellListingForm({ ageInMonths: 0, priceOverride: "" });
+                              setSellListingError(null);
+                            }}
+                          >
+                            <DollarSign className="h-4 w-4" aria-hidden />
+                          </button>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          aria-label="Histórico de status"
+                          title="Histórico de status"
+                          className={iconBtn}
+                          onClick={() => toggleHistory(bird.id)}
+                        >
+                          <History className="h-4 w-4" aria-hidden />
+                        </button>
+
+                        <DeleteActionButton
+                          iconOnly
+                          onClick={async () => {
+                            await removeBird(bird.id);
+                            await reloadDaughters();
+                          }}
+                          aria-label="Excluir ave"
+                          className="size-8 sm:size-9"
+                        />
+                      </div>
+                    </div>
+                    {historyByBird[bird.id] ? (
+                      <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                        {historyByBird[bird.id].length === 0 ? (
+                          <p>Sem histórico de status.</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {historyByBird[bird.id].map((event) => (
+                              <li key={event.id}>
+                                {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
+                                {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para{" "}
+                                {statusLabel[event.toStatus]}
+                                {event.reason ? ` - ${event.reason}` : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : null}
+      </AppModal>
+
       {vitrineToast ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
           <div className="flex items-start justify-between gap-2">
@@ -1027,12 +1131,17 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
                 <div className="grid w-full auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-4">
                   <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
-                  <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
-                  <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
+                  <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.summary.females} />
+                  <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.summary.males} />
                   <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
                   <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
                   <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
-                  <CompactStatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
+                  <CompactStatChip
+                    emoji={"🐣"}
+                    label="Filhas"
+                    value={group.summary.daughters}
+                    onClick={group.summary.daughters > 0 ? () => openDaughters(group.id) : undefined}
+                  />
                   <CompactStatChip emoji={"🏠"} label="Baia" value={group.bayNumber} />
                 </div>
 
@@ -1090,122 +1199,151 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               </div>
 
               {expanded ? (
-                <div className="mt-6 overflow-x-auto rounded-[24px] border border-[color:var(--line)]">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Anilha</th>
-                        <th className="px-4 py-3">Nome</th>
-                        <th className="px-4 py-3">Sexo</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3">Acoes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.birds.map((bird) => (
-                        <Fragment key={bird.id}>
-                          <tr className="border-t border-[color:var(--line)] align-top">
-                            <td className="px-4 py-4 font-semibold text-slate-900">{bird.ringNumber}</td>
-                            <td className="px-4 py-4">{bird.nickname || "-"}</td>
-                            <td className="px-4 py-4">
-                              {bird.sex === "FEMALE" ? "Femea" : bird.sex === "MALE" ? "Macho" : "Nao informado"}
-                            </td>
-                            <td className="px-4 py-4">
-                              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadge[bird.status]}`}>
-                                {statusLabel[bird.status]}
+                group.birds.length === 0 ? (
+                  <p className="mt-4 rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
+                    Nenhuma ave cadastrada neste grupo.
+                  </p>
+                ) : (
+                  <ul className="mt-4 grid gap-2">
+                    {group.birds.map((bird) => {
+                      const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : "?";
+                      const sexLabel =
+                        bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "Não informado";
+                      const historyOpen = Boolean(historyByBird[bird.id]);
+                      const historyEvents = historyByBird[bird.id];
+                      const iconBtn =
+                        "inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 sm:size-9";
+                      return (
+                        <li
+                          key={bird.id}
+                          className="rounded-2xl border border-[color:var(--line)] bg-white/80"
+                        >
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
+                                {bird.ringNumber}
                               </span>
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  variant="outline"
+                              <span
+                                className="text-sm leading-none text-slate-500"
+                                aria-label={sexLabel}
+                                title={sexLabel}
+                              >
+                                {sexGlyph}
+                              </span>
+                              {bird.nickname ? (
+                                <span className="truncate text-sm font-medium text-slate-800">
+                                  {bird.nickname}
+                                </span>
+                              ) : null}
+                              {bird.inVitrine ? (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                  Vitrine
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <select
+                                aria-label="Status da ave"
+                                className={`h-8 rounded-lg border border-[color:var(--line)] bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[color:var(--brand)]/20 ${statusBadge[bird.status]}`}
+                                value={statusDraftByBird[bird.id] ?? bird.status}
+                                onChange={(event) => {
+                                  const next = event.target.value as BirdStatus;
+                                  setStatusDraftByBird((prev) => ({ ...prev, [bird.id]: next }));
+                                  if (next !== bird.status) {
+                                    void applyBirdStatus(bird.id, next);
+                                  }
+                                }}
+                              >
+                                <option value="ACTIVE">Ativa</option>
+                                <option value="SICK">Doente</option>
+                                <option value="DEAD">Morta</option>
+                                <option value="BROODY">Choca</option>
+                              </select>
+
+                              <button
+                                type="button"
+                                aria-label="Editar ave"
+                                title="Editar ave"
+                                className={iconBtn}
+                                onClick={() => {
+                                  setEditingBirdId(bird.id);
+                                  setShowBirdModal(true);
+                                  setBirdForm({
+                                    flockGroupId: bird.flockGroupId,
+                                    bayNumber: bird.bayNumber ?? group.bayNumber,
+                                    ringNumber: bird.ringNumber,
+                                    nickname: bird.nickname ?? "",
+                                    sex: bird.sex,
+                                    acquisitionDate: toDateInput(bird.acquisitionDate),
+                                    purchaseValue: bird.purchaseValue ? Number(bird.purchaseValue) : undefined,
+                                    origin: bird.origin ?? "",
+                                    status: bird.status
+                                  });
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" aria-hidden />
+                              </button>
+
+                              {!bird.inVitrine ? (
+                                <button
                                   type="button"
+                                  aria-label="Colocar à venda"
+                                  title="Colocar à venda"
+                                  className={iconBtn}
                                   onClick={() => {
-                                    setEditingBirdId(bird.id);
-                                    setShowBirdModal(true);
-                                    setBirdForm({
-                                      flockGroupId: bird.flockGroupId,
-                                      bayNumber: bird.bayNumber ?? group.bayNumber,
-                                      ringNumber: bird.ringNumber,
-                                      nickname: bird.nickname ?? "",
-                                      sex: bird.sex,
-                                      acquisitionDate: toDateInput(bird.acquisitionDate),
-                                      purchaseValue: bird.purchaseValue ? Number(bird.purchaseValue) : undefined,
-                                      origin: bird.origin ?? "",
-                                      status: bird.status
-                                    });
+                                    setSellingBird(bird);
+                                    setSellListingForm({ ageInMonths: 0, priceOverride: "" });
+                                    setSellListingError(null);
                                   }}
                                 >
-                                  Editar
-                                </Button>
-                                <DeleteActionButton
-                                  onClick={() => removeBird(bird.id)}
-                                  aria-label="Excluir ave"
-                                />
-                                <select
-                                  className={`${selectClass} min-w-40`}
-                                  value={statusDraftByBird[bird.id] ?? bird.status}
-                                  onChange={(event) =>
-                                    setStatusDraftByBird((prev) => ({
-                                      ...prev,
-                                      [bird.id]: event.target.value as BirdStatus
-                                    }))
-                                  }
-                                >
-                                  <option value="ACTIVE">Ativa</option>
-                                  <option value="SICK">Doente</option>
-                                  <option value="DEAD">Morta</option>
-                                  <option value="BROODY">Choca</option>
-                                </select>
-                                <Button variant="outline" type="button" onClick={() => applyBirdStatus(bird.id)}>
-                                  Atualizar status
-                                </Button>
-                                <Button variant="outline" type="button" onClick={() => toggleHistory(bird.id)}>
-                                  {historyByBird[bird.id] ? "Ocultar historico" : "Ver historico"}
-                                </Button>
-                                {bird.inVitrine ? (
-                                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                                    Na Vitrine
-                                  </span>
-                                ) : (
-                                  <Button
-                                    type="button"
-                                    onClick={() => {
-                                      setSellingBird(bird);
-                                      setSellListingForm({ ageInMonths: 0, priceOverride: "" });
-                                      setSellListingError(null);
-                                    }}
-                                  >
-                                    Colocar à venda
-                                  </Button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                          {historyByBird[bird.id] ? (
-                            <tr className="border-t border-[color:var(--line)] bg-slate-50/70">
-                              <td className="px-4 py-3 text-xs text-slate-600" colSpan={5}>
-                                {historyByBird[bird.id].length === 0 ? (
-                                  <p>Sem historico de status.</p>
-                                ) : (
-                                  <ul className="space-y-1">
-                                    {historyByBird[bird.id].map((event) => (
-                                      <li key={event.id}>
-                                        {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
-                                        {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para {statusLabel[event.toStatus]}
-                                        {event.reason ? ` - ${event.reason}` : ""}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </td>
-                            </tr>
+                                  <DollarSign className="h-4 w-4" aria-hidden />
+                                </button>
+                              ) : null}
+
+                              <button
+                                type="button"
+                                aria-label={historyOpen ? "Ocultar histórico" : "Ver histórico"}
+                                title={historyOpen ? "Ocultar histórico" : "Ver histórico"}
+                                aria-pressed={historyOpen}
+                                className={`${iconBtn} ${historyOpen ? "bg-slate-100 text-slate-900" : ""}`}
+                                onClick={() => toggleHistory(bird.id)}
+                              >
+                                <History className="h-4 w-4" aria-hidden />
+                              </button>
+
+                              <DeleteActionButton
+                                iconOnly
+                                onClick={() => removeBird(bird.id)}
+                                aria-label="Excluir ave"
+                                className="size-8 sm:size-9"
+                              />
+                            </div>
+                          </div>
+
+                          {historyOpen ? (
+                            <div className="border-t border-[color:var(--line)] bg-slate-50/70 px-3 py-2 text-[11px] text-slate-600">
+                              {!historyEvents || historyEvents.length === 0 ? (
+                                <p>Sem histórico de status.</p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {historyEvents.map((event) => (
+                                    <li key={event.id}>
+                                      {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
+                                      {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para{" "}
+                                      {statusLabel[event.toStatus]}
+                                      {event.reason ? ` - ${event.reason}` : ""}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
                           ) : null}
-                        </Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )
               ) : null}
             </Card>
           );

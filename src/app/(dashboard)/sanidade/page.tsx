@@ -1,5 +1,5 @@
-﻿import { HealthManager } from "@/components/health/health-manager";
+﻿import { HealthTabs } from "@/components/health/health-tabs";
 
 export default function SanidadePage() {
-  return <HealthManager />;
+  return <HealthTabs />;
 }

@@ -116,26 +116,38 @@ export function ReportsManager() {
       if (to) params.set("to", to);
     }
 
-    const [reportRes, estoqueRes] = await Promise.all([
-      fetch(`/api/reports/data?${params.toString()}`, { cache: "no-store" }),
-      fetch(`/api/reports/estoque`, { cache: "no-store" })
-    ]);
+    try {
+      const [reportRes, estoqueRes] = await Promise.all([
+        fetch(`/api/reports/data?${params.toString()}`, { cache: "no-store" }),
+        fetch(`/api/reports/estoque`, { cache: "no-store" })
+      ]);
 
-    if (!reportRes.ok) {
-      setError("Não foi possível gerar o relatório.");
+      if (!reportRes.ok) {
+        let message = "Não foi possível gerar o relatório.";
+        try {
+          const body = (await reportRes.json()) as { error?: string };
+          if (body?.error) message = `Não foi possível gerar o relatório: ${body.error}`;
+        } catch {
+          // body wasn't JSON; keep the generic message
+        }
+        setError(message);
+        setLoading(false);
+        return;
+      }
+
+      const payload = (await reportRes.json()) as ReportData;
+      setData(payload);
+
+      if (estoqueRes.ok) {
+        const estoquePayload = (await estoqueRes.json()) as EstoqueResumo;
+        setEstoque(estoquePayload);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Erro de rede ao carregar o relatório.";
+      setError(`Não foi possível gerar o relatório: ${message}`);
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const payload = (await reportRes.json()) as ReportData;
-    setData(payload);
-
-    if (estoqueRes.ok) {
-      const estoquePayload = (await estoqueRes.json()) as EstoqueResumo;
-      setEstoque(estoquePayload);
-    }
-
-    setLoading(false);
   }
 
   useEffect(() => {

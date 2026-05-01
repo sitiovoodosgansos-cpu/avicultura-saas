@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Pencil } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -594,7 +594,7 @@ export function FinanceManager() {
             </div>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-              <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+              <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
             </div>
             <Input placeholder="Descricao" value={entryForm.description} onChange={(e) => setEntryForm((p) => ({ ...p, description: e.target.value }))} />
             <Input placeholder="Cliente (opcional)" value={entryForm.customer} onChange={(e) => setEntryForm((p) => ({ ...p, customer: e.target.value }))} />
@@ -633,7 +633,7 @@ export function FinanceManager() {
             </div>
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-              <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount || ""} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+              <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount || ""} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
             </div>
             <Input placeholder="Descricao" value={expenseForm.description} onChange={(e) => setExpenseForm((p) => ({ ...p, description: e.target.value }))} />
             <Input placeholder="Fornecedor (opcional)" value={expenseForm.supplier} onChange={(e) => setExpenseForm((p) => ({ ...p, supplier: e.target.value }))} />
@@ -674,48 +674,6 @@ export function FinanceManager() {
       </Card>
 
       <section className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-base font-semibold text-zinc-900">Evolucao diaria de entradas e saidas</h3>
-            <Input
-              type="month"
-              className="w-[180px]"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-            />
-          </div>
-          <div className="mt-4 h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dailyEvolution}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
-                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value) => formatMoney(Number(value ?? 0))} />
-                <Line type="monotone" dataKey="income" stroke="#0f766e" strokeWidth={3} dot={false} name="Entradas" />
-                <Line type="monotone" dataKey="expenses" stroke="#dc2626" strokeWidth={3} dot={false} name="Saidas" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Evolucao financeira</h3>
-          <div className="mt-4 h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics?.monthlyEvolution ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="income" fill="#0f766e" name="Entradas" />
-                <Bar dataKey="expenses" fill="#dc2626" name="Saidas" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Lancamentos de entradas</h3>
         {loading ? <p className="mt-4 text-sm text-zinc-500">Carregando...</p> : null}
@@ -742,21 +700,29 @@ export function FinanceManager() {
                     <td className="py-2 pr-3">{row.customer || "-"}</td>
                     <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
                     <td className="py-2 pr-3">
-                      <div className="flex gap-2">
-                        <Button variant="outline" type="button" onClick={() => {
-                          setEditingEntryId(row.id);
-                          setEntryForm({
-                            date: toDateInput(row.date),
-                            category: row.category,
-                            item: row.item,
-                            amount: row.amount,
-                            description: row.description ?? "",
-                            customer: row.customer ?? "",
-                            notes: row.notes ?? ""
-                          });
-                          setShowEntryModal(true);
-                        }}>Editar</Button>
-                        <DeleteActionButton onClick={() => removeEntry(row.id)} aria-label="Excluir entrada" />
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          aria-label="Editar entrada"
+                          title="Editar"
+                          onClick={() => {
+                            setEditingEntryId(row.id);
+                            setEntryForm({
+                              date: toDateInput(row.date),
+                              category: row.category,
+                              item: row.item,
+                              amount: row.amount,
+                              description: row.description ?? "",
+                              customer: row.customer ?? "",
+                              notes: row.notes ?? ""
+                            });
+                            setShowEntryModal(true);
+                          }}
+                          className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 sm:size-9"
+                        >
+                          <Pencil className="size-4" aria-hidden />
+                        </button>
+                        <DeleteActionButton iconOnly onClick={() => removeEntry(row.id)} aria-label="Excluir entrada" className="size-8 sm:size-9" />
                       </div>
                     </td>
                   </tr>
@@ -792,21 +758,29 @@ export function FinanceManager() {
                     <td className="py-2 pr-3">{row.supplier || "-"}</td>
                     <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
                     <td className="py-2 pr-3">
-                      <div className="flex gap-2">
-                        <Button variant="outline" type="button" onClick={() => {
-                          setEditingExpenseId(row.id);
-                          setExpenseForm({
-                            date: toDateInput(row.date),
-                            category: row.category,
-                            item: row.item,
-                            amount: row.amount,
-                            description: row.description ?? "",
-                            supplier: row.supplier ?? "",
-                            notes: row.notes ?? ""
-                          });
-                          setShowExpenseModal(true);
-                        }}>Editar</Button>
-                        <DeleteActionButton onClick={() => removeExpense(row.id)} aria-label="Excluir saida" />
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          aria-label="Editar saida"
+                          title="Editar"
+                          onClick={() => {
+                            setEditingExpenseId(row.id);
+                            setExpenseForm({
+                              date: toDateInput(row.date),
+                              category: row.category,
+                              item: row.item,
+                              amount: row.amount,
+                              description: row.description ?? "",
+                              supplier: row.supplier ?? "",
+                              notes: row.notes ?? ""
+                            });
+                            setShowExpenseModal(true);
+                          }}
+                          className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 sm:size-9"
+                        >
+                          <Pencil className="size-4" aria-hidden />
+                        </button>
+                        <DeleteActionButton iconOnly onClick={() => removeExpense(row.id)} aria-label="Excluir saida" className="size-8 sm:size-9" />
                       </div>
                     </td>
                   </tr>
@@ -844,7 +818,7 @@ export function FinanceManager() {
           </div>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-            <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
           </div>
           <Input placeholder="Descricao" value={entryForm.description} onChange={(e) => setEntryForm((p) => ({ ...p, description: e.target.value }))} />
           <Input placeholder="Cliente (opcional)" value={entryForm.customer} onChange={(e) => setEntryForm((p) => ({ ...p, customer: e.target.value }))} />
@@ -882,7 +856,7 @@ export function FinanceManager() {
           </div>
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-            <Input className="pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount || ""} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={expenseForm.amount || ""} onChange={(e) => setExpenseForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
           </div>
           <Input placeholder="Descricao" value={expenseForm.description} onChange={(e) => setExpenseForm((p) => ({ ...p, description: e.target.value }))} />
           <Input placeholder="Fornecedor (opcional)" value={expenseForm.supplier} onChange={(e) => setExpenseForm((p) => ({ ...p, supplier: e.target.value }))} />

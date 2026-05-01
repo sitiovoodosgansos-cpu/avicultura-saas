@@ -165,6 +165,11 @@ model Tenant {
   vitrineListings      VitrineListing[]
   vitrineSales         VitrineSale[]
   vitrineDeaths        VitrineDeathRecord[]
+  diseases             Disease[]
+  medications          Medication[]
+  vaccines             Vaccine[]
+  deathReasons         DeathReason[]
+  birdVaccinations     BirdVaccination[]
 }
 
 model TenantMember {
@@ -297,6 +302,7 @@ model Bird {
   infirmaryCases  InfirmaryCase[]
   quarantineCases QuarantineCase[]
   vitrineListing  VitrineListing?
+  vaccinations    BirdVaccination[]
 
   @@unique([tenantId, ringNumber])
 }
@@ -403,25 +409,31 @@ model Infirmary {
 }
 
 model InfirmaryCase {
-  id          String               @id @default(cuid())
-  tenantId    String
-  birdId      String
-  infirmaryId String
-  openedAt    DateTime
-  diagnosis   String?
-  symptoms    String?
-  medication  String?
-  dosage      String?
-  responsible String?
-  status      InfirmaryCaseStatus  @default(TREATING)
-  notes       String?
-  closedAt    DateTime?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bird        Bird                 @relation(fields: [birdId], references: [id], onDelete: Restrict)
-  infirmary   Infirmary            @relation(fields: [infirmaryId], references: [id], onDelete: Restrict)
-  events      InfirmaryCaseEvent[]
+  id            String               @id @default(cuid())
+  tenantId      String
+  birdId        String
+  infirmaryId   String
+  openedAt      DateTime
+  diagnosis     String?
+  symptoms      String?
+  medication    String?
+  dosage        String?
+  responsible   String?
+  status        InfirmaryCaseStatus  @default(TREATING)
+  notes         String?
+  closedAt      DateTime?
+  diseaseId     String?
+  medicationId  String?
+  deathReasonId String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bird          Bird                 @relation(fields: [birdId], references: [id], onDelete: Restrict)
+  infirmary     Infirmary            @relation(fields: [infirmaryId], references: [id], onDelete: Restrict)
+  disease       Disease?             @relation(fields: [diseaseId], references: [id], onDelete: SetNull)
+  medicationRef Medication?          @relation(fields: [medicationId], references: [id], onDelete: SetNull)
+  deathReason   DeathReason?         @relation(fields: [deathReasonId], references: [id], onDelete: SetNull)
+  events        InfirmaryCaseEvent[]
 }
 
 model InfirmaryCaseEvent {
@@ -746,16 +758,101 @@ model VitrineSale {
 }
 
 model VitrineDeathRecord {
-  id         String   @id @default(cuid())
-  tenantId   String
-  listingId  String
-  quantity   Int
-  cause      String?
-  occurredAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  tenantId      String
+  listingId     String
+  quantity      Int
+  cause         String?
+  deathReasonId String?
+  occurredAt    DateTime @default(now())
 
-  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  listing VitrineListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  listing     VitrineListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  deathReason DeathReason?   @relation(fields: [deathReasonId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, listingId])
   @@index([tenantId, occurredAt])
+}
+
+model Disease {
+  id               String   @id @default(cuid())
+  tenantId         String
+  name             String
+  description      String?
+  symptoms         String?
+  defaultTreatment String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cases  InfirmaryCase[]
+
+  @@unique([tenantId, name])
+}
+
+model Medication {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  defaultDosage String?
+  route         String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cases  InfirmaryCase[]
+
+  @@unique([tenantId, name])
+}
+
+model Vaccine {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  name                 String
+  recommendedAgeMonths Int?
+  recommendedAgeUnit   String?  @default("months")
+  intervalMonths       Int?
+  intervalUnit         String?  @default("months")
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vaccinations BirdVaccination[]
+
+  @@unique([tenantId, name])
+}
+
+model DeathReason {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cases         InfirmaryCase[]
+  vitrineDeaths VitrineDeathRecord[]
+
+  @@unique([tenantId, name])
+}
+
+model BirdVaccination {
+  id        String   @id @default(cuid())
+  tenantId  String
+  birdId    String
+  vaccineId String
+  appliedAt DateTime
+  notes     String?
+  createdAt DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bird    Bird    @relation(fields: [birdId], references: [id], onDelete: Cascade)
+  vaccine Vaccine @relation(fields: [vaccineId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, birdId])
+  @@index([tenantId, vaccineId])
+  @@index([tenantId, appliedAt])
 }

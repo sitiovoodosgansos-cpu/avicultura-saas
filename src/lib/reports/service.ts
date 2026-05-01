@@ -238,8 +238,8 @@ export async function getReportData(
     const all = group.birds;
     return {
       title: group.title,
-      species: group.species.name,
-      breed: group.breed.name,
+      species: group.species?.name ?? "—",
+      breed: group.breed?.name ?? "—",
       variety: group.variety?.name ?? null,
       totalBirds: all.length,
       active: all.filter((b) => b.status === BirdStatus.ACTIVE).length,
@@ -252,8 +252,8 @@ export async function getReportData(
     const hatched = batch.events.filter((e) => e.type === "HATCHED").reduce((sum, e) => sum + e.quantity, 0);
     const infertile = batch.events.filter((e) => e.type === "INFERTILE").reduce((sum, e) => sum + e.quantity, 0);
     return {
-      incubator: batch.incubator.name,
-      group: batch.flockGroup.title,
+      incubator: batch.incubator?.name ?? "—",
+      group: batch.flockGroup?.title ?? "—",
       eggsSet: batch.eggsSet,
       hatched,
       infertile,

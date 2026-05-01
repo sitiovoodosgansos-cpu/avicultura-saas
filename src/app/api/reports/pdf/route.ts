@@ -30,22 +30,31 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
 
-  const period = resolvePeriod(preset, from, to);
-  const data = await getReportData(auth.session.user.tenantId, type, period);
+  try {
+    const period = resolvePeriod(preset, from, to);
+    const data = await getReportData(auth.session.user.tenantId, type, period);
 
-  const farm = await prisma.farm.findFirst({
-    where: { tenantId: auth.session.user.tenantId },
-    select: { name: true }
-  });
+    const farm = await prisma.farm.findFirst({
+      where: { tenantId: auth.session.user.tenantId },
+      select: { name: true }
+    });
 
-  const buffer = await generateReportPdf(data, farm?.name ?? "Sitio sem nome");
-  const body = new Uint8Array(buffer);
+    const buffer = await generateReportPdf(data, farm?.name ?? "Sitio sem nome");
+    const body = new Uint8Array(buffer);
 
-  return new Response(body, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="relatorio-${type.toLowerCase()}-${data.period.from}-${data.period.to}.pdf"`
-    }
-  });
+    return new Response(body, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="relatorio-${type.toLowerCase()}-${data.period.from}-${data.period.to}.pdf"`
+      }
+    });
+  } catch (error) {
+    console.error("[api/reports/pdf] failed to render PDF", error);
+    const message = error instanceof Error ? error.message : "Erro desconhecido ao gerar o PDF.";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
 }
 

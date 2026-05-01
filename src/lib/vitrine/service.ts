@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { generateRingNumbers } from "@/lib/plantel/service";
 import {
   birthDateFromAgeInMonths,
   calculateAgeInMonths,
@@ -244,7 +245,16 @@ export async function createListingsFromHatchedBatch(
     where: { id: batchId, tenantId },
     include: {
       events: { where: { type: "HATCHED" } },
-      flockGroup: { select: { id: true, title: true } }
+      flockGroup: {
+        select: {
+          id: true,
+          title: true,
+          speciesId: true,
+          breedId: true,
+          varietyId: true,
+          bayNumber: true
+        }
+      }
     }
   });
   if (!batch) {
@@ -265,16 +275,48 @@ export async function createListingsFromHatchedBatch(
   const capitalized = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
   const title = `Lote ${capitalized}/${birthDate.getFullYear()}`;
 
-  const listing = await prisma.vitrineListing.create({
-    data: {
-      tenantId,
-      flockGroupId: batch.flockGroupId,
-      title,
-      birthDate,
-      initialQuantity: totalHatched,
-      availableQuantity: totalHatched,
-      sourceIncubatorBatchId: batch.id
+  const ringNumbers = await generateRingNumbers(tenantId, totalHatched);
+
+  const hatchTitle = `Chocada ${capitalized}/${birthDate.getFullYear()} · ${batch.flockGroup.title}`;
+
+  const listing = await prisma.$transaction(async (tx) => {
+    const hatchedFlockGroup = await tx.flockGroup.create({
+      data: {
+        tenantId,
+        title: hatchTitle,
+        speciesId: batch.flockGroup.speciesId,
+        breedId: batch.flockGroup.breedId,
+        varietyId: batch.flockGroup.varietyId,
+        bayNumber: batch.flockGroup.bayNumber,
+        matrixCount: 0,
+        reproducerCount: 0
+      }
+    });
+
+    if (ringNumbers.length > 0) {
+      await tx.bird.createMany({
+        data: ringNumbers.map((ringNumber) => ({
+          tenantId,
+          flockGroupId: hatchedFlockGroup.id,
+          ringNumber,
+          sex: "UNKNOWN" as const,
+          status: "ACTIVE" as const,
+          acquisitionDate: birthDate
+        }))
+      });
     }
+
+    return tx.vitrineListing.create({
+      data: {
+        tenantId,
+        flockGroupId: hatchedFlockGroup.id,
+        title,
+        birthDate,
+        initialQuantity: totalHatched,
+        availableQuantity: totalHatched,
+        sourceIncubatorBatchId: batch.id
+      }
+    });
   });
 
   const tierExists = await prisma.priceTier.findFirst({

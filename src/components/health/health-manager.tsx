@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +20,21 @@ type BirdOption = {
   ringNumber: string;
   nickname: string | null;
   status: string;
+  sex: "FEMALE" | "MALE" | "UNKNOWN";
+  flockGroup: { title: string };
 };
+
+function birdRoleLabel(sex: BirdOption["sex"]): string {
+  if (sex === "FEMALE") return "Matriz";
+  if (sex === "MALE") return "Reprodutor";
+  return "Filhote";
+}
+
+function birdOptionLabel(bird: BirdOption): string {
+  const role = birdRoleLabel(bird.sex);
+  const base = `${bird.flockGroup.title} · ${role} · ${bird.ringNumber}`;
+  return bird.nickname ? `${base} (${bird.nickname})` : base;
+}
 
 type TimelineEvent = {
   id: string;
@@ -361,6 +374,17 @@ export function HealthManager() {
     setSaving(true);
     setError(null);
 
+    if (!caseForm.birdId) {
+      setError("Selecione uma ave para o caso clínico.");
+      setSaving(false);
+      return;
+    }
+    if (!caseForm.infirmaryId) {
+      setError("Selecione uma enfermaria.");
+      setSaving(false);
+      return;
+    }
+
     const endpoint = editingCaseId ? `/api/health/cases/${editingCaseId}` : "/api/health/cases";
     const method = editingCaseId ? "PUT" : "POST";
 
@@ -516,6 +540,17 @@ export function HealthManager() {
     setSaving(true);
     setError(null);
 
+    if (!quarantineForm.birdId) {
+      setError("Selecione uma ave para iniciar a quarentena.");
+      setSaving(false);
+      return;
+    }
+    if (!quarantineForm.infirmaryId) {
+      setError("Selecione uma enfermaria de quarentena.");
+      setSaving(false);
+      return;
+    }
+
     const optionalPayload = quarantineTemplates
       .map((tpl) => ({
         tpl,
@@ -620,41 +655,6 @@ export function HealthManager() {
           </Button>
         </div>
       </Card>
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Diagnosticos recorrentes</h3>
-          <div className="mt-3 space-y-2 text-sm">
-            {(metrics?.topDiagnoses ?? []).length === 0 ? (
-              <p className="text-zinc-500">Sem dados suficientes.</p>
-            ) : (
-              metrics?.topDiagnoses.map((item) => (
-                <div key={item.diagnosis} className="flex items-center justify-between rounded-md border border-zinc-200 px-3 py-2">
-                  <span>{item.diagnosis}</span>
-                  <span className="font-semibold">{item.count}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="text-base font-semibold text-zinc-900">Evolucao de casos</h3>
-          <div className="mt-4 h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={metrics?.evolution ?? []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="opened" fill="#0369a1" name="Casos" />
-                <Bar dataKey="cured" fill="#16a34a" name="Curadas" />
-                <Bar dataKey="dead" fill="#dc2626" name="Mortes" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </section>
 
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Enfermarias</h3>
@@ -925,7 +925,7 @@ export function HealthManager() {
             <option value="">Selecione a ave (anilha)</option>
             {birds.map((bird) => (
               <option key={bird.id} value={bird.id}>
-                {bird.ringNumber}{bird.nickname ? ` - ${bird.nickname}` : ""}
+                {birdOptionLabel(bird)}
               </option>
             ))}
           </select>
