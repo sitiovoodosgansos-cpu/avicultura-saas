@@ -241,6 +241,7 @@ export function HealthManager() {
   const [showInfirmaryModal, setShowInfirmaryModal] = useState(false);
   const [showCaseModal, setShowCaseModal] = useState(false);
   const [showQuarantineModal, setShowQuarantineModal] = useState(false);
+  const [protocolsInfirmaryId, setProtocolsInfirmaryId] = useState<string | null>(null);
 
   const [timelineByCase, setTimelineByCase] = useState<Record<string, TimelineEvent[]>>({});
   const [eventByCase, setEventByCase] = useState<Record<string, EventDraft>>({});
@@ -614,12 +615,6 @@ export function HealthManager() {
 
   return (
     <main className="space-y-6">
-      <PageTitle
-        title="Sanidade / Enfermaria"
-        description="Controle clinico com enfermarias, timeline e quarentena de novas aves."
-        icon="💊"
-      />
-
       {error && !(showInfirmaryModal || showCaseModal || showQuarantineModal) ? (
         <Card>
           <p className="text-sm text-red-600">{error}</p>
@@ -692,7 +687,18 @@ export function HealthManager() {
               const activeCases = cases.filter(
                 (c) => c.infirmaryId === inf.id && c.status === "TREATING"
               ).length;
+              const activeQuarantineCount = quarantineCases.filter(
+                (q) => q.infirmaryId === inf.id && q.status === "ACTIVE"
+              ).length;
               const isActive = inf.status === "ACTIVE";
+              const usageLabel =
+                activeCases > 0 && activeQuarantineCount > 0
+                  ? "Tratamento + Quarentena"
+                  : activeCases > 0
+                    ? "Tratamento"
+                    : activeQuarantineCount > 0
+                      ? "Quarentena"
+                      : "Disponível";
               return (
                 <Card
                   key={inf.id}
@@ -716,11 +722,22 @@ export function HealthManager() {
                               : "bg-zinc-100 text-zinc-500"
                           }`}
                         >
-                          {isActive ? "Ativa" : "Inativa"}
+                          {usageLabel}
                         </span>
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      {activeQuarantineCount > 0 ? (
+                        <button
+                          type="button"
+                          aria-label="Ver protocolos da quarentena"
+                          title="Protocolos da quarentena"
+                          onClick={() => setProtocolsInfirmaryId(inf.id)}
+                          className="inline-flex h-9 items-center justify-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          📋 Protocolos
+                        </button>
+                      ) : null}
                       <Button
                         variant="outline"
                         type="button"
@@ -749,10 +766,8 @@ export function HealthManager() {
                       <p className="text-xl font-semibold text-zinc-900">{activeCases}</p>
                     </div>
                     <div>
-                      <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Status</p>
-                      <p className="text-xl font-semibold text-zinc-900">
-                        {isActive ? "Ativa" : "Inativa"}
-                      </p>
+                      <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Em quarentena</p>
+                      <p className="text-xl font-semibold text-zinc-900">{activeQuarantineCount}</p>
                     </div>
                   </div>
                   {inf.notes ? (
@@ -894,6 +909,78 @@ export function HealthManager() {
                       </ul>
                     );
                   })()}
+
+                  {(() => {
+                    const quarantines = quarantineCases.filter(
+                      (q) => q.infirmaryId === inf.id && q.status === "ACTIVE"
+                    );
+                    if (quarantines.length === 0) return null;
+                    return (
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                          🛡️ Quarentena
+                        </p>
+                        <ul className="mt-1.5 grid gap-2">
+                          {quarantines.map((q) => {
+                            const start = new Date(q.entryDate);
+                            const expected = new Date(q.expectedExitDate);
+                            const total = Math.max(
+                              1,
+                              (expected.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)
+                            );
+                            const elapsedDays = Math.max(
+                              0,
+                              (Date.now() - start.getTime()) / (24 * 60 * 60 * 1000)
+                            );
+                            const remaining = Math.max(0, total - Math.floor(elapsedDays));
+                            const overdue = elapsedDays > total;
+                            const progressPct = Math.min(100, (elapsedDays / total) * 100);
+                            const barColor = overdue
+                              ? "bg-rose-500"
+                              : progressPct > 80
+                                ? "bg-amber-500"
+                                : "bg-emerald-500";
+                            return (
+                              <li
+                                key={q.id}
+                                className="rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2.5"
+                              >
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                  <span className="rounded-md bg-white px-2 py-0.5 font-mono text-[11px] font-semibold text-zinc-800">
+                                    {q.bird.ringNumber}
+                                  </span>
+                                  <span className="text-xs text-zinc-500">
+                                    · {q.bird.flockGroup.title}
+                                  </span>
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white">
+                                    <div
+                                      className={`h-full transition-all ${barColor}`}
+                                      style={{ width: `${progressPct}%` }}
+                                    />
+                                  </div>
+                                  <span
+                                    className={`whitespace-nowrap text-[10px] font-semibold ${
+                                      overdue
+                                        ? "text-rose-600"
+                                        : progressPct > 80
+                                          ? "text-amber-600"
+                                          : "text-emerald-700"
+                                    }`}
+                                  >
+                                    {overdue
+                                      ? `${Math.floor(elapsedDays - total)}d em atraso`
+                                      : `${remaining}d restantes`}
+                                  </span>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    );
+                  })()}
                 </Card>
               );
             })}
@@ -901,53 +988,61 @@ export function HealthManager() {
         ) : null}
       </div>
 
-      <Card>
-        <h3 className="text-base font-semibold text-zinc-900">Quarentenas de novas aves</h3>
-        {activeQuarantines.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-500">Nenhuma ave em quarentena no momento.</p>
-        ) : (
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {activeQuarantines.map((item) => (
-              <div key={item.id} className="rounded-lg border border-zinc-200 bg-white p-3">
-                <p className="text-sm font-semibold text-zinc-900">Anilha {item.bird.ringNumber}</p>
-                <p className="text-xs text-zinc-600">{item.bird.flockGroup.title}</p>
-                <p className="mt-2 text-xs text-zinc-600">Enfermaria: {item.infirmary.name}</p>
-                <p className="text-xs text-zinc-600">Entrada: {toDateInput(item.entryDate)}</p>
-                <p className="text-xs text-zinc-600">Saida prevista: {toDateInput(item.expectedExitDate)}</p>
-                <p className="text-xs text-zinc-600">Status: {quarantineStatusLabel(item.status)}</p>
-                <div className="mt-2 border-t border-zinc-100 pt-2">
-                  <p className="text-xs font-semibold text-zinc-700">Tratamentos</p>
-                  <ul className="mt-1 space-y-1 text-xs text-zinc-600">
-                    {item.treatments.map((treat) => (
-                      <li key={treat.id || `${item.id}-${treat.label}`}>
-                        {treat.label} - inicio {toDateInput(treat.startDate)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <Card>
-        <h3 className="text-base font-semibold text-zinc-900">Internacoes atuais</h3>
-        {inTreatmentCases.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-500">Nenhuma ave internada no momento.</p>
-        ) : (
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-            {inTreatmentCases.map((item) => (
-              <div key={item.id} className="rounded-lg border border-zinc-200 bg-white p-3">
-                <p className="text-sm font-semibold text-zinc-900">Anilha {item.bird.ringNumber}</p>
-                <p className="text-xs text-zinc-600">{item.infirmary.name}</p>
-                <p className="mt-2 text-xs text-zinc-600">Diagnostico: {item.diagnosis || "-"}</p>
-                <p className="text-xs text-zinc-600">Responsavel: {item.responsible || "-"}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+      <AppModal
+        open={Boolean(protocolsInfirmaryId)}
+        title={
+          protocolsInfirmaryId
+            ? `📋 Protocolos — ${infirmaries.find((i) => i.id === protocolsInfirmaryId)?.name ?? ""}`
+            : "Protocolos"
+        }
+        onClose={() => setProtocolsInfirmaryId(null)}
+      >
+        {(() => {
+          const infirmaryQuarantines = quarantineCases.filter(
+            (q) => q.infirmaryId === protocolsInfirmaryId && q.status === "ACTIVE"
+          );
+          if (infirmaryQuarantines.length === 0) {
+            return (
+              <p className="rounded-2xl border border-dashed border-zinc-200 bg-white/60 px-3 py-6 text-center text-sm text-zinc-500">
+                Sem aves em quarentena nesta enfermaria.
+              </p>
+            );
+          }
+          return (
+            <ul className="grid gap-2">
+              {infirmaryQuarantines.map((q) => (
+                <li key={q.id} className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="rounded-md bg-zinc-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-zinc-800">
+                      {q.bird.ringNumber}
+                    </span>
+                    <span className="text-xs text-zinc-500">· {q.bird.flockGroup.title}</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-zinc-500">
+                    Entrada {toDateInput(q.entryDate)} · saída prevista {toDateInput(q.expectedExitDate)}
+                  </p>
+                  <div className="mt-2 border-t border-zinc-100 pt-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                      Tratamentos do checklist
+                    </p>
+                    {q.treatments.length === 0 ? (
+                      <p className="mt-1 text-xs text-zinc-500">Sem tratamentos cadastrados.</p>
+                    ) : (
+                      <ul className="mt-1 space-y-0.5 text-xs text-zinc-600">
+                        {q.treatments.map((t) => (
+                          <li key={t.id || `${q.id}-${t.label}`}>
+                            • {t.label} — início {toDateInput(t.startDate)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          );
+        })()}
+      </AppModal>
 
       <AppModal
         open={showInfirmaryModal}
