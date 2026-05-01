@@ -264,6 +264,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       born: number;
       dead: number;
       sold: number;
+      inVitrine: number;
       childFlockGroupId: string | null;
     }>;
   } | null>(null);
@@ -1164,6 +1165,12 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                             Vendidos
                           </p>
                           <p className="text-lg font-semibold text-emerald-700">{batch.sold}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-amber-600">
+                            Vitrine
+                          </p>
+                          <p className="text-lg font-semibold text-amber-700">{batch.inVitrine}</p>
                         </div>
                       </div>
                     </div>

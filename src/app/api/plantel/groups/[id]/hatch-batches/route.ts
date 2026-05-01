@@ -114,6 +114,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       );
       const deadBirdsCount = childGroupId ? deadBirdsByGroup.get(childGroupId) ?? 0 : 0;
       const dead = deathFromRecords + deadBirdsCount;
+      const inVitrine = batch.vitrineListings.reduce(
+        (s, l) => s + (l.availableQuantity ?? 0),
+        0
+      );
 
       return {
         batchId: batch.id,
@@ -123,6 +127,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         born: totalHatched,
         dead,
         sold,
+        inVitrine,
         childFlockGroupId: childGroupId
       };
     })
