@@ -23,28 +23,28 @@ export function AppNav() {
 
   return (
     <>
-      <aside className="hidden w-64 shrink-0 p-3 md:block">
-        <div className="sticky top-3 max-h-[calc(100vh-1.5rem)] overflow-y-auto rounded-[24px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,249,255,0.94))] p-3 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
-          <div className="mb-3">
-            <div className="flex items-center gap-2.5">
+      <aside className="hidden w-72 shrink-0 p-4 md:block">
+        <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,249,255,0.94))] p-5 shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+          <div className="mb-4">
+            <div className="flex items-center gap-3">
               <Image
                 src="/ornabird-favicon.png"
                 alt="Ornabird"
-                width={40}
-                height={40}
-                className="size-9 object-contain"
+                width={48}
+                height={48}
+                className="size-12 object-contain"
                 priority
               />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold tracking-[0.18em] text-slate-400">Ornabird</p>
-                <h2 className="truncate text-[11px] font-semibold leading-tight text-slate-900">
-                  Gestao de Criatorios
+              <div>
+                <p className="text-xs font-semibold tracking-[0.2em] text-slate-400">Ornabird</p>
+                <h2 className="text-sm font-semibold leading-tight text-slate-900">
+                  Gestao de Criatorios Ornamentais
                 </h2>
               </div>
             </div>
           </div>
 
-          <nav className="space-y-1">
+          <nav className="space-y-0.5">
             {navItems.map(({ href, label, emoji }) => {
               const active = pathname === href;
               return (
@@ -52,15 +52,15 @@ export function AppNav() {
                   key={href}
                   href={href}
                   className={cn(
-                    "group flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-sm font-semibold transition duration-200",
+                    "group flex items-center gap-3 rounded-2xl px-3 py-1.5 text-sm font-semibold transition duration-200",
                     active
-                      ? "bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-white shadow-[0_8px_20px_rgba(15,157,138,0.18)]"
+                      ? "bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-white shadow-[0_12px_28px_rgba(15,157,138,0.22)]"
                       : "text-slate-700 hover:bg-[color:var(--surface-soft)]"
                   )}
                 >
                   <span
                     className={cn(
-                      "flex size-8 items-center justify-center rounded-xl text-base",
+                      "flex size-10 items-center justify-center rounded-2xl text-lg",
                       active ? "bg-white/18" : "bg-white shadow-sm"
                     )}
                   >
