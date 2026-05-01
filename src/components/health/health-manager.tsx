@@ -20,7 +20,21 @@ type BirdOption = {
   ringNumber: string;
   nickname: string | null;
   status: string;
+  sex: "FEMALE" | "MALE" | "UNKNOWN";
+  flockGroup: { title: string };
 };
+
+function birdRoleLabel(sex: BirdOption["sex"]): string {
+  if (sex === "FEMALE") return "Matriz";
+  if (sex === "MALE") return "Reprodutor";
+  return "Filhote";
+}
+
+function birdOptionLabel(bird: BirdOption): string {
+  const role = birdRoleLabel(bird.sex);
+  const base = `${bird.flockGroup.title} · ${role} · ${bird.ringNumber}`;
+  return bird.nickname ? `${base} (${bird.nickname})` : base;
+}
 
 type TimelineEvent = {
   id: string;
@@ -360,6 +374,17 @@ export function HealthManager() {
     setSaving(true);
     setError(null);
 
+    if (!caseForm.birdId) {
+      setError("Selecione uma ave para o caso clínico.");
+      setSaving(false);
+      return;
+    }
+    if (!caseForm.infirmaryId) {
+      setError("Selecione uma enfermaria.");
+      setSaving(false);
+      return;
+    }
+
     const endpoint = editingCaseId ? `/api/health/cases/${editingCaseId}` : "/api/health/cases";
     const method = editingCaseId ? "PUT" : "POST";
 
@@ -514,6 +539,17 @@ export function HealthManager() {
     event.preventDefault();
     setSaving(true);
     setError(null);
+
+    if (!quarantineForm.birdId) {
+      setError("Selecione uma ave para iniciar a quarentena.");
+      setSaving(false);
+      return;
+    }
+    if (!quarantineForm.infirmaryId) {
+      setError("Selecione uma enfermaria de quarentena.");
+      setSaving(false);
+      return;
+    }
 
     const optionalPayload = quarantineTemplates
       .map((tpl) => ({
@@ -889,7 +925,7 @@ export function HealthManager() {
             <option value="">Selecione a ave (anilha)</option>
             {birds.map((bird) => (
               <option key={bird.id} value={bird.id}>
-                {bird.ringNumber}{bird.nickname ? ` - ${bird.nickname}` : ""}
+                {birdOptionLabel(bird)}
               </option>
             ))}
           </select>
