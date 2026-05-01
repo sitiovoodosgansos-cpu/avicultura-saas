@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { Pencil } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -656,53 +657,92 @@ export function HealthManager() {
         </div>
       </Card>
 
-      <Card>
+      <div>
         <h3 className="text-base font-semibold text-zinc-900">Enfermarias</h3>
-        {loading ? <p className="mt-4 text-sm text-zinc-500">Carregando...</p> : null}
-        {!loading && infirmaries.length === 0 ? <p className="mt-4 text-sm text-zinc-500">Nenhuma enfermaria cadastrada.</p> : null}
-        {!loading && infirmaries.length > 0 ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-3">Nome</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Observacoes</th>
-                  <th className="py-2 pr-3">Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {infirmaries.map((inf) => (
-                  <tr key={inf.id} className="border-b border-zinc-100">
-                    <td className="py-2 pr-3 font-medium text-zinc-900">{inf.name}</td>
-                    <td className="py-2 pr-3">{inf.status}</td>
-                    <td className="py-2 pr-3">{inf.notes || "-"}</td>
-                    <td className="py-2 pr-3">
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          type="button"
-                          onClick={() => {
-                            setEditingInfirmaryId(inf.id);
-                            setInfirmaryForm({ name: inf.name, notes: inf.notes ?? "", status: inf.status });
-                            setShowInfirmaryModal(true);
-                          }}
-                        >
-                          Editar
-                        </Button>
-                        <DeleteActionButton
-                          onClick={() => removeInfirmary(inf.id)}
-                          aria-label="Excluir enfermaria"
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {loading ? <Card className="mt-4"><p className="text-sm text-zinc-500">Carregando...</p></Card> : null}
+        {!loading && infirmaries.length === 0 ? (
+          <Card className="mt-4"><p className="text-sm text-zinc-500">Nenhuma enfermaria cadastrada.</p></Card>
         ) : null}
-      </Card>
+        {!loading && infirmaries.length > 0 ? (
+          <section className="mt-4 grid gap-3 md:grid-cols-2">
+            {infirmaries.map((inf) => {
+              const activeCases = cases.filter(
+                (c) => c.infirmaryId === inf.id && c.status === "TREATING"
+              ).length;
+              const isActive = inf.status === "ACTIVE";
+              return (
+                <Card
+                  key={inf.id}
+                  className={`border ${isActive ? "border-emerald-200" : "border-zinc-200"}`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl text-lg ${
+                          isActive ? "bg-emerald-100" : "bg-zinc-100"
+                        }`}
+                      >
+                        🏥
+                      </div>
+                      <div>
+                        <p className="text-lg font-semibold text-zinc-900">{inf.name}</p>
+                        <span
+                          className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                            isActive
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-zinc-100 text-zinc-500"
+                          }`}
+                        >
+                          {isActive ? "Ativa" : "Inativa"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        type="button"
+                        size="icon"
+                        className="h-12 w-12 rounded-xl md:h-auto md:w-auto md:px-3"
+                        aria-label="Editar enfermaria"
+                        title="Editar enfermaria"
+                        onClick={() => {
+                          setEditingInfirmaryId(inf.id);
+                          setInfirmaryForm({ name: inf.name, notes: inf.notes ?? "", status: inf.status });
+                          setShowInfirmaryModal(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <DeleteActionButton
+                        iconOnly
+                        onClick={() => removeInfirmary(inf.id)}
+                        aria-label="Excluir enfermaria"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-zinc-50 p-3 text-sm">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Em tratamento</p>
+                      <p className="text-xl font-semibold text-zinc-900">{activeCases}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Status</p>
+                      <p className="text-xl font-semibold text-zinc-900">
+                        {isActive ? "Ativa" : "Inativa"}
+                      </p>
+                    </div>
+                  </div>
+                  {inf.notes ? (
+                    <p className="mt-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">
+                      {inf.notes}
+                    </p>
+                  ) : null}
+                </Card>
+              );
+            })}
+          </section>
+        ) : null}
+      </div>
 
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Casos clinicos</h3>
