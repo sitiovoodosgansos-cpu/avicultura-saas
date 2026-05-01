@@ -180,10 +180,30 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
       .map((listing) => listing.sourceBirdId!)
   );
 
-  const hatchedListings = await prisma.vitrineListing.findMany({
+  // Filhotes do lote pai: soma direta dos eventos HATCHED de TODAS as
+  // chocadas (IncubatorBatch) cujo flockGroupId == lote pai. Eh a fonte
+  // primaria - independe de existir VitrineListing ou FlockGroup-filhote
+  // (chocadas finalizadas antes da feature de criacao automatica de Bird/
+  // FlockGroup tambem entram). Reflete quantos filhotes NASCERAM desse lote.
+  const hatchedEvents = await prisma.incubatorBatchEvent.findMany({
+    where: { tenantId, type: "HATCHED" },
+    select: { quantity: true, batch: { select: { flockGroupId: true } } }
+  });
+
+  const daughtersByParent = new Map<string, number>();
+  for (const event of hatchedEvents) {
+    const parentId = event.batch?.flockGroupId;
+    if (!parentId) continue;
+    daughtersByParent.set(parentId, (daughtersByParent.get(parentId) ?? 0) + (event.quantity ?? 0));
+  }
+
+  // Tambem mantem o mapa parent -> Set<childFlockGroupIds> usado pelo modal
+  // de drill-down (lista de Birds materializados em FlockGroups-chocadas).
+  const childGroupListings = await prisma.vitrineListing.findMany({
     where: {
       tenantId,
-      sourceIncubatorBatchId: { not: null }
+      sourceIncubatorBatchId: { not: null },
+      status: { not: "REMOVED" }
     },
     select: {
       flockGroupId: true,
@@ -192,41 +212,16 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
   });
 
   const childGroupIdsByParent = new Map<string, Set<string>>();
-  const allChildGroupIds = new Set<string>();
-  for (const listing of hatchedListings) {
+  for (const listing of childGroupListings) {
     const parentId = listing.sourceIncubatorBatch?.flockGroupId;
-    if (!parentId) continue;
-    if (parentId === listing.flockGroupId) continue;
-    allChildGroupIds.add(listing.flockGroupId);
+    if (!parentId || parentId === listing.flockGroupId) continue;
     const bucket = childGroupIdsByParent.get(parentId) ?? new Set<string>();
     bucket.add(listing.flockGroupId);
     childGroupIdsByParent.set(parentId, bucket);
   }
 
-  let aliveByChildGroup = new Map<string, number>();
-  if (allChildGroupIds.size > 0) {
-    const childBirds = await prisma.bird.findMany({
-      where: {
-        tenantId,
-        flockGroupId: { in: Array.from(allChildGroupIds) },
-        status: { not: "DEAD" }
-      },
-      select: { flockGroupId: true }
-    });
-    aliveByChildGroup = childBirds.reduce((acc, bird) => {
-      acc.set(bird.flockGroupId, (acc.get(bird.flockGroupId) ?? 0) + 1);
-      return acc;
-    }, new Map<string, number>());
-  }
-
   function daughtersFor(parentGroupId: string): number {
-    const childIds = childGroupIdsByParent.get(parentGroupId);
-    if (!childIds) return 0;
-    let total = 0;
-    for (const childId of childIds) {
-      total += aliveByChildGroup.get(childId) ?? 0;
-    }
-    return total;
+    return daughtersByParent.get(parentGroupId) ?? 0;
   }
 
   const filteredBirds = allBirds.filter((bird) => {
