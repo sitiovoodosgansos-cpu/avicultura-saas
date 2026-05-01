@@ -175,20 +175,38 @@ function StatChip({
 function CompactStatChip({
   emoji,
   label,
-  value
+  value,
+  onClick
 }: {
   emoji: string;
   label: string;
   value: number;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="flex h-full min-h-[84px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center sm:min-h-[92px]">
+  const baseClass =
+    "flex h-full min-h-[84px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center sm:min-h-[92px]";
+  const content = (
+    <>
       <p className="max-w-full truncate text-[11px] leading-tight text-slate-500 sm:text-[12px]">
         {emoji} {label}
       </p>
       <p className="mt-1 text-[28px] font-semibold leading-none text-slate-900 sm:text-[30px]">{value}</p>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${baseClass} cursor-pointer transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-[color:var(--brand)]/30`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={baseClass}>{content}</div>;
 }
 
 function toDateInput(value: string | null | undefined) {
@@ -230,8 +248,40 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [sellListingError, setSellListingError] = useState<string | null>(null);
   const [sellListingSubmitting, setSellListingSubmitting] = useState(false);
   const [vitrineToast, setVitrineToast] = useState<string | null>(null);
+  const [daughtersGroup, setDaughtersGroup] = useState<{
+    parent: { id: string; title: string };
+    birds: Array<PlantelBird & { flockGroupTitle: string }>;
+  } | null>(null);
+  const [daughtersLoading, setDaughtersLoading] = useState(false);
 
   const canSubmitBird = useMemo(() => Boolean(birdForm.flockGroupId), [birdForm.flockGroupId]);
+
+  async function openDaughters(parentGroupId: string) {
+    setDaughtersLoading(true);
+    setDaughtersGroup(null);
+    try {
+      const res = await fetch(`/api/plantel/groups/${parentGroupId}/daughters`, { cache: "no-store" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Não foi possível carregar as filhas.");
+        return;
+      }
+      const data = (await res.json()) as {
+        parent: { id: string; title: string };
+        birds: Array<PlantelBird & { flockGroupTitle: string }>;
+      };
+      setDaughtersGroup({ parent: data.parent, birds: data.birds });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar filhas.");
+    } finally {
+      setDaughtersLoading(false);
+    }
+  }
+
+  async function reloadDaughters() {
+    if (!daughtersGroup) return;
+    await openDaughters(daughtersGroup.parent.id);
+  }
 
   async function loadData() {
     setLoading(true);
@@ -876,6 +926,144 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         ) : null}
       </AppModal>
 
+      <AppModal
+        open={Boolean(daughtersGroup) || daughtersLoading}
+        title={
+          daughtersGroup
+            ? `🐣 Filhas — ${daughtersGroup.parent.title}`
+            : "Carregando filhas..."
+        }
+        onClose={() => setDaughtersGroup(null)}
+      >
+        {daughtersLoading ? (
+          <p className="text-sm text-slate-500">Carregando...</p>
+        ) : daughtersGroup ? (
+          daughtersGroup.birds.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
+              Nenhum filhote vivo nas chocadas deste grupo.
+            </p>
+          ) : (
+            <ul className="grid gap-2">
+              {daughtersGroup.birds.map((bird) => {
+                const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : "?";
+                const sexLabel =
+                  bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "Não informado";
+                const iconBtn =
+                  "inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 sm:size-9";
+                return (
+                  <li
+                    key={bird.id}
+                    className="rounded-2xl border border-[color:var(--line)] bg-white/80 px-3 py-2.5"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
+                          {bird.ringNumber}
+                        </span>
+                        <span
+                          className="text-sm leading-none text-slate-500"
+                          aria-label={sexLabel}
+                          title={sexLabel}
+                        >
+                          {sexGlyph}
+                        </span>
+                        {bird.nickname ? (
+                          <span className="truncate text-sm font-medium text-slate-800">
+                            {bird.nickname}
+                          </span>
+                        ) : null}
+                        <span className="truncate text-[11px] text-slate-500">
+                          · {bird.flockGroupTitle}
+                        </span>
+                        {bird.inVitrine ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                            Vitrine
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select
+                          aria-label="Status da ave"
+                          className={`h-8 rounded-lg border border-[color:var(--line)] bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[color:var(--brand)]/20 ${statusBadge[bird.status]}`}
+                          value={statusDraftByBird[bird.id] ?? bird.status}
+                          onChange={async (event) => {
+                            const next = event.target.value as BirdStatus;
+                            setStatusDraftByBird((prev) => ({ ...prev, [bird.id]: next }));
+                            if (next !== bird.status) {
+                              await applyBirdStatus(bird.id, next);
+                              await reloadDaughters();
+                            }
+                          }}
+                        >
+                          <option value="ACTIVE">Ativa</option>
+                          <option value="SICK">Doente</option>
+                          <option value="DEAD">Morta</option>
+                          <option value="BROODY">Choca</option>
+                        </select>
+
+                        {!bird.inVitrine ? (
+                          <button
+                            type="button"
+                            aria-label="Colocar à venda"
+                            title="Colocar à venda"
+                            className={iconBtn}
+                            onClick={() => {
+                              setSellingBird(bird);
+                              setSellListingForm({ ageInMonths: 0, priceOverride: "" });
+                              setSellListingError(null);
+                            }}
+                          >
+                            <DollarSign className="h-4 w-4" aria-hidden />
+                          </button>
+                        ) : null}
+
+                        <button
+                          type="button"
+                          aria-label="Histórico de status"
+                          title="Histórico de status"
+                          className={iconBtn}
+                          onClick={() => toggleHistory(bird.id)}
+                        >
+                          <History className="h-4 w-4" aria-hidden />
+                        </button>
+
+                        <DeleteActionButton
+                          iconOnly
+                          onClick={async () => {
+                            await removeBird(bird.id);
+                            await reloadDaughters();
+                          }}
+                          aria-label="Excluir ave"
+                          className="size-8 sm:size-9"
+                        />
+                      </div>
+                    </div>
+                    {historyByBird[bird.id] ? (
+                      <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                        {historyByBird[bird.id].length === 0 ? (
+                          <p>Sem histórico de status.</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {historyByBird[bird.id].map((event) => (
+                              <li key={event.id}>
+                                {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
+                                {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para{" "}
+                                {statusLabel[event.toStatus]}
+                                {event.reason ? ` - ${event.reason}` : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : null}
+      </AppModal>
+
       {vitrineToast ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
           <div className="flex items-start justify-between gap-2">
@@ -948,7 +1136,12 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
                   <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
                   <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
-                  <CompactStatChip emoji={"🐣"} label="Filhas" value={group.summary.daughters} />
+                  <CompactStatChip
+                    emoji={"🐣"}
+                    label="Filhas"
+                    value={group.summary.daughters}
+                    onClick={group.summary.daughters > 0 ? () => openDaughters(group.id) : undefined}
+                  />
                   <CompactStatChip emoji={"🏠"} label="Baia" value={group.bayNumber} />
                 </div>
 
