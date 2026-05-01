@@ -436,7 +436,7 @@ export async function createBird(
 ) {
   const group = await prisma.flockGroup.findFirst({
     where: { id: input.flockGroupId, tenantId },
-    select: { id: true, bayNumber: true }
+    select: { id: true, bayNumber: true, title: true }
   });
   if (!group) return null;
 
@@ -478,6 +478,24 @@ export async function createBird(
       }
     }
   });
+
+  if (input.purchaseValue && input.purchaseValue > 0) {
+    const expenseDate = input.acquisitionDate ? new Date(input.acquisitionDate) : new Date();
+    const itemLabel = input.nickname?.trim()
+      ? `${group.title} - ${ringNumber} (${input.nickname.trim()})`
+      : `${group.title} - ${ringNumber}`;
+    await prisma.financialExpense.create({
+      data: {
+        tenantId,
+        date: expenseDate,
+        category: "BIRD_PURCHASE",
+        item: itemLabel,
+        amount: input.purchaseValue,
+        description: `Compra de ave: ${ringNumber}`,
+        supplier: input.origin?.trim() || null
+      }
+    });
+  }
 
   return bird;
 }

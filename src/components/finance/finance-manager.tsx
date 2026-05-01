@@ -89,6 +89,7 @@ const defaultExpenseCategories: CategoryOption[] = [
   { value: "MEDICATION", label: "Medicamentos" },
   { value: "STRUCTURE", label: "Estrutura" },
   { value: "MAINTENANCE", label: "Manutencao" },
+  { value: "BIRD_PURCHASE", label: "Compra de aves" },
   { value: "OTHER_EXPENSE", label: "Outras saidas" }
 ];
 
