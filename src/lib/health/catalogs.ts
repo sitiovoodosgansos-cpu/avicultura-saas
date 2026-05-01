@@ -105,7 +105,9 @@ export function createVaccine(tenantId: string, input: VaccineInput) {
       tenantId,
       name: input.name,
       recommendedAgeMonths: input.recommendedAgeMonths ?? null,
+      recommendedAgeUnit: input.recommendedAgeUnit ?? null,
       intervalMonths: input.intervalMonths ?? null,
+      intervalUnit: input.intervalUnit ?? null,
       notes: input.notes?.trim() || null
     }
   });
@@ -119,7 +121,9 @@ export async function updateVaccine(tenantId: string, id: string, input: Vaccine
     data: {
       name: input.name,
       recommendedAgeMonths: input.recommendedAgeMonths ?? null,
+      recommendedAgeUnit: input.recommendedAgeUnit ?? null,
       intervalMonths: input.intervalMonths ?? null,
+      intervalUnit: input.intervalUnit ?? null,
       notes: input.notes?.trim() || null
     }
   });

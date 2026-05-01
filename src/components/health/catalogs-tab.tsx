@@ -15,6 +15,23 @@ const textareaClass =
   "min-h-20 w-full rounded-2xl border border-[color:var(--line)] bg-white/90 px-3 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-[color:var(--brand)]/20 sm:px-4 sm:py-3";
 
 type CatalogKey = "diseases" | "medications" | "vaccines" | "death-reasons";
+type PeriodUnit = "days" | "weeks" | "months";
+
+const UNIT_LABEL: Record<PeriodUnit, string> = {
+  days: "dias",
+  weeks: "semanas",
+  months: "meses"
+};
+
+const UNIT_SHORT: Record<PeriodUnit, string> = {
+  days: "d",
+  weeks: "sem",
+  months: "m"
+};
+
+function asUnit(value: string | null | undefined): PeriodUnit {
+  return value === "days" || value === "weeks" || value === "months" ? value : "months";
+}
 
 const CATALOG_META: Record<
   CatalogKey,
@@ -45,7 +62,9 @@ type AnyItem = {
   defaultDosage?: string | null;
   route?: string | null;
   recommendedAgeMonths?: number | null;
+  recommendedAgeUnit?: string | null;
   intervalMonths?: number | null;
+  intervalUnit?: string | null;
   notes?: string | null;
 };
 
@@ -78,7 +97,9 @@ function payloadFor(catalog: CatalogKey, form: FormState) {
         recommendedAgeMonths: form.recommendedAgeMonths
           ? Number(form.recommendedAgeMonths)
           : null,
+        recommendedAgeUnit: form.recommendedAgeMonths ? asUnit(form.recommendedAgeUnit) : null,
         intervalMonths: form.intervalMonths ? Number(form.intervalMonths) : null,
+        intervalUnit: form.intervalMonths ? asUnit(form.intervalUnit) : null,
         notes: form.notes || null
       };
     case "death-reasons":
@@ -91,7 +112,15 @@ function payloadFor(catalog: CatalogKey, form: FormState) {
 
 function formFromItem(catalog: CatalogKey, item: AnyItem | null): FormState {
   if (!item) {
-    return { name: "", description: "", symptoms: "", defaultTreatment: "", notes: "" };
+    return {
+      name: "",
+      description: "",
+      symptoms: "",
+      defaultTreatment: "",
+      notes: "",
+      recommendedAgeUnit: "months",
+      intervalUnit: "months"
+    };
   }
   switch (catalog) {
     case "diseases":
@@ -112,7 +141,9 @@ function formFromItem(catalog: CatalogKey, item: AnyItem | null): FormState {
       return {
         name: item.name ?? "",
         recommendedAgeMonths: item.recommendedAgeMonths?.toString() ?? "",
+        recommendedAgeUnit: asUnit(item.recommendedAgeUnit),
         intervalMonths: item.intervalMonths?.toString() ?? "",
+        intervalUnit: asUnit(item.intervalUnit),
         notes: item.notes ?? ""
       };
     case "death-reasons":
@@ -134,10 +165,10 @@ function describeItem(catalog: CatalogKey, item: AnyItem): string | null {
     case "vaccines": {
       const parts: string[] = [];
       if (item.recommendedAgeMonths !== null && item.recommendedAgeMonths !== undefined) {
-        parts.push(`Idade: ${item.recommendedAgeMonths}m`);
+        parts.push(`Idade: ${item.recommendedAgeMonths}${UNIT_SHORT[asUnit(item.recommendedAgeUnit)]}`);
       }
       if (item.intervalMonths !== null && item.intervalMonths !== undefined) {
-        parts.push(`Intervalo: ${item.intervalMonths}m`);
+        parts.push(`Intervalo: ${item.intervalMonths}${UNIT_SHORT[asUnit(item.intervalUnit)]}`);
       }
       return parts.length > 0 ? parts.join(" · ") : item.notes ?? null;
     }
@@ -383,29 +414,57 @@ function CatalogList({ catalog }: { catalog: CatalogKey }) {
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1.5">
                   <span className="text-sm font-semibold text-slate-800">
-                    Idade recomendada (meses)
+                    Idade recomendada
                   </span>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.recommendedAgeMonths ?? ""}
-                    onChange={(event) =>
-                      setForm({ ...form, recommendedAgeMonths: event.target.value })
-                    }
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      className="flex-1"
+                      value={form.recommendedAgeMonths ?? ""}
+                      onChange={(event) =>
+                        setForm({ ...form, recommendedAgeMonths: event.target.value })
+                      }
+                    />
+                    <select
+                      className={`${inputClass} w-[110px] flex-none`}
+                      value={asUnit(form.recommendedAgeUnit)}
+                      onChange={(event) =>
+                        setForm({ ...form, recommendedAgeUnit: event.target.value })
+                      }
+                    >
+                      <option value="days">{UNIT_LABEL.days}</option>
+                      <option value="weeks">{UNIT_LABEL.weeks}</option>
+                      <option value="months">{UNIT_LABEL.months}</option>
+                    </select>
+                  </div>
                 </label>
                 <label className="grid gap-1.5">
                   <span className="text-sm font-semibold text-slate-800">
-                    Intervalo de revacinação (meses)
+                    Intervalo de revacinação
                   </span>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={form.intervalMonths ?? ""}
-                    onChange={(event) =>
-                      setForm({ ...form, intervalMonths: event.target.value })
-                    }
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      className="flex-1"
+                      value={form.intervalMonths ?? ""}
+                      onChange={(event) =>
+                        setForm({ ...form, intervalMonths: event.target.value })
+                      }
+                    />
+                    <select
+                      className={`${inputClass} w-[110px] flex-none`}
+                      value={asUnit(form.intervalUnit)}
+                      onChange={(event) =>
+                        setForm({ ...form, intervalUnit: event.target.value })
+                      }
+                    >
+                      <option value="days">{UNIT_LABEL.days}</option>
+                      <option value="weeks">{UNIT_LABEL.weeks}</option>
+                      <option value="months">{UNIT_LABEL.months}</option>
+                    </select>
+                  </div>
                 </label>
               </div>
               <label className="grid gap-1.5">

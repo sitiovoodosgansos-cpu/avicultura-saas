@@ -14,10 +14,15 @@ export const medicationSchema = z.object({
   notes: z.string().trim().optional().nullable()
 });
 
+export const periodUnitSchema = z.enum(["days", "weeks", "months"]);
+export type PeriodUnit = z.infer<typeof periodUnitSchema>;
+
 export const vaccineSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome da vacina."),
   recommendedAgeMonths: z.coerce.number().int().min(0).max(999).optional().nullable(),
+  recommendedAgeUnit: periodUnitSchema.optional().nullable(),
   intervalMonths: z.coerce.number().int().min(0).max(999).optional().nullable(),
+  intervalUnit: periodUnitSchema.optional().nullable(),
   notes: z.string().trim().optional().nullable()
 });
 
