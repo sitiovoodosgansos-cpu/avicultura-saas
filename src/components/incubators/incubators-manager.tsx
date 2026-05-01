@@ -967,12 +967,13 @@ export function IncubatorsManager() {
                   <table className="w-full table-fixed text-sm">
                     <thead>
                       <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.14em] text-zinc-400">
-                        <th className="w-[22%] py-2 pr-2 text-left font-semibold">Especie</th>
-                        <th className="w-[11%] py-2 px-1 text-center font-semibold">Ovos</th>
-                        <th className="w-[11%] py-2 px-1 text-center font-semibold">Nascidos</th>
-                        <th className="w-[11%] py-2 px-1 text-center font-semibold">Infertis</th>
-                        <th className="w-[14%] py-2 px-1 text-center font-semibold">Nao desenvolveu</th>
-                        <th className="w-[14%] py-2 px-1 text-center font-semibold">Morreu na casca</th>
+                        <th className="w-[20%] py-2 pr-2 text-left font-semibold">Especie</th>
+                        <th className="w-[9%] py-2 px-1 text-center font-semibold">Ovos</th>
+                        <th className="w-[9%] py-2 px-1 text-center font-semibold">Nascidos</th>
+                        <th className="w-[9%] py-2 px-1 text-center font-semibold">Infertis</th>
+                        <th className="w-[12%] py-2 px-1 text-center font-semibold">Nao desenvolveu</th>
+                        <th className="w-[12%] py-2 px-1 text-center font-semibold">Morreu na casca</th>
+                        <th className="w-[12%] py-2 px-1 text-center font-semibold">Eclosao</th>
                         <th className="w-[17%] py-2 pl-2 text-center font-semibold">Acoes</th>
                       </tr>
                     </thead>
@@ -1039,6 +1040,9 @@ export function IncubatorsManager() {
                             <td className="py-2 px-1 text-center text-zinc-900">{row.infertile}</td>
                             <td className="py-2 px-1 text-center text-zinc-900">{row.embryoLoss}</td>
                             <td className="py-2 px-1 text-center text-zinc-900">{row.pippedDied}</td>
+                            <td className="py-2 px-1 text-center font-semibold text-emerald-700">
+                              {row.eggsSet > 0 ? formatPercent((row.hatched / row.eggsSet) * 100) : "—"}
+                            </td>
                             <td className="py-2 pl-2">
                               <div className="flex items-center justify-center gap-2">
                                 <Button variant="outline" type="button" onClick={() => {
