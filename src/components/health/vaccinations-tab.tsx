@@ -14,11 +14,13 @@ const textareaClass =
   "min-h-20 w-full rounded-2xl border border-[color:var(--line)] bg-white/90 px-3 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:ring-4 focus:ring-[color:var(--brand)]/20 sm:px-4 sm:py-3";
 
 type Vaccine = { id: string; name: string };
-type Bird = {
+type FlockGroup = {
   id: string;
-  ringNumber: string;
-  nickname: string | null;
-  flockGroup: { title: string };
+  title: string;
+  species: { name: string } | null;
+  breed: { name: string } | null;
+  variety: { name: string } | null;
+  birdCount: number;
 };
 type VaccinationItem = {
   id: string;
@@ -33,14 +35,24 @@ type VaccinationItem = {
   };
 };
 
+type GroupedVaccination = {
+  key: string;
+  appliedAt: string;
+  notes: string | null;
+  vaccine: { id: string; name: string };
+  flockGroupTitle: string;
+  birdCount: number;
+  ids: string[];
+};
+
 type FormState = {
-  birdId: string;
+  flockGroupId: string;
   vaccineId: string;
   appliedAt: string;
   notes: string;
 };
 
-const emptyForm: FormState = { birdId: "", vaccineId: "", appliedAt: "", notes: "" };
+const emptyForm: FormState = { flockGroupId: "", vaccineId: "", appliedAt: "", notes: "" };
 
 function todayInput() {
   const date = new Date();
@@ -59,26 +71,22 @@ function formatDate(value: string) {
 export function VaccinationsTab() {
   const [items, setItems] = useState<VaccinationItem[]>([]);
   const [vaccines, setVaccines] = useState<Vaccine[]>([]);
-  const [birds, setBirds] = useState<Bird[]>([]);
+  const [flockGroups, setFlockGroups] = useState<FlockGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>({ ...emptyForm, appliedAt: todayInput() });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [filterBirdId, setFilterBirdId] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [vaccinationsRes, vaccinesRes, plantelRes] = await Promise.all([
-        fetch(
-          `/api/health/vaccinations${filterBirdId ? `?birdId=${filterBirdId}` : ""}`,
-          { cache: "no-store" }
-        ),
+      const [vaccinationsRes, vaccinesRes, groupsRes] = await Promise.all([
+        fetch("/api/health/vaccinations", { cache: "no-store" }),
         fetch("/api/health/catalogs/vaccines", { cache: "no-store" }),
-        fetch("/api/plantel/groups", { cache: "no-store" })
+        fetch("/api/health/flock-groups", { cache: "no-store" })
       ]);
       if (!vaccinationsRes.ok) throw new Error("Falha ao carregar vacinações.");
       const vaccinationsJson = (await vaccinationsRes.json()) as { items: VaccinationItem[] };
@@ -89,32 +97,16 @@ export function VaccinationsTab() {
         setVaccines(vaccinesJson.items);
       }
 
-      if (plantelRes.ok) {
-        const plantelJson = (await plantelRes.json()) as {
-          groups: Array<{
-            title: string;
-            birds: Array<{ id: string; ringNumber: string; nickname: string | null }>;
-          }>;
-        };
-        const flat: Bird[] = [];
-        for (const group of plantelJson.groups ?? []) {
-          for (const bird of group.birds ?? []) {
-            flat.push({
-              id: bird.id,
-              ringNumber: bird.ringNumber,
-              nickname: bird.nickname,
-              flockGroup: { title: group.title }
-            });
-          }
-        }
-        setBirds(flat);
+      if (groupsRes.ok) {
+        const groupsJson = (await groupsRes.json()) as { groups: FlockGroup[] };
+        setFlockGroups(groupsJson.groups);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar.");
     } finally {
       setLoading(false);
     }
-  }, [filterBirdId]);
+  }, []);
 
   useEffect(() => {
     void load();
@@ -135,7 +127,7 @@ export function VaccinationsTab() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          birdId: form.birdId,
+          flockGroupId: form.flockGroupId,
           vaccineId: form.vaccineId,
           appliedAt: form.appliedAt,
           notes: form.notes || null
@@ -154,12 +146,15 @@ export function VaccinationsTab() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Remover este registro de vacinação?")) return;
+  async function handleDeleteGroup(ids: string[]) {
+    if (!confirm(`Remover ${ids.length} ${ids.length === 1 ? "registro" : "registros"} desta aplicação?`)) return;
     try {
-      const response = await fetch(`/api/health/vaccinations/${id}`, { method: "DELETE" });
-      if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as { error?: string };
+      const results = await Promise.all(
+        ids.map((id) => fetch(`/api/health/vaccinations/${id}`, { method: "DELETE" }))
+      );
+      const failed = results.find((r) => !r.ok);
+      if (failed) {
+        const body = (await failed.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? "Erro ao remover.");
       }
       await load();
@@ -170,37 +165,53 @@ export function VaccinationsTab() {
 
   const vaccinesById = useMemo(() => new Map(vaccines.map((v) => [v.id, v])), [vaccines]);
   const noVaccines = vaccines.length === 0;
-  const noBirds = birds.length === 0;
+  const noFlocks = flockGroups.length === 0;
+  const flocksWithBirds = flockGroups.filter((g) => g.birdCount > 0);
+  const noVaccinableFlocks = flocksWithBirds.length === 0;
+
+  const groupedItems = useMemo<GroupedVaccination[]>(() => {
+    const map = new Map<string, GroupedVaccination>();
+    for (const item of items) {
+      const dayKey = item.appliedAt.slice(0, 10);
+      const key = `${item.vaccine.id}|${dayKey}|${item.bird.flockGroup.title}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.birdCount += 1;
+        existing.ids.push(item.id);
+      } else {
+        map.set(key, {
+          key,
+          appliedAt: item.appliedAt,
+          notes: item.notes,
+          vaccine: item.vaccine,
+          flockGroupTitle: item.bird.flockGroup.title,
+          birdCount: 1,
+          ids: [item.id]
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      b.appliedAt.localeCompare(a.appliedAt)
+    );
+  }, [items]);
 
   return (
     <>
     <Card className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-slate-900">💉 Vacinações aplicadas</h3>
-        <div className="flex flex-wrap gap-2">
-          <select
-            className={inputClass + " max-w-[220px]"}
-            value={filterBirdId}
-            onChange={(event) => setFilterBirdId(event.target.value)}
-          >
-            <option value="">Todas as aves</option>
-            {birds.map((bird) => (
-              <option key={bird.id} value={bird.id}>
-                {bird.ringNumber} ({bird.flockGroup.title})
-              </option>
-            ))}
-          </select>
-          <Button type="button" onClick={openCreate} disabled={noVaccines || noBirds}>
-            + Registrar
-          </Button>
-        </div>
+        <Button type="button" onClick={openCreate} disabled={noVaccines || noVaccinableFlocks}>
+          + Registrar
+        </Button>
       </div>
 
-      {noVaccines || noBirds ? (
+      {noVaccines || noFlocks || noVaccinableFlocks ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
           {noVaccines
             ? "Cadastre vacinas no catálogo antes de registrar aplicações."
-            : "Cadastre aves no Plantel antes de registrar vacinações."}
+            : noFlocks
+              ? "Cadastre lotes no Plantel antes de registrar vacinações."
+              : "Nenhum lote tem aves vivas para vacinar."}
         </div>
       ) : null}
 
@@ -219,34 +230,30 @@ export function VaccinationsTab() {
       ) : null}
 
       <ul className="grid gap-2">
-        {items.map((item) => {
-          const birdLabel =
-            item.bird.nickname?.trim() ||
-            `${item.bird.ringNumber} (${item.bird.flockGroup.title})`;
-          return (
-            <li
-              key={item.id}
-              className="flex items-start justify-between gap-2 rounded-2xl border border-[color:var(--line)] bg-white/70 px-3 py-2"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">
-                  {item.vaccine.name}
-                </p>
-                <p className="mt-0.5 text-xs text-slate-600">
-                  {birdLabel} · {formatDate(item.appliedAt)}
-                </p>
-                {item.notes ? (
-                  <p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.notes}</p>
-                ) : null}
-              </div>
-              <DeleteActionButton
-                iconOnly
-                onClick={() => handleDelete(item.id)}
-                className="h-8 w-8 sm:h-9 sm:w-9"
-              />
-            </li>
-          );
-        })}
+        {groupedItems.map((group) => (
+          <li
+            key={group.key}
+            className="flex items-start justify-between gap-2 rounded-2xl border border-[color:var(--line)] bg-white/70 px-3 py-2"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">
+                {group.vaccine.name}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-600">
+                {group.flockGroupTitle} · {group.birdCount}{" "}
+                {group.birdCount === 1 ? "ave" : "aves"} · {formatDate(group.appliedAt)}
+              </p>
+              {group.notes ? (
+                <p className="mt-1 line-clamp-2 text-xs text-slate-500">{group.notes}</p>
+              ) : null}
+            </div>
+            <DeleteActionButton
+              iconOnly
+              onClick={() => handleDeleteGroup(group.ids)}
+              className="h-8 w-8 sm:h-9 sm:w-9"
+            />
+          </li>
+        ))}
       </ul>
     </Card>
 
@@ -258,20 +265,33 @@ export function VaccinationsTab() {
       >
         <form onSubmit={handleSubmit} className="grid gap-3">
           <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Ave</span>
+            <span className="text-sm font-semibold text-slate-800">Lote</span>
             <select
               className={inputClass}
               required
-              value={form.birdId}
-              onChange={(event) => setForm({ ...form, birdId: event.target.value })}
+              value={form.flockGroupId}
+              onChange={(event) => setForm({ ...form, flockGroupId: event.target.value })}
             >
               <option value="">Selecione</option>
-              {birds.map((bird) => (
-                <option key={bird.id} value={bird.id}>
-                  {bird.ringNumber} · {bird.flockGroup.title}
+              {flocksWithBirds.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.title} ({group.birdCount}{" "}
+                  {group.birdCount === 1 ? "ave" : "aves"})
                 </option>
               ))}
             </select>
+            {form.flockGroupId ? (
+              (() => {
+                const selected = flocksWithBirds.find((g) => g.id === form.flockGroupId);
+                if (!selected) return null;
+                return (
+                  <span className="text-[11px] text-slate-500">
+                    {selected.birdCount} {selected.birdCount === 1 ? "ave" : "aves"} viva
+                    {selected.birdCount === 1 ? "" : "s"} serão vacinadas neste lote.
+                  </span>
+                );
+              })()
+            ) : null}
           </label>
 
           <label className="grid gap-1.5">

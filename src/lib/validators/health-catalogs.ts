@@ -38,8 +38,16 @@ export const birdVaccinationSchema = z.object({
   notes: z.string().trim().optional().nullable()
 });
 
+export const flockVaccinationSchema = z.object({
+  flockGroupId: z.string().cuid("Lote inválido."),
+  vaccineId: z.string().cuid("Vacina inválida."),
+  appliedAt: z.string().min(1, "Informe a data."),
+  notes: z.string().trim().optional().nullable()
+});
+
 export type DiseaseInput = z.infer<typeof diseaseSchema>;
 export type MedicationInput = z.infer<typeof medicationSchema>;
 export type VaccineInput = z.infer<typeof vaccineSchema>;
 export type DeathReasonInput = z.infer<typeof deathReasonSchema>;
 export type BirdVaccinationInput = z.infer<typeof birdVaccinationSchema>;
+export type FlockVaccinationInput = z.infer<typeof flockVaccinationSchema>;
