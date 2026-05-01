@@ -278,6 +278,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
   }
 
   const mappedGroups = groups
+    .filter((group) => !allChildGroupIds.has(group.id))
     .map((group) => {
       const groupAllBirds = allByGroup.get(group.id) ?? [];
       const groupFilteredBirds = filteredByGroup.get(group.id) ?? [];
