@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
-import { ChevronDown, ChevronUp, DollarSign, History, Pencil, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, History, Pencil, Plus } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1076,7 +1076,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                             await reloadDaughters();
                           }}
                         >
-                          <DollarSign className="h-4 w-4" aria-hidden />
+                          <span className="text-base leading-none" aria-hidden>💰</span>
                         </button>
 
                         <button
@@ -1464,7 +1464,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                                     setSellListingError(null);
                                   }}
                                 >
-                                  <DollarSign className="h-4 w-4" aria-hidden />
+                                  <span className="text-base leading-none" aria-hidden>💰</span>
                                 </button>
                               ) : null}
 
