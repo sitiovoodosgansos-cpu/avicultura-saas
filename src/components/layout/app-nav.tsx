@@ -74,7 +74,7 @@ export function AppNav() {
         </div>
       </aside>
 
-      <nav className="mobile-bottom-nav fixed left-3 right-3 z-50 grid grid-cols-4 rounded-[22px] border border-[color:var(--line)] bg-white/95 p-1.5 shadow-[0_20px_45px_rgba(15,23,42,0.15)] backdrop-blur md:hidden">
+      <nav className="mobile-bottom-nav fixed left-2 right-2 z-50 grid grid-cols-5 gap-0.5 rounded-2xl border border-[color:var(--line)] bg-white/95 p-1 shadow-[0_20px_45px_rgba(15,23,42,0.15)] backdrop-blur md:hidden">
         {navItems.map(({ href, label, emoji }) => {
           const active = pathname === href;
           return (
@@ -82,14 +82,14 @@ export function AppNav() {
               key={href}
               href={href}
               className={cn(
-                "flex min-h-[4rem] flex-col items-center justify-center rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight",
+                "flex min-h-[2.75rem] flex-col items-center justify-center rounded-lg px-0.5 py-1 text-[10px] font-semibold leading-tight",
                 active ? "bg-[color:var(--surface-soft)] text-[color:var(--brand-strong)]" : "text-slate-500"
               )}
             >
-              <span className={cn("mb-0.5 flex size-7 items-center justify-center rounded-lg text-base", active ? "bg-white" : "bg-slate-100/80")}>
+              <span className={cn("mb-0.5 flex size-6 items-center justify-center rounded-md text-[13px]", active ? "bg-white" : "bg-slate-100/80")}>
                 {emoji}
               </span>
-              {label}
+              <span className="truncate">{label}</span>
             </Link>
           );
         })}
