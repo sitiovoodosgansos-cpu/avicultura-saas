@@ -57,12 +57,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const inVitrineSet = new Set(listings.map((l) => l.sourceBirdId!));
   const childGroupTitleById = new Map(childGroups.map((g) => [g.id, g.title]));
 
-  const enriched = birds.map((bird) => ({
-    ...bird,
-    purchaseValue: bird.purchaseValue ? Number(bird.purchaseValue) : null,
-    inVitrine: inVitrineSet.has(bird.id),
-    flockGroupTitle: childGroupTitleById.get(bird.flockGroupId) ?? "Chocada"
-  }));
+  const enriched = birds
+    .filter((bird) => !inVitrineSet.has(bird.id))
+    .map((bird) => ({
+      ...bird,
+      purchaseValue: bird.purchaseValue ? Number(bird.purchaseValue) : null,
+      inVitrine: false,
+      flockGroupTitle: childGroupTitleById.get(bird.flockGroupId) ?? "Chocada"
+    }));
 
   return NextResponse.json({ parent, childGroups, birds: enriched });
 }

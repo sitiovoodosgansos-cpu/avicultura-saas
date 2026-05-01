@@ -25,6 +25,7 @@ type PlantelGroup = {
     females: number;
     males: number;
     daughters: number;
+    daughtersAlive: number;
     ACTIVE: number;
     SICK: number;
     DEAD: number;
@@ -253,6 +254,20 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     birds: Array<PlantelBird & { flockGroupTitle: string }>;
   } | null>(null);
   const [daughtersLoading, setDaughtersLoading] = useState(false);
+  const [hatchBatchesGroup, setHatchBatchesGroup] = useState<{
+    parent: { id: string; title: string };
+    hatchBatches: Array<{
+      batchId: string;
+      title: string;
+      birthDate: string | null;
+      eggsSet: number;
+      born: number;
+      alive: number;
+      availableInVitrine: number;
+      childFlockGroupId: string | null;
+    }>;
+  } | null>(null);
+  const [hatchBatchesLoading, setHatchBatchesLoading] = useState(false);
 
   const canSubmitBird = useMemo(() => Boolean(birdForm.flockGroupId), [birdForm.flockGroupId]);
 
@@ -281,6 +296,30 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   async function reloadDaughters() {
     if (!daughtersGroup) return;
     await openDaughters(daughtersGroup.parent.id);
+  }
+
+  async function openHatchBatches(parentGroupId: string) {
+    setHatchBatchesLoading(true);
+    setHatchBatchesGroup(null);
+    try {
+      const res = await fetch(`/api/plantel/groups/${parentGroupId}/hatch-batches`, {
+        cache: "no-store"
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error ?? "Não foi possível carregar a produção de filhotes.");
+        return;
+      }
+      const data = (await res.json()) as {
+        parent: { id: string; title: string };
+        hatchBatches: NonNullable<typeof hatchBatchesGroup>["hatchBatches"];
+      };
+      setHatchBatchesGroup({ parent: data.parent, hatchBatches: data.hatchBatches });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar produção.");
+    } finally {
+      setHatchBatchesLoading(false);
+    }
   }
 
   async function loadData() {
@@ -1069,6 +1108,75 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         ) : null}
       </AppModal>
 
+      <AppModal
+        open={Boolean(hatchBatchesGroup) || hatchBatchesLoading}
+        title={
+          hatchBatchesGroup
+            ? `🐣 Produção de filhotes — ${hatchBatchesGroup.parent.title}`
+            : "Carregando produção..."
+        }
+        onClose={() => setHatchBatchesGroup(null)}
+      >
+        {hatchBatchesLoading ? (
+          <p className="text-sm text-slate-500">Carregando...</p>
+        ) : hatchBatchesGroup ? (
+          hatchBatchesGroup.hatchBatches.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
+              Nenhuma chocada com nascimentos registrados.
+            </p>
+          ) : (
+            <ul className="grid gap-2">
+              {hatchBatchesGroup.hatchBatches.map((batch) => {
+                const formattedDate = batch.birthDate
+                  ? new Date(batch.birthDate).toLocaleDateString("pt-BR")
+                  : "—";
+                const rate = batch.eggsSet > 0 ? (batch.born / batch.eggsSet) * 100 : null;
+                return (
+                  <li
+                    key={batch.batchId}
+                    className="rounded-2xl border border-[color:var(--line)] bg-white/80 px-4 py-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {batch.title}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          Nascimento em {formattedDate}
+                          {rate !== null ? ` · Eclosão ${rate.toFixed(1)}%` : null}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 text-right">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-slate-400">
+                            Nascidos
+                          </p>
+                          <p className="text-lg font-semibold text-slate-900">{batch.born}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-emerald-600">
+                            Vivos
+                          </p>
+                          <p className="text-lg font-semibold text-emerald-700">{batch.alive}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-amber-600">
+                            Vitrine
+                          </p>
+                          <p className="text-lg font-semibold text-amber-700">
+                            {batch.availableInVitrine}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : null}
+      </AppModal>
+
       {vitrineToast ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
           <div className="flex items-start justify-between gap-2">
@@ -1145,13 +1253,31 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     emoji={"🐣"}
                     label="Filhas"
                     value={group.summary.daughters}
-                    onClick={group.summary.daughters > 0 ? () => openDaughters(group.id) : undefined}
+                    onClick={group.summary.daughters > 0 ? () => openHatchBatches(group.id) : undefined}
                   />
                   <CompactStatChip emoji={"🏠"} label="Baia" value={group.bayNumber} />
                 </div>
 
                 {group.notes ? (
                   <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">{group.notes}</div>
+                ) : null}
+
+                {group.summary.daughtersAlive > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => openDaughters(group.id)}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-left transition hover:bg-emerald-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🐤</span>
+                      <span className="text-sm font-semibold text-emerald-800">
+                        Filhotes vivos no criatório
+                      </span>
+                    </div>
+                    <span className="rounded-full bg-white px-2.5 py-0.5 text-sm font-semibold text-emerald-700">
+                      {group.summary.daughtersAlive}
+                    </span>
+                  </button>
                 ) : null}
 
                 <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--line)] pt-3">

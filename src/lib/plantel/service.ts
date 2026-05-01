@@ -224,6 +224,36 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
     return daughtersByParent.get(parentGroupId) ?? 0;
   }
 
+  // Filhotes VIVOS no criatorio: Birds em FlockGroups-filhotes do parent,
+  // status != DEAD e NAO listados na vitrine. Usado para o modal 'aves vivas'.
+  const allChildGroupIds = new Set<string>();
+  for (const set of childGroupIdsByParent.values()) {
+    for (const id of set) allChildGroupIds.add(id);
+  }
+  let aliveByChildGroup = new Map<string, number>();
+  if (allChildGroupIds.size > 0) {
+    const childBirds = await prisma.bird.findMany({
+      where: {
+        tenantId,
+        flockGroupId: { in: Array.from(allChildGroupIds) },
+        status: { not: "DEAD" }
+      },
+      select: { id: true, flockGroupId: true }
+    });
+    aliveByChildGroup = childBirds.reduce((acc, bird) => {
+      if (inVitrineSet.has(bird.id)) return acc;
+      acc.set(bird.flockGroupId, (acc.get(bird.flockGroupId) ?? 0) + 1);
+      return acc;
+    }, new Map<string, number>());
+  }
+  function daughtersAliveFor(parentGroupId: string): number {
+    const childIds = childGroupIdsByParent.get(parentGroupId);
+    if (!childIds) return 0;
+    let total = 0;
+    for (const childId of childIds) total += aliveByChildGroup.get(childId) ?? 0;
+    return total;
+  }
+
   const filteredBirds = allBirds.filter((bird) => {
     const statusOk = filters.status ? bird.status === filters.status : true;
     const ringOk = filters.ring
@@ -277,6 +307,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
           females,
           males,
           daughters: daughtersFor(group.id),
+          daughtersAlive: daughtersAliveFor(group.id),
           ...countByStatus
         },
         birds: birdsWithVitrine
