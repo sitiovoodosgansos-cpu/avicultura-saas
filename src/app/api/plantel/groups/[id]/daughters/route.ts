@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { prisma } from "@/lib/db/prisma";
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiSessionOr401({ employeePermission: "plantel" });
   if (!auth.ok) return auth.response;
 
   const tenantId = auth.session.user.tenantId;
-  const parentId = params.id;
+  const { id: parentId } = await params;
 
   const parent = await prisma.flockGroup.findFirst({
     where: { id: parentId, tenantId },
