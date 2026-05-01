@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
-import { ChevronDown, ChevronUp, History, Pencil, Plus } from "lucide-react";
+import { History, Pencil, Plus } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -242,6 +242,35 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingBirdId, setEditingBirdId] = useState<string | null>(null);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  type ExpandFilter = "all" | "female" | "male" | "active" | "sick" | "dead";
+  const [expandedFilter, setExpandedFilter] = useState<ExpandFilter>("all");
+
+  function toggleExpandedTile(groupId: string, filter: ExpandFilter) {
+    if (expandedGroupId === groupId && expandedFilter === filter) {
+      setExpandedGroupId(null);
+      return;
+    }
+    setExpandedGroupId(groupId);
+    setExpandedFilter(filter);
+  }
+
+  function applyExpandedFilter(birds: PlantelBird[], filter: ExpandFilter): PlantelBird[] {
+    if (filter === "female") return birds.filter((b) => b.sex === "FEMALE");
+    if (filter === "male") return birds.filter((b) => b.sex === "MALE");
+    if (filter === "active") return birds.filter((b) => b.status === "ACTIVE");
+    if (filter === "sick") return birds.filter((b) => b.status === "SICK");
+    if (filter === "dead") return birds.filter((b) => b.status === "DEAD");
+    return birds;
+  }
+
+  const expandedFilterLabel: Record<ExpandFilter, string> = {
+    all: "Todas as aves",
+    female: "Matrizes (fêmeas)",
+    male: "Reprodutores (machos)",
+    active: "Ativas",
+    sick: "Doentes",
+    dead: "Mortas"
+  };
   const [historyByBird, setHistoryByBird] = useState<Record<string, BirdHistory[]>>({});
   const [statusDraftByBird, setStatusDraftByBird] = useState<Record<string, BirdStatus>>({});
   const [filterSpecies, setFilterSpecies] = useState("");
@@ -1265,12 +1294,66 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 </div>
 
                 <div className="grid w-full auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-4">
-                  <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
-                  <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.summary.females} />
-                  <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.summary.males} />
-                  <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
-                  <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
-                  <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
+                  <CompactStatChip
+                    emoji={"🐥"}
+                    label="Total"
+                    value={group.summary.totalBirds}
+                    onClick={
+                      group.summary.totalBirds > 0
+                        ? () => toggleExpandedTile(group.id, "all")
+                        : undefined
+                    }
+                  />
+                  <CompactStatChip
+                    emoji={"🥚"}
+                    label="Matrizes"
+                    value={group.summary.females}
+                    onClick={
+                      group.summary.females > 0
+                        ? () => toggleExpandedTile(group.id, "female")
+                        : undefined
+                    }
+                  />
+                  <CompactStatChip
+                    emoji={"🐓"}
+                    label="Reprodutores"
+                    value={group.summary.males}
+                    onClick={
+                      group.summary.males > 0
+                        ? () => toggleExpandedTile(group.id, "male")
+                        : undefined
+                    }
+                  />
+                  <CompactStatChip
+                    emoji={"✅"}
+                    label="Ativas"
+                    value={group.summary.ACTIVE}
+                    onClick={
+                      group.summary.ACTIVE > 0
+                        ? () => toggleExpandedTile(group.id, "active")
+                        : undefined
+                    }
+                  />
+                  <CompactStatChip
+                    emoji={"🤢"}
+                    label="Doentes"
+                    value={group.summary.SICK}
+                    onClick={
+                      group.summary.SICK > 0
+                        ? () => toggleExpandedTile(group.id, "sick")
+                        : undefined
+                    }
+                  />
+                  <CompactStatChip
+                    emoji={"🗑️"}
+                    label="Mortas"
+                    value={group.summary.DEAD}
+                    onClick={
+                      group.summary.DEAD > 0
+                        ? () => toggleExpandedTile(group.id, "dead")
+                        : undefined
+                    }
+                  />
                   <CompactStatChip
                     emoji={"🐣"}
                     label="Filhas"
@@ -1284,23 +1367,38 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">{group.notes}</div>
                 ) : null}
 
-                {group.summary.daughtersAlive > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => openDaughters(group.id)}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-left transition hover:bg-emerald-100"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🐤</span>
-                      <span className="text-sm font-semibold text-emerald-800">
-                        Filhotes vivos no criatório
-                      </span>
-                    </div>
-                    <span className="rounded-full bg-white px-2.5 py-0.5 text-sm font-semibold text-emerald-700">
-                      {group.summary.daughtersAlive}
+                <button
+                  type="button"
+                  onClick={() =>
+                    group.summary.daughtersAlive > 0 ? openDaughters(group.id) : undefined
+                  }
+                  disabled={group.summary.daughtersAlive === 0}
+                  className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 text-left transition ${
+                    group.summary.daughtersAlive > 0
+                      ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
+                      : "border-slate-200 bg-slate-50 opacity-70"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🐤</span>
+                    <span
+                      className={`text-sm font-semibold ${
+                        group.summary.daughtersAlive > 0 ? "text-emerald-800" : "text-slate-500"
+                      }`}
+                    >
+                      Filhotes vivos no criatório
                     </span>
-                  </button>
-                ) : null}
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${
+                      group.summary.daughtersAlive > 0
+                        ? "bg-white text-emerald-700"
+                        : "bg-white/60 text-slate-500"
+                    }`}
+                  >
+                    {group.summary.daughtersAlive}
+                  </span>
+                </button>
 
                 <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--line)] pt-3">
                   <button
@@ -1341,19 +1439,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   </button>
                   <button
                     type="button"
-                    aria-label={expanded ? "Fechar aves" : "Abrir aves"}
-                    title={expanded ? "Fechar aves" : "Abrir aves"}
-                    onClick={() => setExpandedGroupId(expanded ? null : group.id)}
-                    className="inline-flex size-9 items-center justify-center rounded-xl border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-                  >
-                    {expanded ? (
-                      <ChevronUp className="h-4 w-4" aria-hidden />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" aria-hidden />
-                    )}
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => removeGroup(group.id)}
                     aria-label="Excluir grupo"
                     title="Excluir grupo"
@@ -1366,13 +1451,29 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               </div>
 
               {expanded ? (
-                group.birds.length === 0 ? (
-                  <p className="mt-4 rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
-                    Nenhuma ave cadastrada neste grupo.
-                  </p>
-                ) : (
-                  <ul className="mt-4 grid gap-2">
-                    {group.birds.map((bird) => {
+                (() => {
+                  const expandedBirds = applyExpandedFilter(group.birds, expandedFilter);
+                  return (
+                    <div className="mt-4 grid gap-2">
+                      <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {expandedFilterLabel[expandedFilter]} · {expandedBirds.length}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedGroupId(null)}
+                          className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+                      {expandedBirds.length === 0 ? (
+                        <p className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
+                          Nenhuma ave neste filtro.
+                        </p>
+                      ) : (
+                  <ul className="grid gap-2">
+                    {expandedBirds.map((bird) => {
                       const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : "?";
                       const sexLabel =
                         bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "Não informado";
@@ -1510,7 +1611,10 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                       );
                     })}
                   </ul>
-                )
+                      )}
+                    </div>
+                  );
+                })()
               ) : null}
             </Card>
           );
