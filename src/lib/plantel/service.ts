@@ -73,9 +73,14 @@ async function resolveRingNumber(tenantId: string, inputRingNumber?: string, fal
   const cleanedFallback = fallbackRingNumber?.trim();
   if (cleanedFallback) return cleanedFallback;
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
-    const candidate = `SEM-ANILHA-${Date.now().toString(36).toUpperCase()}-${suffix}`;
+  const total = await prisma.bird.count({ where: { tenantId } });
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const seq = total + attempt + 1;
+    const letterIndex = Math.floor((seq - 1) / 10000);
+    const number = ((seq - 1) % 10000) + 1;
+    if (letterIndex >= 26) break;
+    const candidate = `${String.fromCharCode(65 + letterIndex)}${String(number).padStart(4, "0")}`;
     const exists = await prisma.bird.findFirst({
       where: { tenantId, ringNumber: candidate },
       select: { id: true }
@@ -83,10 +88,18 @@ async function resolveRingNumber(tenantId: string, inputRingNumber?: string, fal
     if (!exists) return candidate;
   }
 
-  return `SEM-ANILHA-${Date.now().toString(36).toUpperCase()}-${Math.random()
-    .toString(36)
-    .slice(2, 10)
-    .toUpperCase()}`;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const letter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+    const number = Math.floor(Math.random() * 9999) + 1;
+    const candidate = `${letter}${String(number).padStart(4, "0")}`;
+    const exists = await prisma.bird.findFirst({
+      where: { tenantId, ringNumber: candidate },
+      select: { id: true }
+    });
+    if (!exists) return candidate;
+  }
+
+  throw new Error("Não foi possível gerar uma anilha automática.");
 }
 
 export async function listPlantel(tenantId: string, filters: PlantelFilters) {

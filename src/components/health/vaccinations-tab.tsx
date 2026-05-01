@@ -78,6 +78,7 @@ export function VaccinationsTab() {
   const [form, setForm] = useState<FormState>({ ...emptyForm, appliedAt: todayInput() });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,6 +196,15 @@ export function VaccinationsTab() {
     );
   }, [items]);
 
+  const visibleItems = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return groupedItems;
+    return groupedItems.filter((g) => {
+      const haystack = `${g.vaccine.name} ${g.flockGroupTitle} ${g.notes ?? ""}`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [groupedItems, search]);
+
   return (
     <>
     <Card className="grid gap-3">
@@ -204,6 +214,15 @@ export function VaccinationsTab() {
           + Registrar
         </Button>
       </div>
+
+      {items.length > 0 ? (
+        <Input
+          type="search"
+          placeholder="Buscar por vacina, lote ou observação..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      ) : null}
 
       {noVaccines || noFlocks || noVaccinableFlocks ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -229,8 +248,14 @@ export function VaccinationsTab() {
         </p>
       ) : null}
 
+      {!loading && items.length > 0 && visibleItems.length === 0 ? (
+        <p className="rounded-xl bg-[color:var(--surface-soft)] px-3 py-2 text-sm text-slate-500">
+          Nenhum registro corresponde à busca.
+        </p>
+      ) : null}
+
       <ul className="grid gap-2">
-        {groupedItems.map((group) => (
+        {visibleItems.map((group) => (
           <li
             key={group.key}
             className="flex items-start justify-between gap-2 rounded-2xl border border-[color:var(--line)] bg-white/70 px-3 py-2"
