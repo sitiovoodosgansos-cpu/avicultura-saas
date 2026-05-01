@@ -51,6 +51,8 @@ type CaseItem = {
   birdId: string;
   infirmaryId: string;
   openedAt: string;
+  protocolStartedAt: string | null;
+  protocolDurationDays: number;
   diagnosis: string | null;
   symptoms: string | null;
   medication: string | null;
@@ -459,6 +461,25 @@ export function HealthManager() {
     }));
   }
 
+  async function quickCaseAction(
+    caseId: string,
+    action: "CURE" | "DEATH" | "NEW_PROTOCOL"
+  ) {
+    const labels = { CURE: "marcar como CURADA", DEATH: "registrar ÓBITO", NEW_PROTOCOL: "iniciar novo protocolo (5 dias)" };
+    if (action !== "NEW_PROTOCOL" && !confirm(`Confirma ${labels[action]}?`)) return;
+    const res = await fetch(`/api/health/cases/${caseId}/event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, date: today, notes: "" })
+    });
+    if (!res.ok) {
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(payload.error ?? "Falha ao aplicar evento clinico.");
+      return;
+    }
+    await loadData();
+  }
+
   async function applyCaseAction(caseId: string) {
     const draft = getEventDraft(caseId);
 
@@ -739,6 +760,115 @@ export function HealthManager() {
                       {inf.notes}
                     </p>
                   ) : null}
+
+                  {(() => {
+                    const treating = cases.filter(
+                      (c) => c.infirmaryId === inf.id && c.status === "TREATING"
+                    );
+                    if (treating.length === 0) {
+                      return (
+                        <p className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-white/60 px-3 py-3 text-center text-xs text-zinc-500">
+                          Sem aves em tratamento.
+                        </p>
+                      );
+                    }
+                    return (
+                      <ul className="mt-3 grid gap-2">
+                        {treating.map((c) => {
+                          const start = c.protocolStartedAt
+                            ? new Date(c.protocolStartedAt)
+                            : new Date(c.openedAt);
+                          const duration = c.protocolDurationDays || 5;
+                          const elapsedMs = Date.now() - start.getTime();
+                          const elapsedDays = Math.max(0, elapsedMs / (24 * 60 * 60 * 1000));
+                          const remaining = Math.max(0, duration - Math.floor(elapsedDays));
+                          const overdue = elapsedDays > duration;
+                          const progressPct = Math.min(100, (elapsedDays / duration) * 100);
+                          const barColor = overdue
+                            ? "bg-rose-500"
+                            : progressPct > 80
+                              ? "bg-amber-500"
+                              : "bg-emerald-500";
+                          const iconBtn =
+                            "inline-flex size-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-base transition hover:bg-zinc-50 sm:size-9";
+                          return (
+                            <li
+                              key={c.id}
+                              className="rounded-xl border border-zinc-200 bg-white px-3 py-2.5"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                    <span className="rounded-md bg-zinc-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-zinc-800">
+                                      {c.bird.ringNumber}
+                                    </span>
+                                    <span className="text-xs text-zinc-500">
+                                      · {c.bird.flockGroup.title}
+                                    </span>
+                                  </div>
+                                  {c.diagnosis ? (
+                                    <p className="mt-1 truncate text-xs text-zinc-600">
+                                      {c.diagnosis}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    aria-label="Marcar como curada"
+                                    title="Marcar como curada"
+                                    className={iconBtn}
+                                    onClick={() => quickCaseAction(c.id, "CURE")}
+                                  >
+                                    ✅
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-label="Novo protocolo"
+                                    title="Novo protocolo (renova 5 dias)"
+                                    className={iconBtn}
+                                    onClick={() => quickCaseAction(c.id, "NEW_PROTOCOL")}
+                                  >
+                                    🔄
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-label="Registrar óbito"
+                                    title="Registrar óbito"
+                                    className={iconBtn}
+                                    onClick={() => quickCaseAction(c.id, "DEATH")}
+                                  >
+                                    💀
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="mt-2 flex items-center gap-2">
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
+                                  <div
+                                    className={`h-full transition-all ${barColor}`}
+                                    style={{ width: `${progressPct}%` }}
+                                  />
+                                </div>
+                                <span
+                                  className={`whitespace-nowrap text-[10px] font-semibold ${
+                                    overdue
+                                      ? "text-rose-600"
+                                      : progressPct > 80
+                                        ? "text-amber-600"
+                                        : "text-emerald-700"
+                                  }`}
+                                >
+                                  {overdue
+                                    ? `${Math.floor(elapsedDays - duration)}d em atraso`
+                                    : `${remaining}d restantes`}
+                                </span>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    );
+                  })()}
                 </Card>
               );
             })}

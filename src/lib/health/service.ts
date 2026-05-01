@@ -379,7 +379,7 @@ export async function applyCaseEvent(
   userId: string | null,
   id: string,
   input: {
-    action: "CONTINUE" | "CURE" | "DEATH" | "TRANSFER";
+    action: "CONTINUE" | "CURE" | "DEATH" | "TRANSFER" | "NEW_PROTOCOL";
     date: string;
     notes?: string;
     toInfirmaryId?: string;
@@ -406,6 +406,22 @@ export async function applyCaseEvent(
         }
       });
 
+      return tx.infirmaryCase.findUnique({ where: { id } });
+    }
+
+    if (input.action === "NEW_PROTOCOL") {
+      await tx.infirmaryCase.update({
+        where: { id },
+        data: { protocolStartedAt: toDate(input.date) }
+      });
+      await tx.infirmaryCaseEvent.create({
+        data: {
+          tenantId,
+          caseId: id,
+          type: "NEW_PROTOCOL",
+          notes: input.notes
+        }
+      });
       return tx.infirmaryCase.findUnique({ where: { id } });
     }
 

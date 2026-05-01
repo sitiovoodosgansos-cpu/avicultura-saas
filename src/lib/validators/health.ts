@@ -19,7 +19,7 @@ export const caseSchema = z.object({
 });
 
 export const caseEventSchema = z.object({
-  action: z.enum(["CONTINUE", "CURE", "DEATH", "TRANSFER"]),
+  action: z.enum(["CONTINUE", "CURE", "DEATH", "TRANSFER", "NEW_PROTOCOL"]),
   date: z.string().min(1, "Informe a data do evento."),
   notes: z.string().trim().optional(),
   toInfirmaryId: z.string().cuid().optional()

@@ -410,24 +410,26 @@ model Infirmary {
 }
 
 model InfirmaryCase {
-  id            String               @id @default(cuid())
-  tenantId      String
-  birdId        String
-  infirmaryId   String
-  openedAt      DateTime
-  diagnosis     String?
-  symptoms      String?
-  medication    String?
-  dosage        String?
-  responsible   String?
-  status        InfirmaryCaseStatus  @default(TREATING)
-  notes         String?
-  closedAt      DateTime?
-  diseaseId     String?
-  medicationId  String?
-  deathReasonId String?
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  id                   String               @id @default(cuid())
+  tenantId             String
+  birdId               String
+  infirmaryId          String
+  openedAt             DateTime
+  protocolStartedAt    DateTime?
+  protocolDurationDays Int                  @default(5)
+  diagnosis            String?
+  symptoms             String?
+  medication           String?
+  dosage               String?
+  responsible          String?
+  status               InfirmaryCaseStatus  @default(TREATING)
+  notes                String?
+  closedAt             DateTime?
+  diseaseId            String?
+  medicationId         String?
+  deathReasonId        String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
   tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bird          Bird                 @relation(fields: [birdId], references: [id], onDelete: Restrict)
   infirmary     Infirmary            @relation(fields: [infirmaryId], references: [id], onDelete: Restrict)
