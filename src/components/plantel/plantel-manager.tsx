@@ -24,6 +24,7 @@ type PlantelGroup = {
     totalBirds: number;
     females: number;
     males: number;
+    daughters: number;
     ACTIVE: number;
     SICK: number;
     DEAD: number;
@@ -947,7 +948,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                   <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
                   <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
                   <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
-                  <CompactStatChip emoji={"🥚"} label="Chocas" value={group.summary.BROODY} />
+                  <CompactStatChip emoji={"🐣"} label="Filhas" value={group.summary.daughters} />
                   <CompactStatChip emoji={"🏠"} label="Baia" value={group.bayNumber} />
                 </div>
 

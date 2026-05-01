@@ -180,6 +180,55 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
       .map((listing) => listing.sourceBirdId!)
   );
 
+  const hatchedListings = await prisma.vitrineListing.findMany({
+    where: {
+      tenantId,
+      sourceIncubatorBatchId: { not: null }
+    },
+    select: {
+      flockGroupId: true,
+      sourceIncubatorBatch: { select: { flockGroupId: true } }
+    }
+  });
+
+  const childGroupIdsByParent = new Map<string, Set<string>>();
+  const allChildGroupIds = new Set<string>();
+  for (const listing of hatchedListings) {
+    const parentId = listing.sourceIncubatorBatch?.flockGroupId;
+    if (!parentId) continue;
+    if (parentId === listing.flockGroupId) continue;
+    allChildGroupIds.add(listing.flockGroupId);
+    const bucket = childGroupIdsByParent.get(parentId) ?? new Set<string>();
+    bucket.add(listing.flockGroupId);
+    childGroupIdsByParent.set(parentId, bucket);
+  }
+
+  let aliveByChildGroup = new Map<string, number>();
+  if (allChildGroupIds.size > 0) {
+    const childBirds = await prisma.bird.findMany({
+      where: {
+        tenantId,
+        flockGroupId: { in: Array.from(allChildGroupIds) },
+        status: { not: "DEAD" }
+      },
+      select: { flockGroupId: true }
+    });
+    aliveByChildGroup = childBirds.reduce((acc, bird) => {
+      acc.set(bird.flockGroupId, (acc.get(bird.flockGroupId) ?? 0) + 1);
+      return acc;
+    }, new Map<string, number>());
+  }
+
+  function daughtersFor(parentGroupId: string): number {
+    const childIds = childGroupIdsByParent.get(parentGroupId);
+    if (!childIds) return 0;
+    let total = 0;
+    for (const childId of childIds) {
+      total += aliveByChildGroup.get(childId) ?? 0;
+    }
+    return total;
+  }
+
   const filteredBirds = allBirds.filter((bird) => {
     const statusOk = filters.status ? bird.status === filters.status : true;
     const ringOk = filters.ring
@@ -232,6 +281,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
           totalBirds: Math.max(groupAllBirds.length, configuredTotal),
           females,
           males,
+          daughters: daughtersFor(group.id),
           ...countByStatus
         },
         birds: birdsWithVitrine
