@@ -1,7 +1,8 @@
 ﻿"use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
+import { DollarSign, History, Pencil } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1004,122 +1005,151 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               </div>
 
               {expanded ? (
-                <div className="mt-6 overflow-x-auto rounded-[24px] border border-[color:var(--line)]">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3">Anilha</th>
-                        <th className="px-4 py-3">Nome</th>
-                        <th className="px-4 py-3">Sexo</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3">Acoes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.birds.map((bird) => (
-                        <Fragment key={bird.id}>
-                          <tr className="border-t border-[color:var(--line)] align-top">
-                            <td className="px-4 py-4 font-semibold text-slate-900">{bird.ringNumber}</td>
-                            <td className="px-4 py-4">{bird.nickname || "-"}</td>
-                            <td className="px-4 py-4">
-                              {bird.sex === "FEMALE" ? "Femea" : bird.sex === "MALE" ? "Macho" : "Nao informado"}
-                            </td>
-                            <td className="px-4 py-4">
-                              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadge[bird.status]}`}>
-                                {statusLabel[bird.status]}
+                group.birds.length === 0 ? (
+                  <p className="mt-4 rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
+                    Nenhuma ave cadastrada neste grupo.
+                  </p>
+                ) : (
+                  <ul className="mt-4 grid gap-2">
+                    {group.birds.map((bird) => {
+                      const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : "?";
+                      const sexLabel =
+                        bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "Não informado";
+                      const historyOpen = Boolean(historyByBird[bird.id]);
+                      const historyEvents = historyByBird[bird.id];
+                      const iconBtn =
+                        "inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 sm:size-9";
+                      return (
+                        <li
+                          key={bird.id}
+                          className="rounded-2xl border border-[color:var(--line)] bg-white/80"
+                        >
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
+                                {bird.ringNumber}
                               </span>
-                            </td>
-                            <td className="px-4 py-4">
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  variant="outline"
+                              <span
+                                className="text-sm leading-none text-slate-500"
+                                aria-label={sexLabel}
+                                title={sexLabel}
+                              >
+                                {sexGlyph}
+                              </span>
+                              {bird.nickname ? (
+                                <span className="truncate text-sm font-medium text-slate-800">
+                                  {bird.nickname}
+                                </span>
+                              ) : null}
+                              {bird.inVitrine ? (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                                  Vitrine
+                                </span>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <select
+                                aria-label="Status da ave"
+                                className={`h-8 rounded-lg border border-[color:var(--line)] bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[color:var(--brand)]/20 ${statusBadge[bird.status]}`}
+                                value={statusDraftByBird[bird.id] ?? bird.status}
+                                onChange={(event) => {
+                                  const next = event.target.value as BirdStatus;
+                                  setStatusDraftByBird((prev) => ({ ...prev, [bird.id]: next }));
+                                  if (next !== bird.status) {
+                                    void applyBirdStatus(bird.id, next);
+                                  }
+                                }}
+                              >
+                                <option value="ACTIVE">Ativa</option>
+                                <option value="SICK">Doente</option>
+                                <option value="DEAD">Morta</option>
+                                <option value="BROODY">Choca</option>
+                              </select>
+
+                              <button
+                                type="button"
+                                aria-label="Editar ave"
+                                title="Editar ave"
+                                className={iconBtn}
+                                onClick={() => {
+                                  setEditingBirdId(bird.id);
+                                  setShowBirdModal(true);
+                                  setBirdForm({
+                                    flockGroupId: bird.flockGroupId,
+                                    bayNumber: bird.bayNumber ?? group.bayNumber,
+                                    ringNumber: bird.ringNumber,
+                                    nickname: bird.nickname ?? "",
+                                    sex: bird.sex,
+                                    acquisitionDate: toDateInput(bird.acquisitionDate),
+                                    purchaseValue: bird.purchaseValue ? Number(bird.purchaseValue) : undefined,
+                                    origin: bird.origin ?? "",
+                                    status: bird.status
+                                  });
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" aria-hidden />
+                              </button>
+
+                              {!bird.inVitrine ? (
+                                <button
                                   type="button"
+                                  aria-label="Colocar à venda"
+                                  title="Colocar à venda"
+                                  className={iconBtn}
                                   onClick={() => {
-                                    setEditingBirdId(bird.id);
-                                    setShowBirdModal(true);
-                                    setBirdForm({
-                                      flockGroupId: bird.flockGroupId,
-                                      bayNumber: bird.bayNumber ?? group.bayNumber,
-                                      ringNumber: bird.ringNumber,
-                                      nickname: bird.nickname ?? "",
-                                      sex: bird.sex,
-                                      acquisitionDate: toDateInput(bird.acquisitionDate),
-                                      purchaseValue: bird.purchaseValue ? Number(bird.purchaseValue) : undefined,
-                                      origin: bird.origin ?? "",
-                                      status: bird.status
-                                    });
+                                    setSellingBird(bird);
+                                    setSellListingForm({ ageInMonths: 0, priceOverride: "" });
+                                    setSellListingError(null);
                                   }}
                                 >
-                                  Editar
-                                </Button>
-                                <DeleteActionButton
-                                  onClick={() => removeBird(bird.id)}
-                                  aria-label="Excluir ave"
-                                />
-                                <select
-                                  className={`${selectClass} min-w-40`}
-                                  value={statusDraftByBird[bird.id] ?? bird.status}
-                                  onChange={(event) =>
-                                    setStatusDraftByBird((prev) => ({
-                                      ...prev,
-                                      [bird.id]: event.target.value as BirdStatus
-                                    }))
-                                  }
-                                >
-                                  <option value="ACTIVE">Ativa</option>
-                                  <option value="SICK">Doente</option>
-                                  <option value="DEAD">Morta</option>
-                                  <option value="BROODY">Choca</option>
-                                </select>
-                                <Button variant="outline" type="button" onClick={() => applyBirdStatus(bird.id)}>
-                                  Atualizar status
-                                </Button>
-                                <Button variant="outline" type="button" onClick={() => toggleHistory(bird.id)}>
-                                  {historyByBird[bird.id] ? "Ocultar historico" : "Ver historico"}
-                                </Button>
-                                {bird.inVitrine ? (
-                                  <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                                    Na Vitrine
-                                  </span>
-                                ) : (
-                                  <Button
-                                    type="button"
-                                    onClick={() => {
-                                      setSellingBird(bird);
-                                      setSellListingForm({ ageInMonths: 0, priceOverride: "" });
-                                      setSellListingError(null);
-                                    }}
-                                  >
-                                    Colocar à venda
-                                  </Button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                          {historyByBird[bird.id] ? (
-                            <tr className="border-t border-[color:var(--line)] bg-slate-50/70">
-                              <td className="px-4 py-3 text-xs text-slate-600" colSpan={5}>
-                                {historyByBird[bird.id].length === 0 ? (
-                                  <p>Sem historico de status.</p>
-                                ) : (
-                                  <ul className="space-y-1">
-                                    {historyByBird[bird.id].map((event) => (
-                                      <li key={event.id}>
-                                        {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
-                                        {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para {statusLabel[event.toStatus]}
-                                        {event.reason ? ` - ${event.reason}` : ""}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </td>
-                            </tr>
+                                  <DollarSign className="h-4 w-4" aria-hidden />
+                                </button>
+                              ) : null}
+
+                              <button
+                                type="button"
+                                aria-label={historyOpen ? "Ocultar histórico" : "Ver histórico"}
+                                title={historyOpen ? "Ocultar histórico" : "Ver histórico"}
+                                aria-pressed={historyOpen}
+                                className={`${iconBtn} ${historyOpen ? "bg-slate-100 text-slate-900" : ""}`}
+                                onClick={() => toggleHistory(bird.id)}
+                              >
+                                <History className="h-4 w-4" aria-hidden />
+                              </button>
+
+                              <DeleteActionButton
+                                iconOnly
+                                onClick={() => removeBird(bird.id)}
+                                aria-label="Excluir ave"
+                                className="size-8 sm:size-9"
+                              />
+                            </div>
+                          </div>
+
+                          {historyOpen ? (
+                            <div className="border-t border-[color:var(--line)] bg-slate-50/70 px-3 py-2 text-[11px] text-slate-600">
+                              {!historyEvents || historyEvents.length === 0 ? (
+                                <p>Sem histórico de status.</p>
+                              ) : (
+                                <ul className="space-y-1">
+                                  {historyEvents.map((event) => (
+                                    <li key={event.id}>
+                                      {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
+                                      {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para{" "}
+                                      {statusLabel[event.toStatus]}
+                                      {event.reason ? ` - ${event.reason}` : ""}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
                           ) : null}
-                        </Fragment>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )
               ) : null}
             </Card>
           );

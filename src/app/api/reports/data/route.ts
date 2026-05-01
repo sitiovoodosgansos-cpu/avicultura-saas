@@ -26,8 +26,14 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get("from") ?? undefined;
   const to = searchParams.get("to") ?? undefined;
 
-  const period = resolvePeriod(preset, from, to);
-  const data = await getReportData(auth.session.user.tenantId, type, period);
-  return NextResponse.json(data);
+  try {
+    const period = resolvePeriod(preset, from, to);
+    const data = await getReportData(auth.session.user.tenantId, type, period);
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("[api/reports/data] failed to build report", error);
+    const message = error instanceof Error ? error.message : "Erro desconhecido ao gerar o relatório.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
