@@ -262,8 +262,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       birthDate: string | null;
       eggsSet: number;
       born: number;
-      alive: number;
-      availableInVitrine: number;
+      dead: number;
+      sold: number;
       childFlockGroupId: string | null;
     }>;
   } | null>(null);
@@ -1154,18 +1154,16 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                           <p className="text-lg font-semibold text-slate-900">{batch.born}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] uppercase tracking-wide text-emerald-600">
-                            Vivos
+                          <p className="text-[10px] uppercase tracking-wide text-rose-600">
+                            Óbitos
                           </p>
-                          <p className="text-lg font-semibold text-emerald-700">{batch.alive}</p>
+                          <p className="text-lg font-semibold text-rose-700">{batch.dead}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] uppercase tracking-wide text-amber-600">
-                            Vitrine
+                          <p className="text-[10px] uppercase tracking-wide text-emerald-600">
+                            Vendidos
                           </p>
-                          <p className="text-lg font-semibold text-amber-700">
-                            {batch.availableInVitrine}
-                          </p>
+                          <p className="text-lg font-semibold text-emerald-700">{batch.sold}</p>
                         </div>
                       </div>
                     </div>

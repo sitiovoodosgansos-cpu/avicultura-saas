@@ -343,6 +343,22 @@ export async function materializeBirthsForParent(
   tenantId: string,
   parentFlockGroupId: string
 ): Promise<{ materializedCount: number; birdsCreated: number }> {
+  // Etapa 0: chocadas finalizadas (status HATCHED) sem qualquer VitrineListing
+  // associada. Cria a listing primeiro (com FlockGroup-filhote + Birds via
+  // createListingsFromHatchedBatch).
+  const hatchedWithoutListing = await prisma.incubatorBatch.findMany({
+    where: {
+      tenantId,
+      flockGroupId: parentFlockGroupId,
+      status: "HATCHED",
+      vitrineListings: { none: {} }
+    },
+    select: { id: true }
+  });
+  for (const batch of hatchedWithoutListing) {
+    await createListingsFromHatchedBatch(tenantId, batch.id);
+  }
+
   const oldListings = await prisma.vitrineListing.findMany({
     where: {
       tenantId,
