@@ -1203,33 +1203,35 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     key={bird.id}
                     className="rounded-2xl border border-[color:var(--line)] bg-white/80 px-3 py-2.5"
                   >
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
-                          {bird.ringNumber}
-                        </span>
-                        {sexGlyph ? (
-                          <span
-                            className="text-sm leading-none text-slate-500"
-                            aria-label={sexLabel}
-                            title={sexLabel}
-                          >
-                            {sexGlyph}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
+                            {bird.ringNumber}
                           </span>
-                        ) : null}
-                        {bird.nickname ? (
-                          <span className="truncate text-sm font-medium text-slate-800">
-                            {bird.nickname}
-                          </span>
-                        ) : null}
-                        <span className="truncate text-[11px] text-slate-500">
-                          · {bird.flockGroupTitle}
-                        </span>
-                        {bird.acquisitionDate ? (
-                          <span className="text-[11px] text-slate-500">
-                            · Nasceu em {new Date(bird.acquisitionDate).toLocaleDateString("pt-BR")}
-                          </span>
-                        ) : null}
+                          {sexGlyph ? (
+                            <span
+                              className="text-sm leading-none text-slate-500"
+                              aria-label={sexLabel}
+                              title={sexLabel}
+                            >
+                              {sexGlyph}
+                            </span>
+                          ) : null}
+                          {bird.nickname ? (
+                            <span className="truncate text-sm font-medium text-slate-800">
+                              {bird.nickname}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-x-2 text-[11px] text-slate-500">
+                          <span className="truncate">{bird.flockGroupTitle}</span>
+                          {bird.acquisitionDate ? (
+                            <span className="whitespace-nowrap">
+                              · Nasceu em {new Date(bird.acquisitionDate).toLocaleDateString("pt-BR")}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {STATUS_ICON_ORDER.map((s) => {
