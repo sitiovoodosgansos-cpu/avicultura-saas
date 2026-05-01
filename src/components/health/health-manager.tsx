@@ -840,6 +840,15 @@ export function HealthManager() {
                                   >
                                     💀
                                   </button>
+                                  <button
+                                    type="button"
+                                    aria-label="Ver timeline"
+                                    title={timelineByCase[c.id] ? "Ocultar timeline" : "Ver timeline"}
+                                    className={`${iconBtn} ${timelineByCase[c.id] ? "bg-zinc-100" : ""}`}
+                                    onClick={() => loadTimeline(c.id)}
+                                  >
+                                    🕐
+                                  </button>
                                 </div>
                               </div>
                               <div className="mt-2 flex items-center gap-2">
@@ -863,6 +872,22 @@ export function HealthManager() {
                                     : `${remaining}d restantes`}
                                 </span>
                               </div>
+                              {timelineByCase[c.id] ? (
+                                <div className="mt-2 rounded-lg bg-zinc-50 px-3 py-2 text-[11px] text-zinc-600">
+                                  {timelineByCase[c.id].length === 0 ? (
+                                    <p>Sem eventos na timeline.</p>
+                                  ) : (
+                                    <ul className="space-y-1">
+                                      {timelineByCase[c.id].map((event) => (
+                                        <li key={event.id}>
+                                          {new Date(event.createdAt).toLocaleString("pt-BR")} · {timelineTypeLabel(event.type)}
+                                          {event.notes ? ` — ${event.notes}` : ""}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              ) : null}
                             </li>
                           );
                         })}
@@ -875,139 +900,6 @@ export function HealthManager() {
           </section>
         ) : null}
       </div>
-
-      <Card>
-        <h3 className="text-base font-semibold text-zinc-900">Casos clinicos</h3>
-        {!loading && cases.length === 0 ? <p className="mt-4 text-sm text-zinc-500">Nenhum caso registrado.</p> : null}
-        {!loading && cases.length > 0 ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-3">Anilha</th>
-                  <th className="py-2 pr-3">Enfermaria</th>
-                  <th className="py-2 pr-3">Diagnostico</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Acoes clinicas</th>
-                  <th className="py-2 pr-3">Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cases.map((item) => {
-                  const draft = getEventDraft(item.id);
-                  return (
-                    <Fragment key={item.id}>
-                      <tr className="border-b border-zinc-100 align-top">
-                        <td className="py-2 pr-3 font-medium text-zinc-900">
-                          {item.bird.ringNumber}
-                          <p className="text-xs font-normal text-zinc-500">{item.bird.flockGroup.title}</p>
-                        </td>
-                        <td className="py-2 pr-3">{item.infirmary.name}</td>
-                        <td className="py-2 pr-3">{item.diagnosis || "Nao informado"}</td>
-                        <td className="py-2 pr-3">{statusLabel(item.status)}</td>
-                        <td className="py-2 pr-3">
-                          {item.status === "TREATING" ? (
-                            <div className="grid gap-2">
-                              <select
-                                className="h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm"
-                                value={draft.action}
-                                onChange={(e) => setEventDraft(item.id, { action: e.target.value as EventDraft["action"] })}
-                              >
-                                <option value="CONTINUE">Continua em tratamento</option>
-                                <option value="CURE">Curada</option>
-                                <option value="DEATH">Morreu</option>
-                                <option value="TRANSFER">Transferida</option>
-                              </select>
-                              <Input type="date" value={draft.date} onChange={(e) => setEventDraft(item.id, { date: e.target.value })} />
-                              {draft.action === "TRANSFER" ? (
-                                <select
-                                  className="h-10 rounded-md border border-zinc-300 bg-white px-2 text-sm"
-                                  value={draft.toInfirmaryId}
-                                  onChange={(e) => setEventDraft(item.id, { toInfirmaryId: e.target.value })}
-                                >
-                                  <option value="">Selecione destino</option>
-                                  {infirmaries
-                                    .filter((inf) => inf.id !== item.infirmaryId)
-                                    .map((inf) => (
-                                      <option key={inf.id} value={inf.id}>
-                                        {inf.name}
-                                      </option>
-                                    ))}
-                                </select>
-                              ) : null}
-                              <Input
-                                placeholder="Observacoes do evento"
-                                value={draft.notes}
-                                onChange={(e) => setEventDraft(item.id, { notes: e.target.value })}
-                              />
-                              <Button type="button" variant="outline" onClick={() => applyCaseAction(item.id)}>
-                                Aplicar evento
-                              </Button>
-                            </div>
-                          ) : (
-                            <p className="text-xs text-zinc-500">Caso encerrado.</p>
-                          )}
-                        </td>
-                        <td className="py-2 pr-3">
-                          <div className="flex flex-col gap-2">
-                            <Button
-                              variant="outline"
-                              type="button"
-                              onClick={() => {
-                                setEditingCaseId(item.id);
-                                setCaseForm({
-                                  birdId: item.birdId,
-                                  infirmaryId: item.infirmaryId,
-                                  openedAt: toDateInput(item.openedAt),
-                                  diagnosis: item.diagnosis ?? "",
-                                  symptoms: item.symptoms ?? "",
-                                  medication: item.medication ?? "",
-                                  dosage: item.dosage ?? "",
-                                  responsible: item.responsible ?? "",
-                                  notes: item.notes ?? ""
-                                });
-                                setShowCaseModal(true);
-                              }}
-                            >
-                              Editar
-                            </Button>
-                            <Button variant="outline" type="button" onClick={() => loadTimeline(item.id)}>
-                              {timelineByCase[item.id] ? "Ocultar timeline" : "Ver timeline"}
-                            </Button>
-                            <DeleteActionButton
-                              onClick={() => removeCase(item.id)}
-                              aria-label="Excluir caso clinico"
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                      {timelineByCase[item.id] ? (
-                        <tr className="border-b border-zinc-100">
-                          <td className="py-2 pr-3 text-xs text-zinc-600" colSpan={6}>
-                            <p className="mb-2 font-semibold text-zinc-700">Timeline do tratamento</p>
-                            {timelineByCase[item.id].length === 0 ? (
-                              <p>Sem eventos.</p>
-                            ) : (
-                              <ul className="space-y-1">
-                                {timelineByCase[item.id].map((event) => (
-                                  <li key={event.id}>
-                                    {new Date(event.createdAt).toLocaleString("pt-BR")} - {timelineTypeLabel(event.type)}
-                                    {event.notes ? ` - ${event.notes}` : ""}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </td>
-                        </tr>
-                      ) : null}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </Card>
 
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Quarentenas de novas aves</h3>
