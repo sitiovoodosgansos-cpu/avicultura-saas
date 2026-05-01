@@ -1008,6 +1008,173 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       </AppModal>
 
       <AppModal
+        open={Boolean(expandedGroupId)}
+        title={(() => {
+          const g = groups.find((x) => x.id === expandedGroupId);
+          if (!g) return expandedFilterLabel[expandedFilter];
+          return `${expandedFilterLabel[expandedFilter]} — ${g.title}`;
+        })()}
+        onClose={() => setExpandedGroupId(null)}
+      >
+        {(() => {
+          const g = groups.find((x) => x.id === expandedGroupId);
+          if (!g) return null;
+          const expandedBirds = applyExpandedFilter(g.birds, expandedFilter);
+          if (expandedBirds.length === 0) {
+            return (
+              <p className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
+                Nenhuma ave neste filtro.
+              </p>
+            );
+          }
+          const iconBtn =
+            "inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 sm:size-9";
+          return (
+            <ul className="grid gap-2">
+              {expandedBirds.map((bird) => {
+                const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : null;
+                const sexLabel =
+                  bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "";
+                const historyOpen = Boolean(historyByBird[bird.id]);
+                const historyEvents = historyByBird[bird.id];
+                return (
+                  <li
+                    key={bird.id}
+                    className="rounded-2xl border border-[color:var(--line)] bg-white/80"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
+                      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
+                          {bird.ringNumber}
+                        </span>
+                        {sexGlyph ? (
+                          <span
+                            className="text-sm leading-none text-slate-500"
+                            aria-label={sexLabel}
+                            title={sexLabel}
+                          >
+                            {sexGlyph}
+                          </span>
+                        ) : null}
+                        {bird.nickname ? (
+                          <span className="truncate text-sm font-medium text-slate-800">
+                            {bird.nickname}
+                          </span>
+                        ) : null}
+                        {bird.inVitrine ? (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
+                            Vitrine
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {STATUS_ICON_ORDER.map((s) => {
+                          const active = bird.status === s;
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              aria-label={statusLabel[s]}
+                              title={statusLabel[s]}
+                              onClick={async () => {
+                                if (active) return;
+                                await applyBirdStatus(bird.id, s);
+                              }}
+                              className={`inline-flex size-8 items-center justify-center rounded-lg text-base transition sm:size-9 ${
+                                active
+                                  ? `${statusBadge[s]} ring-2 ring-offset-1 ring-[color:var(--brand)]/30`
+                                  : "border border-[color:var(--line)] bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                              }`}
+                            >
+                              {statusEmoji[s]}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          aria-label="Editar ave"
+                          title="Editar ave"
+                          className={iconBtn}
+                          onClick={() => {
+                            setEditingBirdId(bird.id);
+                            setShowBirdModal(true);
+                            setBirdForm({
+                              flockGroupId: bird.flockGroupId,
+                              bayNumber: bird.bayNumber ?? g.bayNumber,
+                              ringNumber: bird.ringNumber,
+                              nickname: bird.nickname ?? "",
+                              sex: bird.sex,
+                              acquisitionDate: toDateInput(bird.acquisitionDate),
+                              purchaseValue: bird.purchaseValue ? Number(bird.purchaseValue) : undefined,
+                              origin: bird.origin ?? "",
+                              status: bird.status
+                            });
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Marcar como vendida"
+                          title="Marcar como vendida"
+                          className={`${iconBtn} ${
+                            bird.status === "SOLD"
+                              ? "bg-violet-100 text-violet-700 ring-2 ring-violet-300"
+                              : ""
+                          }`}
+                          onClick={async () => {
+                            if (bird.status === "SOLD") return;
+                            if (!confirm(`Marcar a ave ${bird.ringNumber} como vendida?`)) return;
+                            await applyBirdStatus(bird.id, "SOLD" as BirdStatus);
+                          }}
+                        >
+                          <span className="text-base leading-none" aria-hidden>💰</span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={historyOpen ? "Ocultar histórico" : "Ver histórico"}
+                          title={historyOpen ? "Ocultar histórico" : "Ver histórico"}
+                          aria-pressed={historyOpen}
+                          className={`${iconBtn} ${historyOpen ? "bg-slate-100 text-slate-900" : ""}`}
+                          onClick={() => toggleHistory(bird.id)}
+                        >
+                          <History className="h-4 w-4" aria-hidden />
+                        </button>
+                        <DeleteActionButton
+                          iconOnly
+                          onClick={() => removeBird(bird.id)}
+                          aria-label="Excluir ave"
+                          className="size-8 sm:size-9"
+                        />
+                      </div>
+                    </div>
+                    {historyOpen ? (
+                      <div className="border-t border-[color:var(--line)] bg-slate-50/70 px-3 py-2 text-[11px] text-slate-600">
+                        {!historyEvents || historyEvents.length === 0 ? (
+                          <p>Sem histórico de status.</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {historyEvents.map((event) => (
+                              <li key={event.id}>
+                                {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
+                                {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para{" "}
+                                {statusLabel[event.toStatus]}
+                                {event.reason ? ` - ${event.reason}` : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        })()}
+      </AppModal>
+
+      <AppModal
         open={Boolean(daughtersGroup) || daughtersLoading}
         title={
           daughtersGroup
@@ -1272,8 +1439,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
       <section className="grid items-start gap-4 lg:grid-cols-2">
         {groups.map((group) => {
-          const expanded = expandedGroupId === group.id;
-
           return (
             <Card key={group.id} className="h-fit overflow-hidden">
               <div className="flex flex-col gap-4">
@@ -1450,172 +1615,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
               </div>
 
-              {expanded ? (
-                (() => {
-                  const expandedBirds = applyExpandedFilter(group.birds, expandedFilter);
-                  return (
-                    <div className="mt-4 grid gap-2">
-                      <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          {expandedFilterLabel[expandedFilter]} · {expandedBirds.length}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setExpandedGroupId(null)}
-                          className="text-xs font-semibold text-slate-500 hover:text-slate-800"
-                        >
-                          Fechar
-                        </button>
-                      </div>
-                      {expandedBirds.length === 0 ? (
-                        <p className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white/60 px-3 py-6 text-center text-sm text-slate-500">
-                          Nenhuma ave neste filtro.
-                        </p>
-                      ) : (
-                  <ul className="grid gap-2">
-                    {expandedBirds.map((bird) => {
-                      const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : "?";
-                      const sexLabel =
-                        bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "Não informado";
-                      const historyOpen = Boolean(historyByBird[bird.id]);
-                      const historyEvents = historyByBird[bird.id];
-                      const iconBtn =
-                        "inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 sm:size-9";
-                      return (
-                        <li
-                          key={bird.id}
-                          className="rounded-2xl border border-[color:var(--line)] bg-white/80"
-                        >
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
-                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-                              <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
-                                {bird.ringNumber}
-                              </span>
-                              <span
-                                className="text-sm leading-none text-slate-500"
-                                aria-label={sexLabel}
-                                title={sexLabel}
-                              >
-                                {sexGlyph}
-                              </span>
-                              {bird.nickname ? (
-                                <span className="truncate text-sm font-medium text-slate-800">
-                                  {bird.nickname}
-                                </span>
-                              ) : null}
-                              {bird.inVitrine ? (
-                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                                  Vitrine
-                                </span>
-                              ) : null}
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <select
-                                aria-label="Status da ave"
-                                className={`h-8 rounded-lg border border-[color:var(--line)] bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[color:var(--brand)]/20 ${statusBadge[bird.status]}`}
-                                value={statusDraftByBird[bird.id] ?? bird.status}
-                                onChange={(event) => {
-                                  const next = event.target.value as BirdStatus;
-                                  setStatusDraftByBird((prev) => ({ ...prev, [bird.id]: next }));
-                                  if (next !== bird.status) {
-                                    void applyBirdStatus(bird.id, next);
-                                  }
-                                }}
-                              >
-                                <option value="ACTIVE">Ativa</option>
-                                <option value="SICK">Doente</option>
-                                <option value="DEAD">Morta</option>
-                                <option value="BROODY">Choca</option>
-                              </select>
-
-                              <button
-                                type="button"
-                                aria-label="Editar ave"
-                                title="Editar ave"
-                                className={iconBtn}
-                                onClick={() => {
-                                  setEditingBirdId(bird.id);
-                                  setShowBirdModal(true);
-                                  setBirdForm({
-                                    flockGroupId: bird.flockGroupId,
-                                    bayNumber: bird.bayNumber ?? group.bayNumber,
-                                    ringNumber: bird.ringNumber,
-                                    nickname: bird.nickname ?? "",
-                                    sex: bird.sex,
-                                    acquisitionDate: toDateInput(bird.acquisitionDate),
-                                    purchaseValue: bird.purchaseValue ? Number(bird.purchaseValue) : undefined,
-                                    origin: bird.origin ?? "",
-                                    status: bird.status
-                                  });
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" aria-hidden />
-                              </button>
-
-                              {!bird.inVitrine ? (
-                                <button
-                                  type="button"
-                                  aria-label="Colocar à venda"
-                                  title="Colocar à venda"
-                                  className={iconBtn}
-                                  onClick={() => {
-                                    setSellingBird(bird);
-                                    setSellListingForm({ ageInMonths: 0, priceOverride: "" });
-                                    setSellListingError(null);
-                                  }}
-                                >
-                                  <span className="text-base leading-none" aria-hidden>💰</span>
-                                </button>
-                              ) : null}
-
-                              <button
-                                type="button"
-                                aria-label={historyOpen ? "Ocultar histórico" : "Ver histórico"}
-                                title={historyOpen ? "Ocultar histórico" : "Ver histórico"}
-                                aria-pressed={historyOpen}
-                                className={`${iconBtn} ${historyOpen ? "bg-slate-100 text-slate-900" : ""}`}
-                                onClick={() => toggleHistory(bird.id)}
-                              >
-                                <History className="h-4 w-4" aria-hidden />
-                              </button>
-
-                              <DeleteActionButton
-                                iconOnly
-                                onClick={() => removeBird(bird.id)}
-                                aria-label="Excluir ave"
-                                className="size-8 sm:size-9"
-                              />
-                            </div>
-                          </div>
-
-                          {historyOpen ? (
-                            <div className="border-t border-[color:var(--line)] bg-slate-50/70 px-3 py-2 text-[11px] text-slate-600">
-                              {!historyEvents || historyEvents.length === 0 ? (
-                                <p>Sem histórico de status.</p>
-                              ) : (
-                                <ul className="space-y-1">
-                                  {historyEvents.map((event) => (
-                                    <li key={event.id}>
-                                      {new Date(event.createdAt).toLocaleString("pt-BR")} -{" "}
-                                      {event.fromStatus ? statusLabel[event.fromStatus] : "-"} para{" "}
-                                      {statusLabel[event.toStatus]}
-                                      {event.reason ? ` - ${event.reason}` : ""}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                      )}
-                    </div>
-                  );
-                })()
-              ) : null}
             </Card>
           );
         })}
