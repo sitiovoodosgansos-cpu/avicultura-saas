@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
-import { DollarSign, History, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, DollarSign, History, Pencil, Plus } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1150,9 +1150,10 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 ) : null}
 
                 <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--line)] pt-3">
-                  <Button
-                    variant="outline"
+                  <button
                     type="button"
+                    aria-label="Editar grupo"
+                    title="Editar grupo"
                     onClick={() => {
                       setEditingGroupId(group.id);
                       setShowGroupModal(true);
@@ -1167,24 +1168,37 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                         notes: group.notes ?? ""
                       });
                     }}
+                    className="inline-flex size-9 items-center justify-center rounded-xl border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                   >
-                    Editar grupo
-                  </Button>
-                  <Button
-                    variant="outline"
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
                     type="button"
+                    aria-label="Cadastrar ave"
+                    title="Cadastrar ave"
                     onClick={() => {
                       setEditingBirdId(null);
                       setLockedBirdGroupId(group.id);
                       setBirdForm({ ...emptyBirdForm, flockGroupId: group.id, bayNumber: group.bayNumber });
                       setShowBirdModal(true);
                     }}
+                    className="inline-flex size-9 items-center justify-center rounded-xl border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                   >
-                    Cadastrar ave
-                  </Button>
-                  <Button variant="outline" type="button" onClick={() => setExpandedGroupId(expanded ? null : group.id)}>
-                    {expanded ? "Fechar aves" : "Abrir aves"}
-                  </Button>
+                    <Plus className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={expanded ? "Fechar aves" : "Abrir aves"}
+                    title={expanded ? "Fechar aves" : "Abrir aves"}
+                    onClick={() => setExpandedGroupId(expanded ? null : group.id)}
+                    className="inline-flex size-9 items-center justify-center rounded-xl border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                  >
+                    {expanded ? (
+                      <ChevronUp className="h-4 w-4" aria-hidden />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" aria-hidden />
+                    )}
+                  </button>
                   <button
                     type="button"
                     onClick={() => removeGroup(group.id)}
