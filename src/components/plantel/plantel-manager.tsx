@@ -942,8 +942,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
                 <div className="grid w-full auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-4">
                   <CompactStatChip emoji={"🐥"} label="Total" value={group.summary.totalBirds} />
-                  <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.matrixCount} />
-                  <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.reproducerCount} />
+                  <CompactStatChip emoji={"🥚"} label="Matrizes" value={group.summary.females} />
+                  <CompactStatChip emoji={"🐓"} label="Reprodutores" value={group.summary.males} />
                   <CompactStatChip emoji={"✅"} label="Ativas" value={group.summary.ACTIVE} />
                   <CompactStatChip emoji={"🤢"} label="Doentes" value={group.summary.SICK} />
                   <CompactStatChip emoji={"🗑️"} label="Mortas" value={group.summary.DEAD} />
