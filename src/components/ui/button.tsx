@@ -1,12 +1,14 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "default" | "outline" | "danger";
+type Variant = "default" | "outline" | "subtle" | "danger";
 type Size = "default" | "icon";
 
 const variantStyles: Record<Variant, string> = {
   default:
     "bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-white shadow-[0_12px_30px_rgba(15,157,138,0.25)] hover:translate-y-[-1px] hover:opacity-95",
+  subtle:
+    "bg-[color:var(--surface-soft)] text-[color:var(--brand-strong)] hover:bg-[color:var(--surface-soft)]/80",
   outline:
     "border border-[color:var(--line)] bg-white/90 text-slate-800 hover:bg-[color:var(--surface-soft)]",
   danger: "bg-red-600 text-white shadow-[0_10px_25px_rgba(220,38,38,0.2)] hover:bg-red-700"

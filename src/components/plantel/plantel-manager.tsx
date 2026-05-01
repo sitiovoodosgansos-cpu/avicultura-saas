@@ -281,6 +281,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [workerLinks, setWorkerLinks] = useState<WorkerLink[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showBirdModal, setShowBirdModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const [lockedBirdGroupId, setLockedBirdGroupId] = useState<string | null>(null);
   const [sellingBird, setSellingBird] = useState<PlantelBird | null>(null);
   const [sellListingForm, setSellListingForm] = useState<{
@@ -652,12 +653,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
       <Card>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Lancamentos do plantel</h3>
-            <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-              Use botoes para abrir os cadastros em popup e manter a tela principal limpa.
-            </p>
-          </div>
+          <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Lancamentos do plantel</h3>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -668,11 +664,10 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 setLockedBirdGroupId(null);
               }}
             >
-              Inserir Grupo de Aves
+              + Grupo de aves
             </Button>
             <Button
               type="button"
-              variant="outline"
               onClick={() => {
                 setEditingBirdId(null);
                 const groupId = birdForm.flockGroupId || groups[0]?.id || "";
@@ -682,7 +677,14 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 setLockedBirdGroupId(null);
               }}
             >
-              Cadastrar Ave Individual
+              + Ave individual
+            </Button>
+            <Button
+              type="button"
+              variant="subtle"
+              onClick={() => setShowFilterModal(true)}
+            >
+              🔍 Filtros
             </Button>
           </div>
         </div>
@@ -1412,25 +1414,58 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         </div>
       ) : null}
 
-      <Card>
-        <h3 className="text-xl font-semibold text-slate-900">Filtros do plantel</h3>
-        <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-          Use os filtros para encontrar especie, raca, variedade, status ou uma anilha especifica.
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-5">
-          <Input placeholder="Especie" value={filterSpecies} onChange={(event) => setFilterSpecies(event.target.value)} />
-          <Input placeholder="Raca" value={filterBreed} onChange={(event) => setFilterBreed(event.target.value)} />
-          <Input placeholder="Variedade" value={filterVariety} onChange={(event) => setFilterVariety(event.target.value)} />
-          <select className={selectClass} value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
-            <option value="">Todos os status</option>
-            <option value="ACTIVE">Ativa</option>
-            <option value="SICK">Doente</option>
-            <option value="DEAD">Morta</option>
-            <option value="BROODY">Choca</option>
-          </select>
-          <Input placeholder="Buscar por anilha" value={ringSearch} onChange={(event) => setRingSearch(event.target.value)} />
+      <AppModal
+        open={showFilterModal}
+        title="🔍 Filtros do plantel"
+        onClose={() => setShowFilterModal(false)}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-slate-800">Espécie</span>
+            <Input placeholder="Filtrar por espécie" value={filterSpecies} onChange={(event) => setFilterSpecies(event.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-slate-800">Raça</span>
+            <Input placeholder="Filtrar por raça" value={filterBreed} onChange={(event) => setFilterBreed(event.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-slate-800">Variedade</span>
+            <Input placeholder="Filtrar por variedade" value={filterVariety} onChange={(event) => setFilterVariety(event.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-slate-800">Status</span>
+            <select className={selectClass} value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
+              <option value="">Todos os status</option>
+              <option value="ACTIVE">Ativa</option>
+              <option value="SICK">Doente</option>
+              <option value="DEAD">Morta</option>
+              <option value="BROODY">Choca</option>
+            </select>
+          </label>
+          <label className="grid gap-1.5 sm:col-span-2">
+            <span className="text-sm font-semibold text-slate-800">Anilha</span>
+            <Input placeholder="Buscar por anilha" value={ringSearch} onChange={(event) => setRingSearch(event.target.value)} />
+          </label>
         </div>
-      </Card>
+        <div className="mt-4 flex justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setFilterSpecies("");
+              setFilterBreed("");
+              setFilterVariety("");
+              setFilterStatus("");
+              setRingSearch("");
+            }}
+          >
+            Limpar
+          </Button>
+          <Button type="button" onClick={() => setShowFilterModal(false)}>
+            Aplicar
+          </Button>
+        </div>
+      </AppModal>
 
       {loading ? <p className="text-sm text-[color:var(--ink-soft)]">Carregando plantel...</p> : null}
       {!loading && groups.length === 0 ? (
