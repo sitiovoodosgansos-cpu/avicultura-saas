@@ -278,7 +278,10 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
   }
 
   const mappedGroups = groups
-    .filter((group) => !allChildGroupIds.has(group.id))
+    .filter(
+      (group) =>
+        !allChildGroupIds.has(group.id) && !group.title.startsWith("Chocada ")
+    )
     .map((group) => {
       const groupAllBirds = allByGroup.get(group.id) ?? [];
       const groupFilteredBirds = filteredByGroup.get(group.id) ?? [];
