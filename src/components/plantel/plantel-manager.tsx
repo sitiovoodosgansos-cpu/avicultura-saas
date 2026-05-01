@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 type PlantelGroup = {
   id: string;
@@ -229,11 +228,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [sellListingError, setSellListingError] = useState<string | null>(null);
   const [sellListingSubmitting, setSellListingSubmitting] = useState(false);
   const [vitrineToast, setVitrineToast] = useState<string | null>(null);
-  const [growthByMonth, setGrowthByMonth] = useState<Array<{ key: string; label: string; total: number }>>([]);
-  const [growthByYear, setGrowthByYear] = useState<Array<{ key: string; label: string; total: number }>>([]);
-  const [growthView, setGrowthView] = useState<"monthly" | "yearly" | "specific-month">("monthly");
-  const [selectedYear, setSelectedYear] = useState("");
-  const [selectedMonthKey, setSelectedMonthKey] = useState("");
 
   const canSubmitBird = useMemo(() => Boolean(birdForm.flockGroupId), [birdForm.flockGroupId]);
 
@@ -263,8 +257,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
 
     const data: PlantelResponse = await response.json();
     setGroups(data.groups);
-    setGrowthByMonth(data.growth?.byMonth ?? []);
-    setGrowthByYear(data.growth?.byYear ?? []);
     if (showWorkerLinks && workerLinksRes) {
       const linksData = (await workerLinksRes.json()) as { links: WorkerLink[] };
       setWorkerLinks(linksData.links);
@@ -369,8 +361,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     await loadData();
   }
 
-  async function applyBirdStatus(id: string) {
-    const nextStatus = statusDraftByBird[id];
+  async function applyBirdStatus(id: string, override?: BirdStatus) {
+    const nextStatus = override ?? statusDraftByBird[id];
     if (!nextStatus) return;
 
     const reason = window.prompt("Motivo da alteracao de status (opcional):") ?? "";
@@ -454,31 +446,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       { total: 0, active: 0, sick: 0, dead: 0 }
     );
   }, [groups]);
-
-  const availableYears = useMemo(() => growthByYear.map((item) => item.key), [growthByYear]);
-
-  useEffect(() => {
-    if (!selectedYear && availableYears.length > 0) {
-      setSelectedYear(availableYears[availableYears.length - 1] ?? "");
-    }
-  }, [availableYears, selectedYear]);
-
-  const monthlyOptions = useMemo(
-    () => growthByMonth.filter((point) => (selectedYear ? point.key.startsWith(`${selectedYear}-`) : true)),
-    [growthByMonth, selectedYear]
-  );
-
-  useEffect(() => {
-    if (!selectedMonthKey && monthlyOptions.length > 0) {
-      setSelectedMonthKey(monthlyOptions[monthlyOptions.length - 1]?.key ?? "");
-    }
-  }, [monthlyOptions, selectedMonthKey]);
-
-  const growthChartData = useMemo(() => {
-    if (growthView === "yearly") return growthByYear;
-    if (growthView === "specific-month") return monthlyOptions.filter((item) => item.key === selectedMonthKey);
-    return monthlyOptions;
-  }, [growthView, growthByYear, monthlyOptions, selectedMonthKey]);
 
   return (
     <main className="space-y-6">
@@ -585,59 +552,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               Cadastrar Ave Individual
             </Button>
           </div>
-        </div>
-      </Card>
-      <Card>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Evolucao de aves novas</h3>
-            <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
-              Acompanhe novos cadastros por ano, por mes e por um mes especifico.
-            </p>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <select className={selectClass} value={growthView} onChange={(e) => setGrowthView(e.target.value as "monthly" | "yearly" | "specific-month")}>
-              <option value="monthly">Por mes</option>
-              <option value="yearly">Por ano</option>
-              <option value="specific-month">Mes especifico</option>
-            </select>
-            <select className={selectClass} value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} disabled={availableYears.length === 0 || growthView === "yearly"}>
-              {availableYears.length === 0 ? <option value="">Sem dados</option> : null}
-              {availableYears.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-            <select
-              className={selectClass}
-              value={selectedMonthKey}
-              onChange={(e) => setSelectedMonthKey(e.target.value)}
-              disabled={growthView !== "specific-month" || monthlyOptions.length === 0}
-            >
-              {monthlyOptions.length === 0 ? <option value="">Sem meses</option> : null}
-              {monthlyOptions.map((month) => (
-                <option key={month.key} value={month.key}>
-                  {month.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="mt-5 h-72 rounded-xl bg-[color:var(--surface-soft)] p-3 sm:rounded-2xl">
-          {growthChartData.length === 0 ? (
-            <div className="grid h-full place-items-center text-sm text-[color:var(--ink-soft)]">Sem dados suficientes ainda.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={growthChartData} margin={{ left: 4, right: 10, top: 8, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="4 4" stroke="#dbe3f2" />
-                <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="total" name="Aves novas" radius={[8, 8, 0, 0]} fill="#0ea5a4" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
         </div>
       </Card>
       <AppModal
