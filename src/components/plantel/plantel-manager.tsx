@@ -107,15 +107,27 @@ const statusLabel: Record<BirdStatus, string> = {
   ACTIVE: "Ativa",
   SICK: "Doente",
   DEAD: "Morta",
-  BROODY: "Choca"
+  BROODY: "Choca",
+  SOLD: "Vendida"
 };
 
 const statusBadge: Record<BirdStatus, string> = {
   ACTIVE: "bg-emerald-100 text-emerald-700",
   SICK: "bg-amber-100 text-amber-700",
   DEAD: "bg-rose-100 text-rose-700",
-  BROODY: "bg-sky-100 text-sky-700"
+  BROODY: "bg-sky-100 text-sky-700",
+  SOLD: "bg-violet-100 text-violet-700"
 };
+
+const statusEmoji: Record<BirdStatus, string> = {
+  ACTIVE: "✅",
+  SICK: "🤒",
+  DEAD: "💀",
+  BROODY: "🥚",
+  SOLD: "💰"
+};
+
+const STATUS_ICON_ORDER: BirdStatus[] = ["ACTIVE", "SICK", "BROODY", "DEAD"];
 
 const emptyGroupForm: GroupForm = {
   species: "",
@@ -985,9 +997,9 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           ) : (
             <ul className="grid gap-2">
               {daughtersGroup.birds.map((bird) => {
-                const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : "?";
+                const sexGlyph = bird.sex === "FEMALE" ? "♀" : bird.sex === "MALE" ? "♂" : null;
                 const sexLabel =
-                  bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "Não informado";
+                  bird.sex === "FEMALE" ? "Fêmea" : bird.sex === "MALE" ? "Macho" : "";
                 const iconBtn =
                   "inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 sm:size-9";
                 return (
@@ -1000,13 +1012,15 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                         <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-slate-800">
                           {bird.ringNumber}
                         </span>
-                        <span
-                          className="text-sm leading-none text-slate-500"
-                          aria-label={sexLabel}
-                          title={sexLabel}
-                        >
-                          {sexGlyph}
-                        </span>
+                        {sexGlyph ? (
+                          <span
+                            className="text-sm leading-none text-slate-500"
+                            aria-label={sexLabel}
+                            title={sexLabel}
+                          >
+                            {sexGlyph}
+                          </span>
+                        ) : null}
                         {bird.nickname ? (
                           <span className="truncate text-sm font-medium text-slate-800">
                             {bird.nickname}
@@ -1020,47 +1034,50 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                             · Nasceu em {new Date(bird.acquisitionDate).toLocaleDateString("pt-BR")}
                           </span>
                         ) : null}
-                        {bird.inVitrine ? (
-                          <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                            Vitrine
-                          </span>
-                        ) : null}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <select
-                          aria-label="Status da ave"
-                          className={`h-8 rounded-lg border border-[color:var(--line)] bg-white px-2 text-xs font-medium text-slate-700 outline-none focus:ring-2 focus:ring-[color:var(--brand)]/20 ${statusBadge[bird.status]}`}
-                          value={statusDraftByBird[bird.id] ?? bird.status}
-                          onChange={async (event) => {
-                            const next = event.target.value as BirdStatus;
-                            setStatusDraftByBird((prev) => ({ ...prev, [bird.id]: next }));
-                            if (next !== bird.status) {
-                              await applyBirdStatus(bird.id, next);
-                              await reloadDaughters();
-                            }
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {STATUS_ICON_ORDER.map((s) => {
+                          const active = bird.status === s;
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              aria-label={statusLabel[s]}
+                              title={statusLabel[s]}
+                              onClick={async () => {
+                                if (active) return;
+                                await applyBirdStatus(bird.id, s);
+                                await reloadDaughters();
+                              }}
+                              className={`inline-flex size-8 items-center justify-center rounded-lg text-base transition sm:size-9 ${
+                                active
+                                  ? `${statusBadge[s]} ring-2 ring-offset-1 ring-[color:var(--brand)]/30`
+                                  : "border border-[color:var(--line)] bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700"
+                              }`}
+                            >
+                              {statusEmoji[s]}
+                            </button>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          aria-label="Marcar como vendida"
+                          title="Marcar como vendida"
+                          className={`${iconBtn} ${
+                            bird.status === "SOLD"
+                              ? "bg-violet-100 text-violet-700 ring-2 ring-violet-300"
+                              : ""
+                          }`}
+                          onClick={async () => {
+                            if (bird.status === "SOLD") return;
+                            if (!confirm(`Marcar a ave ${bird.ringNumber} como vendida?`)) return;
+                            await applyBirdStatus(bird.id, "SOLD" as BirdStatus);
+                            await reloadDaughters();
                           }}
                         >
-                          <option value="ACTIVE">Ativa</option>
-                          <option value="SICK">Doente</option>
-                          <option value="DEAD">Morta</option>
-                          <option value="BROODY">Choca</option>
-                        </select>
-
-                        {!bird.inVitrine ? (
-                          <button
-                            type="button"
-                            aria-label="Colocar à venda"
-                            title="Colocar à venda"
-                            className={iconBtn}
-                            onClick={() => {
-                              setSellingBird(bird);
-                              setSellListingForm({ ageInMonths: 0, priceOverride: "" });
-                              setSellListingError(null);
-                            }}
-                          >
-                            <DollarSign className="h-4 w-4" aria-hidden />
-                          </button>
-                        ) : null}
+                          <DollarSign className="h-4 w-4" aria-hidden />
+                        </button>
 
                         <button
                           type="button"

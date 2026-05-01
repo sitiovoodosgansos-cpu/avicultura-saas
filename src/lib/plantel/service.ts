@@ -236,7 +236,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
       where: {
         tenantId,
         flockGroupId: { in: Array.from(allChildGroupIds) },
-        status: { not: "DEAD" }
+        status: { notIn: ["DEAD", "SOLD"] }
       },
       select: { id: true, flockGroupId: true }
     });

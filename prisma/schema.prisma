@@ -41,6 +41,7 @@ enum BirdStatus {
   SICK
   DEAD
   BROODY
+  SOLD
 }
 
 enum IncubatorStatus {

@@ -55,7 +55,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     )
   );
 
-  const [salesAgg, deathsAgg, deadBirds] = await Promise.all([
+  const [salesAgg, deathsAgg, deadBirds, soldBirds] = await Promise.all([
     allListingIds.length > 0
       ? prisma.vitrineSale.groupBy({
           by: ["listingId"],
@@ -76,6 +76,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           where: { tenantId, flockGroupId: { in: childGroupIds }, status: "DEAD" },
           _count: { _all: true }
         })
+      : Promise.resolve([] as Array<{ flockGroupId: string; _count: { _all: number } }>),
+    childGroupIds.length > 0
+      ? prisma.bird.groupBy({
+          by: ["flockGroupId"],
+          where: { tenantId, flockGroupId: { in: childGroupIds }, status: "SOLD" },
+          _count: { _all: true }
+        })
       : Promise.resolve([] as Array<{ flockGroupId: string; _count: { _all: number } }>)
   ]);
 
@@ -91,6 +98,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   for (const row of deadBirds) {
     deadBirdsByGroup.set(row.flockGroupId, row._count._all);
   }
+  const soldBirdsByGroup = new Map<string, number>();
+  for (const row of soldBirds) {
+    soldBirdsByGroup.set(row.flockGroupId, row._count._all);
+  }
 
   const hatchBatches = batches
     .map((batch) => {
@@ -104,10 +115,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       const childGroupId =
         batch.vitrineListings.find((l) => l.flockGroupId !== parentId)?.flockGroupId ?? null;
 
-      const sold = batch.vitrineListings.reduce(
+      const soldFromVitrine = batch.vitrineListings.reduce(
         (s, l) => s + (soldByListing.get(l.id) ?? 0),
         0
       );
+      const soldBirdsCount = childGroupId ? soldBirdsByGroup.get(childGroupId) ?? 0 : 0;
+      const sold = soldFromVitrine + soldBirdsCount;
       const deathFromRecords = batch.vitrineListings.reduce(
         (s, l) => s + (deathRecordsByListing.get(l.id) ?? 0),
         0

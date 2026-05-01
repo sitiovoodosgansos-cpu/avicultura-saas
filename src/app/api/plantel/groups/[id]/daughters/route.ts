@@ -45,7 +45,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       orderBy: { createdAt: "desc" }
     }),
     prisma.bird.findMany({
-      where: { tenantId, flockGroupId: { in: childGroupIds }, status: { not: "DEAD" } },
+      where: {
+        tenantId,
+        flockGroupId: { in: childGroupIds },
+        status: { notIn: ["DEAD", "SOLD"] }
+      },
       orderBy: [{ flockGroupId: "asc" }, { ringNumber: "asc" }]
     }),
     prisma.vitrineListing.findMany({
