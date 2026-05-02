@@ -120,7 +120,10 @@ export async function getReportData(
   const [birds, groups, eggRows, batches, healthCases, entries, expenses] = await Promise.all([
     prisma.bird.findMany({ where: { tenantId }, select: { status: true, flockGroupId: true } }),
     prisma.flockGroup.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        NOT: { title: { startsWith: "Chocada " } }
+      },
       include: {
         species: { select: { name: true } },
         breed: { select: { name: true } },

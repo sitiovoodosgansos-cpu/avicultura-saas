@@ -249,14 +249,6 @@ export function VitrineManager() {
               {formatBRL(summary.totalValue)}
             </p>
           </div>
-          <div className="rounded-xl bg-[color:var(--surface-soft)] px-3 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-              Sem preço
-            </p>
-            <p className="text-2xl font-semibold leading-none text-slate-900">
-              {summary.missingTiers}
-            </p>
-          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={() => setPricesOpen(true)}>

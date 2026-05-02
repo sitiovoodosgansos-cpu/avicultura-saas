@@ -957,10 +957,10 @@ export function HealthManager() {
                                         <span
                                           key={t.id || `${q.id}-${t.label}-${t.startDate}`}
                                           title={`${t.label} — ${toDateInput(t.startDate)}`}
-                                          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-2.5 rounded-full border-2 ${
+                                          className={`absolute top-1/2 h-5 w-1 -translate-x-1/2 -translate-y-1/2 rounded-sm shadow-sm ${
                                             passed
-                                              ? "border-emerald-700 bg-emerald-700"
-                                              : "border-zinc-400 bg-white"
+                                              ? "bg-emerald-900"
+                                              : "bg-zinc-700"
                                           }`}
                                           style={{ left: `${pct}%` }}
                                         />

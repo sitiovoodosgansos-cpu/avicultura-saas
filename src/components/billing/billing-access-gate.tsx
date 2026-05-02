@@ -85,7 +85,7 @@ export function BillingAccessGate({ farmName, reason, trialEndsAt }: BillingAcce
         </p>
         {trialEndsAt ? (
           <p className="mt-2 text-sm text-slate-500">
-            Trial encerrado em {new Date(trialEndsAt).toLocaleDateString("pt-BR")}.
+            Período de teste encerrado em {new Date(trialEndsAt).toLocaleDateString("pt-BR")}.
           </p>
         ) : null}
 

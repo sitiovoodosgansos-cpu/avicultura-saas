@@ -39,12 +39,12 @@ type BillingStatus = {
 function labelStatus(status?: string | null) {
   if (!status) return "Sem assinatura";
   const map: Record<string, string> = {
-    TRIALING: "Trial",
+    TRIALING: "Teste",
     ACTIVE: "Ativa",
     PAST_DUE: "Em atraso",
     CANCELED: "Cancelada",
     INCOMPLETE: "Pendente",
-    TRIAL: "Trial",
+    TRIAL: "Teste",
     SUSPENDED: "Suspensa"
   };
   return map[status] ?? status;
@@ -139,7 +139,7 @@ export function BillingProfileManager() {
     if (data.isTrialActive) {
       return `${data.trialDaysLeft} dia(s) restantes`;
     }
-    return "Trial encerrado";
+    return "Período de teste encerrado";
   }, [data]);
 
   return (
@@ -189,7 +189,7 @@ export function BillingProfileManager() {
           <p className="mt-2 text-xl font-semibold text-zinc-900">{labelStatus(data?.subscription?.status ?? data?.tenant.status)}</p>
         </Card>
         <Card>
-          <p className="text-sm text-zinc-500">⏳ Trial gratis</p>
+          <p className="text-sm text-zinc-500">⏳ Teste grátis</p>
           <p className="mt-2 text-xl font-semibold text-zinc-900">{trialLabel}</p>
         </Card>
       </section>
