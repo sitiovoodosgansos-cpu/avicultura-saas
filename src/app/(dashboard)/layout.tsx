@@ -30,10 +30,20 @@ export default async function AuthenticatedLayout({
       <div className="mobile-page-with-nav flex-1 md:pb-0">
         <header className="px-4 py-3 md:px-8">
           <div className="flex items-center justify-between gap-4 rounded-[26px] border border-[color:var(--line)] bg-white/90 px-4 py-3 shadow-[0_12px_35px_rgba(15,23,42,0.06)]">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Conta ativa</p>
-              <h1 className="text-sm font-semibold text-slate-800">{session.user.name}</h1>
-              <p className="text-xs text-[color:var(--ink-soft)]">Ornabird - Gestao de Criatorios Ornamentais.</p>
+            <div className="flex items-center gap-3">
+              {billing.tenant.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={billing.tenant.logoUrl}
+                  alt="Logo"
+                  className="h-12 w-12 rounded-xl border border-[color:var(--line)] object-contain"
+                />
+              ) : null}
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Conta ativa</p>
+                <h1 className="text-sm font-semibold text-slate-800">{billing.farmName}</h1>
+                <p className="text-xs text-[color:var(--ink-soft)]">{session.user.name}</p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="hidden rounded-2xl bg-[color:var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--brand-strong)] md:block">

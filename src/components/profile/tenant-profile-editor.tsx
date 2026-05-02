@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,7 +50,26 @@ export function TenantProfileEditor() {
   const [data, setData] = useState<TenantProfile>(empty);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function uploadLogo(file: File) {
+    setUploadingLogo(true);
+    setMessage(null);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/tenant/profile/logo", { method: "POST", body: fd });
+    setUploadingLogo(false);
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setMessage(body.error ?? "Erro ao enviar logo.");
+      return;
+    }
+    const json = (await res.json()) as { url: string };
+    setData((d) => ({ ...d, logoUrl: json.url }));
+    setMessage("Logo atualizado.");
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -154,21 +173,56 @@ export function TenantProfileEditor() {
                 <Input value={data.zipCode ?? ""} onChange={(e) => setData({ ...data, zipCode: e.target.value })} />
               </Field>
             </div>
-            <Field label="URL do logo">
-              <Input value={data.logoUrl ?? ""} onChange={(e) => setData({ ...data, logoUrl: e.target.value })} placeholder="https://..." />
-            </Field>
             <Field label="Observações nos recibos">
               <Input value={data.receiptNotes ?? ""} onChange={(e) => setData({ ...data, receiptNotes: e.target.value })} placeholder="Termos, garantias..." />
             </Field>
           </div>
 
-          {data.logoUrl ? (
-            <div className="mt-3 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={data.logoUrl} alt="Logo do criatório" className="h-12 w-12 rounded-lg object-contain" />
-              <span className="text-xs text-zinc-500">Pré-visualização do logo</span>
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-3">
+            {data.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={data.logoUrl} alt="Logo do criatório" className="h-16 w-16 rounded-lg border border-zinc-200 object-contain" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 text-2xl">
+                🏞️
+              </div>
+            )}
+            <div className="flex flex-1 flex-col gap-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Logo do criatório</p>
+              <p className="text-[11px] text-zinc-500">PNG, JPG ou WEBP — até 4 MB. Aparece nos recibos PDF.</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadLogo(f);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+              />
+              <div className="mt-1 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={uploadingLogo}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploadingLogo ? "Enviando..." : data.logoUrl ? "Trocar logo" : "Enviar logo"}
+                </Button>
+                {data.logoUrl ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingLogo}
+                    onClick={() => setData((d) => ({ ...d, logoUrl: "" }))}
+                  >
+                    Remover
+                  </Button>
+                ) : null}
+              </div>
             </div>
-          ) : null}
+          </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <Button type="button" disabled={saving} onClick={save}>

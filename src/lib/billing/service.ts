@@ -57,7 +57,8 @@ export async function getTenantBilling(tenantId: string) {
         name: true,
         status: true,
         trialStartsAt: true,
-        trialEndsAt: true
+        trialEndsAt: true,
+        logoUrl: true
       }
     }),
     prisma.subscription.findFirst({
@@ -114,7 +115,7 @@ export async function getTenantBilling(tenantId: string) {
           planLabel: mapPlanCodeToLabel(subscription.planCode)
         }
       : null,
-    farmName: farm?.name ?? tenant.name,
+    farmName: tenant.name || farm?.name || "Criatório",
     payments,
     trialDaysLeft,
     isTrialActive,
