@@ -439,9 +439,10 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       <Card>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <h3 className="text-lg font-semibold text-slate-900 sm:text-xl">Lancamentos do plantel</h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
             <Button
               type="button"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setEditingGroupId(null);
                 setGroupForm(emptyGroupForm);
@@ -449,10 +450,11 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 setLockedBirdGroupId(null);
               }}
             >
-              + Grupo de aves
+              + Grupo
             </Button>
             <Button
               type="button"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setEditingBirdId(null);
                 const groupId = birdForm.flockGroupId || groups[0]?.id || "";
@@ -462,11 +464,12 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 setLockedBirdGroupId(null);
               }}
             >
-              + Ave individual
+              + Ave
             </Button>
             <Button
               type="button"
               variant="subtle"
+              className="w-full sm:w-auto"
               onClick={() => setShowFilterModal(true)}
             >
               🔍 Filtros

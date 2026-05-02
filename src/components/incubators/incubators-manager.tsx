@@ -809,15 +809,12 @@ export function IncubatorsManager() {
       </section>
 
       <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-lg font-semibold text-zinc-900">Painel de chocadeiras</h3>
-            <p className="text-sm text-zinc-500">Cards por maquina e registro separado entre lotes ativos e inativos.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => { setEditingDeviceId(null); setDeviceForm(emptyDevice); setShowDeviceModal(true); }}>Nova chocadeira</Button>
-            <Button type="button" variant="outline" onClick={() => { setEditingBatchId(null); setShowBatchModal(true); }}>Novo lote</Button>
-            <Button type="button" variant="outline" onClick={() => setShowEventModal(true)}>Registrar evento</Button>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <h3 className="text-lg font-semibold text-zinc-900">Painel de chocadeiras</h3>
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+            <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingDeviceId(null); setDeviceForm(emptyDevice); setShowDeviceModal(true); }}>+ Chocadeira</Button>
+            <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingBatchId(null); setShowBatchModal(true); }}>+ Lote</Button>
+            <Button type="button" variant="subtle" className="w-full sm:w-auto" onClick={() => setShowEventModal(true)}>📝 Evento</Button>
           </div>
         </div>
       </Card>

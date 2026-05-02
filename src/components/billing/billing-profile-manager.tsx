@@ -5,6 +5,7 @@ import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmployeesManager } from "@/components/employees/employees-manager";
+import { TenantProfileEditor } from "@/components/profile/tenant-profile-editor";
 import { openUrlWithNativeFallback } from "@/lib/mobile/open-url";
 
 type BillingStatus = {
@@ -250,6 +251,8 @@ export function BillingProfileManager() {
           </div>
         ) : null}
       </Card>
+
+      <TenantProfileEditor />
 
       <EmployeesManager />
 

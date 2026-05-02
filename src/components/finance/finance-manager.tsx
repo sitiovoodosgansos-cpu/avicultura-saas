@@ -697,6 +697,16 @@ export function FinanceManager() {
                     </span>
                   </div>
                   <div className="mt-2 flex justify-end gap-1">
+                    <a
+                      href={`/api/finance/entries/${row.id}/receipt`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Gerar recibo PDF"
+                      title="Gerar recibo PDF"
+                      className="inline-flex size-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-base text-emerald-700 transition hover:bg-emerald-100"
+                    >
+                      🧾
+                    </a>
                     <button
                       type="button"
                       aria-label="Editar entrada"
@@ -744,6 +754,16 @@ export function FinanceManager() {
                       <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
                       <td className="py-2 pr-3">
                         <div className="flex gap-1">
+                          <a
+                            href={`/api/finance/entries/${row.id}/receipt`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Gerar recibo PDF"
+                            title="Gerar recibo PDF"
+                            className="inline-flex size-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-base text-emerald-700 transition hover:bg-emerald-100 sm:size-9"
+                          >
+                            🧾
+                          </a>
                           <button
                             type="button"
                             aria-label="Editar entrada"

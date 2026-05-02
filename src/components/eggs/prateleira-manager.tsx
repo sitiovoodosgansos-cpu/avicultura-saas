@@ -460,10 +460,10 @@ export function PrateleiraManager() {
           : selected
             ? "bg-rose-600 text-white shadow-sm"
             : "bg-rose-50 text-rose-700 hover:bg-rose-100";
-    const Icon = mode === "sale" ? ShoppingBasket : mode === "transfer" ? Flame : Trash2;
+    const emoji = mode === "sale" ? "🛒" : mode === "transfer" ? "🔥" : "🗑️";
     return (
       <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${palette}`} aria-label={title} title={title}>
-        <Icon className="h-3.5 w-3.5" />
+        <span className="text-xs leading-none" aria-hidden>{emoji}</span>
       </button>
     );
   }
@@ -549,7 +549,14 @@ export function PrateleiraManager() {
                 {(expanded ? tray.entries : tray.entries.slice(0, 3)).map((entry) => {
                   const entryTone = urgencyTone(entry.remainingDays);
                   const entryPalette = tonePalette(entryTone);
-                  const progress = entry.initialCount > 0 ? Math.min(100, Math.max(0, (entry.available / entry.initialCount) * 100)) : 0;
+                  // Barra mostra IDADE do ovo (% do tempo de validade decorrido).
+                  // Verde quando novo, amarela conforme se aproxima do vencimento, vermelha vencido.
+                  const entryDateMs = new Date(entry.entryDate).getTime();
+                  const expiresAtMs = new Date(entry.expiresAt).getTime();
+                  const totalMs = Math.max(1, expiresAtMs - entryDateMs);
+                  const elapsedMs = Date.now() - entryDateMs;
+                  const ageProgress = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
+                  const progress = ageProgress;
                   const selected = selection.get(entry.id);
                   const disabledOther = selectionMode !== null && selection.size > 0;
                   return (
@@ -637,7 +644,9 @@ export function PrateleiraManager() {
                   selectionMode === "sale" ? "bg-emerald-600" : selectionMode === "transfer" ? "bg-amber-600" : "bg-rose-600"
                 }`}
               >
-                {selectionMode === "sale" ? <ShoppingBasket className="h-5 w-5" /> : selectionMode === "transfer" ? <Flame className="h-5 w-5" /> : <Trash2 className="h-5 w-5" />}
+                <span className="text-lg leading-none" aria-hidden>
+                  {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🔥" : "🗑️"}
+                </span>
               </span>
               <div>
                 <p className="text-sm font-semibold text-zinc-900">Modo: {modeLabel(selectionMode)}</p>

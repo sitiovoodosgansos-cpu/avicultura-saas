@@ -128,6 +128,17 @@ model Tenant {
   status               TenantStatus                  @default(TRIAL)
   trialStartsAt        DateTime                      @default(now())
   trialEndsAt          DateTime
+  cnpj                 String?
+  legalName            String?
+  email                String?
+  phone                String?
+  whatsapp             String?
+  addressLine          String?
+  city                 String?
+  stateUf              String?
+  zipCode              String?
+  logoUrl              String?
+  receiptNotes         String?
   createdAt            DateTime                      @default(now())
   updatedAt            DateTime                      @updatedAt
   members              TenantMember[]
