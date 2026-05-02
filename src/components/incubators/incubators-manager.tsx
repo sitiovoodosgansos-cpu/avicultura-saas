@@ -812,7 +812,7 @@ export function IncubatorsManager() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <h3 className="text-lg font-semibold text-zinc-900">Painel de chocadeiras</h3>
           <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-            <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingDeviceId(null); setDeviceForm(emptyDevice); setShowDeviceModal(true); }}>+ Chocadeira</Button>
+            <Button type="button" className="w-full whitespace-nowrap !text-[11px] !px-2 sm:w-auto sm:!text-sm sm:!px-4" onClick={() => { setEditingDeviceId(null); setDeviceForm(emptyDevice); setShowDeviceModal(true); }}>+ Chocadeira</Button>
             <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingBatchId(null); setShowBatchModal(true); }}>+ Lote</Button>
             <Button type="button" variant="subtle" className="w-full sm:w-auto" onClick={() => setShowEventModal(true)}>📝 Evento</Button>
           </div>

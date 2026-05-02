@@ -11,7 +11,7 @@ const navItems = [
   { href: "/coleta-ovos", label: "Coleta", emoji: "🥚" },
   { href: "/prateleira", label: "Prateleira", emoji: "🪺" },
   { href: "/chocadeiras", label: "Chocadeiras", emoji: "🐣" },
-  { href: "/vitrine", label: "Vitrine", emoji: "🛍️" },
+  { href: "/vitrine", label: "Vitrine", emoji: "🏪" },
   { href: "/sanidade", label: "Sanidade", emoji: "💊" },
   { href: "/financeiro", label: "Financeiro", emoji: "💰" },
   { href: "/relatorios", label: "Relatorios", emoji: "📊" },

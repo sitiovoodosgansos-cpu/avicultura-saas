@@ -242,6 +242,11 @@ export function HealthManager() {
   const [showCaseModal, setShowCaseModal] = useState(false);
   const [showQuarantineModal, setShowQuarantineModal] = useState(false);
   const [protocolsInfirmaryId, setProtocolsInfirmaryId] = useState<string | null>(null);
+  const [quickActionDialog, setQuickActionDialog] = useState<{
+    caseId: string;
+    action: "CURE" | "DEATH" | "NEW_PROTOCOL";
+    notes: string;
+  } | null>(null);
 
   const [timelineByCase, setTimelineByCase] = useState<Record<string, TimelineEvent[]>>({});
   const [eventByCase, setEventByCase] = useState<Record<string, EventDraft>>({});
@@ -462,16 +467,21 @@ export function HealthManager() {
     }));
   }
 
-  async function quickCaseAction(
+  function quickCaseAction(
     caseId: string,
     action: "CURE" | "DEATH" | "NEW_PROTOCOL"
   ) {
-    const labels = { CURE: "marcar como CURADA", DEATH: "registrar ÓBITO", NEW_PROTOCOL: "iniciar novo protocolo (5 dias)" };
-    if (action !== "NEW_PROTOCOL" && !confirm(`Confirma ${labels[action]}?`)) return;
+    setQuickActionDialog({ caseId, action, notes: "" });
+  }
+
+  async function confirmQuickAction() {
+    if (!quickActionDialog) return;
+    const { caseId, action, notes } = quickActionDialog;
+    setQuickActionDialog(null);
     const res = await fetch(`/api/health/cases/${caseId}/event`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, date: today, notes: "" })
+      body: JSON.stringify({ action, date: today, notes })
     });
     if (!res.ok) {
       const payload = (await res.json().catch(() => ({}))) as { error?: string };
@@ -801,13 +811,16 @@ export function HealthManager() {
                             >
                               <div className="flex flex-wrap items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                                    <span className="rounded-md bg-zinc-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-zinc-800">
+                                  <p className="truncate text-sm font-semibold text-zinc-900">
+                                    {c.bird.nickname?.trim() || c.bird.flockGroup.title}
+                                  </p>
+                                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-zinc-500">
+                                    <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono font-semibold text-zinc-700">
                                       {c.bird.ringNumber}
                                     </span>
-                                    <span className="text-xs text-zinc-500">
-                                      · {c.bird.flockGroup.title}
-                                    </span>
+                                    {c.bird.nickname?.trim() ? (
+                                      <span className="truncate">· {c.bird.flockGroup.title}</span>
+                                    ) : null}
                                   </div>
                                   {c.diagnosis ? (
                                     <p className="mt-1 truncate text-xs text-zinc-600">
@@ -1049,6 +1062,60 @@ export function HealthManager() {
             </ul>
           );
         })()}
+      </AppModal>
+
+      <AppModal
+        open={Boolean(quickActionDialog)}
+        title={
+          quickActionDialog?.action === "CURE"
+            ? "✅ Marcar como curada"
+            : quickActionDialog?.action === "DEATH"
+              ? "💀 Registrar óbito"
+              : "🔄 Novo protocolo"
+        }
+        onClose={() => setQuickActionDialog(null)}
+      >
+        {quickActionDialog ? (
+          <div className="grid gap-3">
+            <p className="text-sm text-zinc-700">
+              {quickActionDialog.action === "CURE"
+                ? "Confirma marcar a ave como curada e fechar o caso clínico?"
+                : quickActionDialog.action === "DEATH"
+                  ? "Confirma registrar o óbito? A ave será marcada como morta e o caso fechado."
+                  : "Iniciar um novo protocolo de 5 dias? O countdown será resetado a partir de hoje."}
+            </p>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Observações (opcional)
+              </span>
+              <Input
+                placeholder={
+                  quickActionDialog.action === "DEATH"
+                    ? "Causa, data, observações..."
+                    : "Notas sobre o evento"
+                }
+                value={quickActionDialog.notes}
+                onChange={(e) =>
+                  setQuickActionDialog((prev) =>
+                    prev ? { ...prev, notes: e.target.value } : prev
+                  )
+                }
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setQuickActionDialog(null)}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant={quickActionDialog.action === "DEATH" ? "danger" : "default"}
+                onClick={confirmQuickAction}
+              >
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </AppModal>
 
       <AppModal

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { HeartCrack, Pencil, ShoppingCart } from "lucide-react";
+import { Pencil, ShoppingCart } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
@@ -164,7 +164,7 @@ export function FlockGroupCard({
                   title="Registrar óbito"
                   className="h-8 w-8 border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50 sm:h-9 sm:w-9"
                 >
-                  <HeartCrack className="h-4 w-4" aria-hidden />
+                  <span className="text-base leading-none" aria-hidden>💀</span>
                 </Button>
                 <Button
                   type="button"

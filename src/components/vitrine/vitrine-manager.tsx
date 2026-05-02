@@ -228,7 +228,7 @@ export function VitrineManager() {
       <PageTitle
         title="Vitrine"
         description="Catálogo dos animais disponíveis para venda. O preço atualiza automaticamente conforme o filhote envelhece, com base na tabela de preços por idade."
-        icon="🛍️"
+        icon="🏪"
       />
 
       <Card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

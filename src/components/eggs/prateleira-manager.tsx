@@ -460,7 +460,7 @@ export function PrateleiraManager() {
           : selected
             ? "bg-rose-600 text-white shadow-sm"
             : "bg-rose-50 text-rose-700 hover:bg-rose-100";
-    const emoji = mode === "sale" ? "🛒" : mode === "transfer" ? "🔥" : "🗑️";
+    const emoji = mode === "sale" ? "🛒" : mode === "transfer" ? "🥚" : "🗑️";
     return (
       <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${palette}`} aria-label={title} title={title}>
         <span className="text-xs leading-none" aria-hidden>{emoji}</span>
@@ -636,7 +636,7 @@ export function PrateleiraManager() {
       </section>
 
       {selectionMode && selection.size > 0 ? (
-        <div className="fixed inset-x-3 bottom-3 z-40 mx-auto max-w-3xl rounded-2xl border border-zinc-200 bg-white p-3 shadow-2xl md:bottom-6 md:p-4">
+        <div className="fixed inset-x-3 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-[60] mx-auto max-w-3xl rounded-2xl border border-zinc-200 bg-white p-3 shadow-2xl md:bottom-6 md:p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span
@@ -645,7 +645,7 @@ export function PrateleiraManager() {
                 }`}
               >
                 <span className="text-lg leading-none" aria-hidden>
-                  {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🔥" : "🗑️"}
+                  {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🥚" : "🗑️"}
                 </span>
               </span>
               <div>

@@ -238,6 +238,7 @@ export function FinanceManager() {
   >("entryCategory");
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showFinanceFilterModal, setShowFinanceFilterModal] = useState(false);
 
   const entryCategoryOptions = useMemo(() => {
     const map = new Map<string, CategoryOption>();
@@ -561,12 +562,15 @@ export function FinanceManager() {
       </section>
 
       <Card>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={() => { setEditingEntryId(null); setEntryForm(emptyEntry); setShowEntryModal(true); }}>
-            Nova entrada
+        <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+          <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingEntryId(null); setEntryForm(emptyEntry); setShowEntryModal(true); }}>
+            + Entrada
           </Button>
-          <Button type="button" variant="outline" onClick={() => { setEditingExpenseId(null); setExpenseForm(emptyExpense); setShowExpenseModal(true); }}>
-            Nova saida
+          <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingExpenseId(null); setExpenseForm(emptyExpense); setShowExpenseModal(true); }}>
+            + Saída
+          </Button>
+          <Button type="button" variant="subtle" className="w-full sm:w-auto" onClick={() => setShowFinanceFilterModal(true)}>
+            🔍 Filtros
           </Button>
         </div>
       </Card>
@@ -652,27 +656,57 @@ export function FinanceManager() {
       </section>
 
       <Card>
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-zinc-900">Filtros e totalizadores</h3>
-          <Button type="button" variant="outline" onClick={() => openCategoryModal("filterCategory")}>
-            Nova categoria
-          </Button>
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-4">
-          <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
-          <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
-          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
-            <option value="">Todas categorias</option>
-            {filterCategoryOptions.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
-          </select>
-          <Input placeholder="Busca textual" value={filterQuery} onChange={(e) => setFilterQuery(e.target.value)} />
-        </div>
-        <div className="mt-4 grid gap-2 text-sm text-zinc-700 md:grid-cols-3">
-          <p>Total entradas filtradas: <strong>{formatMoney(totals.income)}</strong></p>
-          <p>Total saidas filtradas: <strong>{formatMoney(totals.expenses)}</strong></p>
-          <p>Resultado liquido filtrado: <strong>{formatMoney(totals.net)}</strong></p>
+        <div className="grid gap-2 text-sm text-zinc-700 sm:grid-cols-3">
+          <p>Entradas: <strong className="text-emerald-700">{formatMoney(totals.income)}</strong></p>
+          <p>Saídas: <strong className="text-rose-700">{formatMoney(totals.expenses)}</strong></p>
+          <p>Resultado: <strong className={totals.net >= 0 ? "text-emerald-700" : "text-rose-700"}>{formatMoney(totals.net)}</strong></p>
         </div>
       </Card>
+
+      <AppModal
+        open={showFinanceFilterModal}
+        title="🔍 Filtros do financeiro"
+        onClose={() => setShowFinanceFilterModal(false)}
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">De</span>
+            <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Até</span>
+            <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Categoria</span>
+            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
+              <option value="">Todas categorias</option>
+              {filterCategoryOptions.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Busca</span>
+            <Input placeholder="Buscar texto..." value={filterQuery} onChange={(e) => setFilterQuery(e.target.value)} />
+          </label>
+        </div>
+        <div className="mt-4 flex justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setFilterFrom("");
+              setFilterTo("");
+              setFilterCategory("");
+              setFilterQuery("");
+            }}
+          >
+            Limpar
+          </Button>
+          <Button type="button" onClick={() => setShowFinanceFilterModal(false)}>
+            Aplicar
+          </Button>
+        </div>
+      </AppModal>
 
       <section className="grid gap-4 lg:grid-cols-2">
       <Card>
