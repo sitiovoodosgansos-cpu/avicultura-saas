@@ -460,7 +460,7 @@ export function PrateleiraManager() {
           : selected
             ? "bg-rose-600 text-white shadow-sm"
             : "bg-rose-50 text-rose-700 hover:bg-rose-100";
-    const emoji = mode === "sale" ? "🛒" : mode === "transfer" ? "🥚" : "🗑️";
+    const emoji = mode === "sale" ? "🛒" : mode === "transfer" ? "🐣" : "🗑️";
     return (
       <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${palette}`} aria-label={title} title={title}>
         <span className="text-xs leading-none" aria-hidden>{emoji}</span>
@@ -645,7 +645,7 @@ export function PrateleiraManager() {
                 }`}
               >
                 <span className="text-lg leading-none" aria-hidden>
-                  {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🥚" : "🗑️"}
+                  {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🐣" : "🗑️"}
                 </span>
               </span>
               <div>
