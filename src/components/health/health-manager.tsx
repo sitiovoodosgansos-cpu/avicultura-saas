@@ -760,16 +760,6 @@ export function HealthManager() {
                       />
                     </div>
                   </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-zinc-50 p-3 text-sm">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Em tratamento</p>
-                      <p className="text-xl font-semibold text-zinc-900">{activeCases}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">Em quarentena</p>
-                      <p className="text-xl font-semibold text-zinc-900">{activeQuarantineCount}</p>
-                    </div>
-                  </div>
                   {inf.notes ? (
                     <p className="mt-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs text-zinc-600">
                       {inf.notes}
@@ -780,13 +770,7 @@ export function HealthManager() {
                     const treating = cases.filter(
                       (c) => c.infirmaryId === inf.id && c.status === "TREATING"
                     );
-                    if (treating.length === 0) {
-                      return (
-                        <p className="mt-3 rounded-xl border border-dashed border-zinc-200 bg-white/60 px-3 py-3 text-center text-xs text-zinc-500">
-                          Sem aves em tratamento.
-                        </p>
-                      );
-                    }
+                    if (treating.length === 0) return null;
                     return (
                       <ul className="mt-3 grid gap-2">
                         {treating.map((c) => {
@@ -954,11 +938,30 @@ export function HealthManager() {
                                   </span>
                                 </div>
                                 <div className="mt-2 flex items-center gap-2">
-                                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white">
+                                  <div className="relative h-2.5 flex-1 rounded-full bg-white">
                                     <div
-                                      className={`h-full transition-all ${barColor}`}
+                                      className={`absolute inset-y-0 left-0 rounded-full transition-all ${barColor}`}
                                       style={{ width: `${progressPct}%` }}
                                     />
+                                    {q.treatments.map((t) => {
+                                      const tDate = new Date(t.startDate).getTime();
+                                      const offsetDays =
+                                        (tDate - start.getTime()) / (24 * 60 * 60 * 1000);
+                                      const pct = Math.max(0, Math.min(100, (offsetDays / total) * 100));
+                                      const passed = offsetDays <= elapsedDays;
+                                      return (
+                                        <span
+                                          key={t.id || `${q.id}-${t.label}-${t.startDate}`}
+                                          title={`${t.label} — ${toDateInput(t.startDate)}`}
+                                          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-2.5 rounded-full border-2 ${
+                                            passed
+                                              ? "border-emerald-700 bg-emerald-700"
+                                              : "border-zinc-400 bg-white"
+                                          }`}
+                                          style={{ left: `${pct}%` }}
+                                        />
+                                      );
+                                    })}
                                   </div>
                                   <span
                                     className={`whitespace-nowrap text-[10px] font-semibold ${
