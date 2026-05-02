@@ -621,10 +621,14 @@ export function HealthManager() {
         </Card>
       ) : null}
 
-      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-5">
         <Card>
           <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">💊 Em tratamento</p>
           <p className="mt-2 text-2xl font-semibold text-zinc-900">{metrics?.summary.inTreatment ?? 0}</p>
+        </Card>
+        <Card>
+          <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">🛡️ Em quarentena</p>
+          <p className="mt-2 text-2xl font-semibold text-zinc-900">{activeQuarantines.length}</p>
         </Card>
         <Card>
           <p className="text-xs uppercase tracking-[0.14em] text-zinc-400">✅ Taxa cura</p>
