@@ -52,6 +52,8 @@ export default async function DashboardPage() {
   }));
   const chartIncubator = data.charts.incubatorPerformance.map((row) => ({ label: row.label, value: row.hatchRate }));
   const chartHealthOpen = data.charts.healthEvolution.map((row) => ({ label: row.label, value: row.openCases }));
+  const chartHatchByMonth = data.charts.hatchByMonth.map((row) => ({ label: row.label, value: row.born }));
+  const chartSalesByMonth = data.charts.salesByMonth.map((row) => ({ label: row.label, value: row.total }));
 
   return (
     <main className="space-y-6">
@@ -149,6 +151,23 @@ export default async function DashboardPage() {
           title="Evolução financeira"
           subtitle="Entradas e saídas dos últimos 12 meses"
           data={data.charts.financialEvolution}
+          emoji="💰"
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <LineChartCard
+          title="Filhotes nascidos"
+          subtitle="Eclosão por mês (últimos 12 meses)"
+          data={chartHatchByMonth}
+          color="#f59e0b"
+          emoji="🐣"
+        />
+        <LineChartCard
+          title="Vendas por mês"
+          subtitle="Receita registrada como entrada (últimos 12 meses)"
+          data={chartSalesByMonth}
+          color="#0f766e"
           emoji="💰"
         />
       </section>

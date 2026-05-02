@@ -35,6 +35,8 @@ export type DashboardData = {
     incubatorPerformance: Array<{ label: string; hatchRate: number }>;
     financialEvolution: Array<{ label: string; income: number; expenses: number; net: number }>;
     healthEvolution: Array<{ label: string; openCases: number; curedCases: number }>;
+    hatchByMonth: Array<{ label: string; born: number }>;
+    salesByMonth: Array<{ label: string; total: number }>;
   };
   warning?: string;
 };
@@ -178,7 +180,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     prisma.incubatorBatch.count({ where: { tenantId, status: "ACTIVE" } }),
     prisma.incubatorBatchEvent.findMany({
       where: { tenantId },
-      select: { type: true, quantity: true }
+      select: { type: true, quantity: true, eventDate: true }
     }),
     prisma.infirmaryCase.count({
       where: { tenantId, status: InfirmaryCaseStatus.TREATING }
@@ -353,6 +355,30 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     arrivals: birdsArrivalsMap.get(bucket.key) ?? 0
   }));
 
+  // Filhotes nascidos por mes (HATCHED events nos ultimos 12 meses)
+  const hatchMap = new Map<string, number>();
+  for (const event of batchEvents) {
+    if (event.type !== "HATCHED") continue;
+    const d = event.eventDate;
+    const keyDate = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+    hatchMap.set(keyDate, (hatchMap.get(keyDate) ?? 0) + (event.quantity ?? 0));
+  }
+  const hatchByMonth = monthBuckets.map((bucket) => ({
+    label: bucket.label,
+    born: hatchMap.get(bucket.key) ?? 0
+  }));
+
+  // Vendas por mes (somente entradas, sum amount)
+  const salesMap = new Map<string, number>();
+  for (const row of entriesLast12) {
+    const keyDate = new Date(row.date.getFullYear(), row.date.getMonth(), 1).toISOString();
+    salesMap.set(keyDate, (salesMap.get(keyDate) ?? 0) + toNumber(row.amount));
+  }
+  const salesByMonth = monthBuckets.map((bucket) => ({
+    label: bucket.label,
+    total: Number((salesMap.get(bucket.key) ?? 0).toFixed(2))
+  }));
+
   const eggsRange7 = await sumEggsForRange(tenantId, days7);
   const eggsRange30 = await sumEggsForRange(tenantId, days30);
   const eggsRange365 = await sumEggsForRange(tenantId, days365);
@@ -396,7 +422,9 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       aviaryGrowth,
       incubatorPerformance,
       financialEvolution,
-      healthEvolution
+      healthEvolution,
+      hatchByMonth,
+      salesByMonth
     }
   };
 }
@@ -438,7 +466,9 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
         aviaryGrowth: [],
         incubatorPerformance: [],
         financialEvolution: [],
-        healthEvolution: []
+        healthEvolution: [],
+        hatchByMonth: [],
+        salesByMonth: []
       },
       warning: "Não foi possível carregar dados do banco. Verifique a conexão com PostgreSQL."
     };
