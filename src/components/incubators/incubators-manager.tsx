@@ -963,61 +963,140 @@ export function IncubatorsManager() {
                     <p className="text-xs text-zinc-500">Status: {batchStatusLabel(lot.status)}</p>
                   </div>
                 </div>
-                <div className="mt-3 overflow-x-auto">
-                  <table className="w-full table-fixed text-sm">
-                    <thead>
-                      <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.14em] text-zinc-400">
-                        <th className="w-[20%] py-2 pr-2 text-left font-semibold">Especie</th>
-                        <th className="w-[9%] py-2 px-1 text-center font-semibold">Ovos</th>
-                        <th className="w-[9%] py-2 px-1 text-center font-semibold">Nascidos</th>
-                        <th className="w-[9%] py-2 px-1 text-center font-semibold">Infertis</th>
-                        <th className="w-[12%] py-2 px-1 text-center font-semibold">Nao desenvolveu</th>
-                        <th className="w-[12%] py-2 px-1 text-center font-semibold">Morreu na casca</th>
-                        <th className="w-[12%] py-2 px-1 text-center font-semibold">Eclosao</th>
-                        <th className="w-[17%] py-2 pl-2 text-center font-semibold">Acoes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const aggregated = new Map<string, {
-                          flockGroupId: string;
-                          flockGroupTitle: string;
-                          eggsSet: number;
-                          hatched: number;
-                          infertile: number;
-                          embryoLoss: number;
-                          pippedDied: number;
-                          batchIds: string[];
-                          sources: BatchSource[];
-                          first: Batch;
-                        }>();
-                        for (const batch of lot.lines) {
-                          const key = batch.flockGroupId;
-                          const ex = aggregated.get(key);
-                          if (ex) {
-                            ex.eggsSet += batch.eggsSet;
-                            ex.hatched += batch.stats.hatched;
-                            ex.infertile += batch.stats.infertile;
-                            ex.embryoLoss += batch.stats.embryoLoss;
-                            ex.pippedDied += batch.stats.pippedDied;
-                            ex.batchIds.push(batch.id);
-                            ex.sources.push(...(batch.sources ?? []));
-                          } else {
-                            aggregated.set(key, {
-                              flockGroupId: batch.flockGroupId,
-                              flockGroupTitle: batch.flockGroup.title,
-                              eggsSet: batch.eggsSet,
-                              hatched: batch.stats.hatched,
-                              infertile: batch.stats.infertile,
-                              embryoLoss: batch.stats.embryoLoss,
-                              pippedDied: batch.stats.pippedDied,
-                              batchIds: [batch.id],
-                              sources: [...(batch.sources ?? [])],
-                              first: batch
-                            });
-                          }
-                        }
-                        return Array.from(aggregated.values()).map((row) => (
+                {(() => {
+                  const aggregated = new Map<string, {
+                    flockGroupId: string;
+                    flockGroupTitle: string;
+                    eggsSet: number;
+                    hatched: number;
+                    infertile: number;
+                    embryoLoss: number;
+                    pippedDied: number;
+                    batchIds: string[];
+                    sources: BatchSource[];
+                    first: Batch;
+                  }>();
+                  for (const batch of lot.lines) {
+                    const key = batch.flockGroupId;
+                    const ex = aggregated.get(key);
+                    if (ex) {
+                      ex.eggsSet += batch.eggsSet;
+                      ex.hatched += batch.stats.hatched;
+                      ex.infertile += batch.stats.infertile;
+                      ex.embryoLoss += batch.stats.embryoLoss;
+                      ex.pippedDied += batch.stats.pippedDied;
+                      ex.batchIds.push(batch.id);
+                      ex.sources.push(...(batch.sources ?? []));
+                    } else {
+                      aggregated.set(key, {
+                        flockGroupId: batch.flockGroupId,
+                        flockGroupTitle: batch.flockGroup.title,
+                        eggsSet: batch.eggsSet,
+                        hatched: batch.stats.hatched,
+                        infertile: batch.stats.infertile,
+                        embryoLoss: batch.stats.embryoLoss,
+                        pippedDied: batch.stats.pippedDied,
+                        batchIds: [batch.id],
+                        sources: [...(batch.sources ?? [])],
+                        first: batch
+                      });
+                    }
+                  }
+                  const rows = Array.from(aggregated.values());
+
+                  function editAction(row: (typeof rows)[number]) {
+                    const batch = row.first;
+                    setEditingBatchId(batch.id);
+                    setEditingBatchLotCode(extractLotCode(batch.notes));
+                    setBatchForm({
+                      incubatorId: batch.incubatorId,
+                      entryDate: toDateInput(batch.entryDate),
+                      lockdownDate: "",
+                      expectedHatchDate: toDateInput(batch.expectedHatchDate),
+                      notes: stripLotMetadata(batch.notes),
+                      status: batch.status
+                    });
+                    setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: batch.flockGroupId, eggsSet: batch.eggsSet }]);
+                    setShowBatchModal(true);
+                  }
+
+                  return (
+                    <>
+                      {/* Mobile: cards verticais por especie */}
+                      <ul className="mt-3 grid gap-2 md:hidden">
+                        {rows.map((row) => {
+                          const eclosao = row.eggsSet > 0 ? (row.hatched / row.eggsSet) * 100 : 0;
+                          return (
+                            <li key={row.flockGroupId} className="rounded-xl border border-zinc-200 bg-white p-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                                  <span className="truncate text-sm font-semibold text-zinc-900">{row.flockGroupTitle}</span>
+                                  {row.sources.length > 0 ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setSourcesModal({ title: row.flockGroupTitle, sources: row.sources })}
+                                      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-50 text-sky-600 transition hover:bg-sky-100"
+                                      title="Ver datas de coleta originais"
+                                      aria-label="Ver datas de coleta originais"
+                                    >
+                                      <Info className="h-3 w-3" />
+                                    </button>
+                                  ) : null}
+                                </div>
+                                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                  {row.eggsSet > 0 ? `${eclosao.toFixed(1)}%` : "—"}
+                                </span>
+                              </div>
+                              <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
+                                <div className="rounded-lg bg-zinc-50 px-2 py-1.5">
+                                  <p className="text-[9px] uppercase tracking-wide text-zinc-400">Ovos</p>
+                                  <p className="text-base font-semibold text-zinc-900">{row.eggsSet}</p>
+                                </div>
+                                <div className="rounded-lg bg-zinc-50 px-2 py-1.5">
+                                  <p className="text-[9px] uppercase tracking-wide text-zinc-400">Nascidos</p>
+                                  <p className="text-base font-semibold text-zinc-900">{row.hatched}</p>
+                                </div>
+                                <div className="rounded-lg bg-zinc-50 px-2 py-1.5">
+                                  <p className="text-[9px] uppercase tracking-wide text-zinc-400">Inférteis</p>
+                                  <p className="text-base font-semibold text-zinc-900">{row.infertile}</p>
+                                </div>
+                                <div className="rounded-lg bg-zinc-50 px-2 py-1.5">
+                                  <p className="text-[9px] uppercase tracking-wide text-zinc-400">Não dev.</p>
+                                  <p className="text-base font-semibold text-zinc-900">{row.embryoLoss}</p>
+                                </div>
+                                <div className="col-span-2 rounded-lg bg-zinc-50 px-2 py-1.5">
+                                  <p className="text-[9px] uppercase tracking-wide text-zinc-400">Morreu na casca</p>
+                                  <p className="text-base font-semibold text-zinc-900">{row.pippedDied}</p>
+                                </div>
+                              </div>
+                              <div className="mt-2 flex justify-end gap-2">
+                                <Button variant="outline" type="button" onClick={() => editAction(row)}>
+                                  Editar
+                                </Button>
+                                <DeleteActionButton iconOnly onClick={() => row.batchIds.forEach((id) => removeBatch(id))} aria-label="Excluir linha do lote" />
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      {/* Desktop: tabela */}
+                      <div className="mt-3 hidden overflow-x-auto md:block">
+                        <table className="w-full table-fixed text-sm">
+                          <thead>
+                            <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+                              <th className="w-[20%] py-2 pr-2 text-left font-semibold">Especie</th>
+                              <th className="w-[9%] py-2 px-1 text-center font-semibold">Ovos</th>
+                              <th className="w-[9%] py-2 px-1 text-center font-semibold">Nascidos</th>
+                              <th className="w-[9%] py-2 px-1 text-center font-semibold">Infertis</th>
+                              <th className="w-[12%] py-2 px-1 text-center font-semibold">Nao desenvolveu</th>
+                              <th className="w-[12%] py-2 px-1 text-center font-semibold">Morreu na casca</th>
+                              <th className="w-[12%] py-2 px-1 text-center font-semibold">Eclosao</th>
+                              <th className="w-[17%] py-2 pl-2 text-center font-semibold">Acoes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((row) => (
                           <tr key={row.flockGroupId} className="border-b border-zinc-100 last:border-b-0">
                             <td className="py-2 pr-2 text-zinc-900">
                               <div className="flex items-center gap-1.5">
@@ -1045,32 +1124,20 @@ export function IncubatorsManager() {
                             </td>
                             <td className="py-2 pl-2">
                               <div className="flex items-center justify-center gap-2">
-                                <Button variant="outline" type="button" onClick={() => {
-                                  const batch = row.first;
-                                  setEditingBatchId(batch.id);
-                                  setEditingBatchLotCode(extractLotCode(batch.notes));
-                                  setBatchForm({
-                                    incubatorId: batch.incubatorId,
-                                    entryDate: toDateInput(batch.entryDate),
-                                    lockdownDate: "",
-                                    expectedHatchDate: toDateInput(batch.expectedHatchDate),
-                                    notes: stripLotMetadata(batch.notes),
-                                    status: batch.status
-                                  });
-                                  setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: batch.flockGroupId, eggsSet: batch.eggsSet }]);
-                                  setShowBatchModal(true);
-                                }}>
+                                <Button variant="outline" type="button" onClick={() => editAction(row)}>
                                   Editar
                                 </Button>
                                 <DeleteActionButton iconOnly onClick={() => row.batchIds.forEach((id) => removeBatch(id))} aria-label="Excluir linha do lote" />
                               </div>
                             </td>
                           </tr>
-                        ));
-                      })()}
-                    </tbody>
-                  </table>
-                </div>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>

@@ -680,57 +680,100 @@ export function FinanceManager() {
         {loading ? <p className="mt-4 text-sm text-zinc-500">Carregando...</p> : null}
         {!loading && entries.length === 0 ? <p className="mt-4 text-sm text-zinc-500">Sem entradas no periodo.</p> : null}
         {!loading && entries.length > 0 ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-3">Data</th>
-                  <th className="py-2 pr-3">Categoria</th>
-                  <th className="py-2 pr-3">Item</th>
-                  <th className="py-2 pr-3">Cliente</th>
-                  <th className="py-2 pr-3">Valor</th>
-                  <th className="py-2 pr-3">Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((row) => (
-                  <tr key={row.id} className="border-b border-zinc-100">
-                    <td className="py-2 pr-3">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
-                    <td className="py-2 pr-3">{formatCategoryLabel(row.category)}</td>
-                    <td className="py-2 pr-3">{row.item}</td>
-                    <td className="py-2 pr-3">{row.customer || "-"}</td>
-                    <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
-                    <td className="py-2 pr-3">
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          aria-label="Editar entrada"
-                          title="Editar"
-                          onClick={() => {
-                            setEditingEntryId(row.id);
-                            setEntryForm({
-                              date: toDateInput(row.date),
-                              category: row.category,
-                              item: row.item,
-                              amount: row.amount,
-                              description: row.description ?? "",
-                              customer: row.customer ?? "",
-                              notes: row.notes ?? ""
-                            });
-                            setShowEntryModal(true);
-                          }}
-                          className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 sm:size-9"
-                        >
-                          <Pencil className="size-4" aria-hidden />
-                        </button>
-                        <DeleteActionButton iconOnly onClick={() => removeEntry(row.id)} aria-label="Excluir entrada" className="size-8 sm:size-9" />
-                      </div>
-                    </td>
+          <>
+            {/* Mobile: cards verticais */}
+            <ul className="mt-3 grid gap-2 md:hidden">
+              {entries.map((row) => (
+                <li key={row.id} className="rounded-xl border border-zinc-200 bg-white p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-zinc-900">{row.item}</p>
+                      <p className="text-[11px] text-zinc-500">
+                        {new Date(row.date).toLocaleDateString("pt-BR")} · {formatCategoryLabel(row.category)}
+                      </p>
+                    </div>
+                    <span className="whitespace-nowrap text-sm font-semibold text-emerald-700">
+                      {formatMoney(row.amount)}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex justify-end gap-1">
+                    <button
+                      type="button"
+                      aria-label="Editar entrada"
+                      title="Editar"
+                      onClick={() => {
+                        setEditingEntryId(row.id);
+                        setEntryForm({
+                          date: toDateInput(row.date),
+                          category: row.category,
+                          item: row.item,
+                          amount: row.amount,
+                          description: row.description ?? "",
+                          customer: row.customer ?? "",
+                          notes: row.notes ?? ""
+                        });
+                        setShowEntryModal(true);
+                      }}
+                      className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                    >
+                      <Pencil className="size-4" aria-hidden />
+                    </button>
+                    <DeleteActionButton iconOnly onClick={() => removeEntry(row.id)} aria-label="Excluir entrada" className="size-8" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {/* Desktop: tabela */}
+            <div className="mt-4 hidden overflow-x-auto md:block">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                    <th className="py-2 pr-3">Data</th>
+                    <th className="py-2 pr-3">Categoria</th>
+                    <th className="py-2 pr-3">Item</th>
+                    <th className="py-2 pr-3">Valor</th>
+                    <th className="py-2 pr-3">Acoes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {entries.map((row) => (
+                    <tr key={row.id} className="border-b border-zinc-100">
+                      <td className="py-2 pr-3">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
+                      <td className="py-2 pr-3">{formatCategoryLabel(row.category)}</td>
+                      <td className="py-2 pr-3">{row.item}</td>
+                      <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
+                      <td className="py-2 pr-3">
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            aria-label="Editar entrada"
+                            title="Editar"
+                            onClick={() => {
+                              setEditingEntryId(row.id);
+                              setEntryForm({
+                                date: toDateInput(row.date),
+                                category: row.category,
+                                item: row.item,
+                                amount: row.amount,
+                                description: row.description ?? "",
+                                customer: row.customer ?? "",
+                                notes: row.notes ?? ""
+                              });
+                              setShowEntryModal(true);
+                            }}
+                            className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 sm:size-9"
+                          >
+                            <Pencil className="size-4" aria-hidden />
+                          </button>
+                          <DeleteActionButton iconOnly onClick={() => removeEntry(row.id)} aria-label="Excluir entrada" className="size-8 sm:size-9" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
       </Card>
 
@@ -738,57 +781,100 @@ export function FinanceManager() {
         <h3 className="text-base font-semibold text-zinc-900">Lancamentos de saidas</h3>
         {!loading && expenses.length === 0 ? <p className="mt-4 text-sm text-zinc-500">Sem saidas no periodo.</p> : null}
         {!loading && expenses.length > 0 ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-3">Data</th>
-                  <th className="py-2 pr-3">Categoria</th>
-                  <th className="py-2 pr-3">Item</th>
-                  <th className="py-2 pr-3">Fornecedor</th>
-                  <th className="py-2 pr-3">Valor</th>
-                  <th className="py-2 pr-3">Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {expenses.map((row) => (
-                  <tr key={row.id} className="border-b border-zinc-100">
-                    <td className="py-2 pr-3">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
-                    <td className="py-2 pr-3">{formatCategoryLabel(row.category)}</td>
-                    <td className="py-2 pr-3">{row.item}</td>
-                    <td className="py-2 pr-3">{row.supplier || "-"}</td>
-                    <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
-                    <td className="py-2 pr-3">
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          aria-label="Editar saida"
-                          title="Editar"
-                          onClick={() => {
-                            setEditingExpenseId(row.id);
-                            setExpenseForm({
-                              date: toDateInput(row.date),
-                              category: row.category,
-                              item: row.item,
-                              amount: row.amount,
-                              description: row.description ?? "",
-                              supplier: row.supplier ?? "",
-                              notes: row.notes ?? ""
-                            });
-                            setShowExpenseModal(true);
-                          }}
-                          className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 sm:size-9"
-                        >
-                          <Pencil className="size-4" aria-hidden />
-                        </button>
-                        <DeleteActionButton iconOnly onClick={() => removeExpense(row.id)} aria-label="Excluir saida" className="size-8 sm:size-9" />
-                      </div>
-                    </td>
+          <>
+            {/* Mobile: cards verticais */}
+            <ul className="mt-3 grid gap-2 md:hidden">
+              {expenses.map((row) => (
+                <li key={row.id} className="rounded-xl border border-zinc-200 bg-white p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-zinc-900">{row.item}</p>
+                      <p className="text-[11px] text-zinc-500">
+                        {new Date(row.date).toLocaleDateString("pt-BR")} · {formatCategoryLabel(row.category)}
+                      </p>
+                    </div>
+                    <span className="whitespace-nowrap text-sm font-semibold text-rose-700">
+                      {formatMoney(row.amount)}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex justify-end gap-1">
+                    <button
+                      type="button"
+                      aria-label="Editar saida"
+                      title="Editar"
+                      onClick={() => {
+                        setEditingExpenseId(row.id);
+                        setExpenseForm({
+                          date: toDateInput(row.date),
+                          category: row.category,
+                          item: row.item,
+                          amount: row.amount,
+                          description: row.description ?? "",
+                          supplier: row.supplier ?? "",
+                          notes: row.notes ?? ""
+                        });
+                        setShowExpenseModal(true);
+                      }}
+                      className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+                    >
+                      <Pencil className="size-4" aria-hidden />
+                    </button>
+                    <DeleteActionButton iconOnly onClick={() => removeExpense(row.id)} aria-label="Excluir saida" className="size-8" />
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {/* Desktop: tabela */}
+            <div className="mt-4 hidden overflow-x-auto md:block">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                    <th className="py-2 pr-3">Data</th>
+                    <th className="py-2 pr-3">Categoria</th>
+                    <th className="py-2 pr-3">Item</th>
+                    <th className="py-2 pr-3">Valor</th>
+                    <th className="py-2 pr-3">Acoes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {expenses.map((row) => (
+                    <tr key={row.id} className="border-b border-zinc-100">
+                      <td className="py-2 pr-3">{new Date(row.date).toLocaleDateString("pt-BR")}</td>
+                      <td className="py-2 pr-3">{formatCategoryLabel(row.category)}</td>
+                      <td className="py-2 pr-3">{row.item}</td>
+                      <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
+                      <td className="py-2 pr-3">
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            aria-label="Editar saida"
+                            title="Editar"
+                            onClick={() => {
+                              setEditingExpenseId(row.id);
+                              setExpenseForm({
+                                date: toDateInput(row.date),
+                                category: row.category,
+                                item: row.item,
+                                amount: row.amount,
+                                description: row.description ?? "",
+                                supplier: row.supplier ?? "",
+                                notes: row.notes ?? ""
+                              });
+                              setShowExpenseModal(true);
+                            }}
+                            className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 sm:size-9"
+                          >
+                            <Pencil className="size-4" aria-hidden />
+                          </button>
+                          <DeleteActionButton iconOnly onClick={() => removeExpense(row.id)} aria-label="Excluir saida" className="size-8 sm:size-9" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
       </Card>
       </section>
