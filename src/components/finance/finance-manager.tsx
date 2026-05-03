@@ -725,7 +725,7 @@ export function FinanceManager() {
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-base font-semibold text-zinc-900">Lancamentos de entradas</h3>
-          <p className="text-[11px] text-zinc-500">Marque varias entradas para gerar 1 recibo unico</p>
+          <p className="text-[11px] text-zinc-500">Marque uma ou mais entradas para gerar recibo</p>
         </div>
         {selectedEntryIds.size > 0 ? (
           <div className="sticky top-2 z-10 mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 shadow-sm">
@@ -739,7 +739,7 @@ export function FinanceManager() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
               >
-                🧾 Gerar recibo unico
+                🧾 Gerar recibo
               </a>
               <button
                 type="button"
@@ -780,16 +780,6 @@ export function FinanceManager() {
                     </span>
                   </div>
                   <div className="mt-2 flex justify-end gap-1">
-                    <a
-                      href={`/api/finance/entries/${row.id}/receipt`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Gerar recibo PDF"
-                      title="Gerar recibo PDF (só esta entrada)"
-                      className="inline-flex size-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-base text-emerald-700 transition hover:bg-emerald-100"
-                    >
-                      🧾
-                    </a>
                     <button
                       type="button"
                       aria-label="Editar entrada"
@@ -862,16 +852,6 @@ export function FinanceManager() {
                       <td className="py-2 pr-3">{formatMoney(row.amount)}</td>
                       <td className="py-2 pr-3">
                         <div className="flex gap-1">
-                          <a
-                            href={`/api/finance/entries/${row.id}/receipt`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="Gerar recibo PDF"
-                            title="Gerar recibo PDF"
-                            className="inline-flex size-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-base text-emerald-700 transition hover:bg-emerald-100 sm:size-9"
-                          >
-                            🧾
-                          </a>
                           <button
                             type="button"
                             aria-label="Editar entrada"
