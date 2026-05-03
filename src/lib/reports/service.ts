@@ -51,6 +51,43 @@ export type ReportData = {
       hatchRate: number;
     }>;
     topDiagnoses: Array<{ diagnosis: string; count: number }>;
+    eggCollectionsByGroup: Array<{
+      group: string;
+      total: number;
+      good: number;
+      cracked: number;
+      goodRate: number;
+    }>;
+    vitrineSnapshot: Array<{
+      group: string;
+      title: string;
+      ageMonths: number;
+      available: number;
+      currentPrice: number | null;
+      stockValue: number;
+    }>;
+    vitrineSales: {
+      totalSold: number;
+      totalRevenue: number;
+      byGroup: Array<{ group: string; sold: number; revenue: number }>;
+    };
+    quarantineCases: Array<{
+      ringNumber: string;
+      group: string;
+      infirmary: string;
+      entryDate: string;
+      expectedExitDate: string;
+      status: string;
+      treatmentsCount: number;
+    }>;
+    newBirds: Array<{
+      ringNumber: string;
+      group: string;
+      sex: "FEMALE" | "MALE" | "UNKNOWN";
+      acquisitionDate: string;
+      origin: string | null;
+      purchaseValue: number | null;
+    }>;
   };
   conclusion: string;
 };
@@ -117,7 +154,20 @@ export async function getReportData(
   reportType: ReportType,
   period: { from: Date; to: Date; label: string }
 ): Promise<ReportData> {
-  const [birds, groups, eggRows, batches, healthCases, entries, expenses] = await Promise.all([
+  const [
+    birds,
+    groups,
+    eggRows,
+    eggRowsDetailed,
+    batches,
+    healthCases,
+    entries,
+    expenses,
+    vitrineListings,
+    vitrineSales,
+    quarantineCases,
+    newBirdsRaw
+  ] = await Promise.all([
     prisma.bird.findMany({ where: { tenantId }, select: { status: true, flockGroupId: true } }),
     prisma.flockGroup.findMany({
       where: {
@@ -134,6 +184,15 @@ export async function getReportData(
     prisma.eggCollection.findMany({
       where: { tenantId, date: { gte: period.from, lt: period.to } },
       select: { date: true, totalEggs: true, goodEggs: true }
+    }),
+    prisma.eggCollection.findMany({
+      where: { tenantId, date: { gte: period.from, lt: period.to } },
+      select: {
+        totalEggs: true,
+        goodEggs: true,
+        crackedEggs: true,
+        flockGroup: { select: { title: true } }
+      }
     }),
     prisma.incubatorBatch.findMany({
       where: { tenantId, entryDate: { gte: period.from, lt: period.to } },
@@ -154,6 +213,53 @@ export async function getReportData(
     prisma.financialExpense.findMany({
       where: { tenantId, date: { gte: period.from, lt: period.to } },
       select: { date: true, amount: true }
+    }),
+    prisma.vitrineListing.findMany({
+      where: { tenantId, status: "AVAILABLE", availableQuantity: { gt: 0 } },
+      include: {
+        flockGroup: { select: { title: true } },
+        sourceIncubatorBatch: { select: { flockGroup: { select: { title: true } } } }
+      }
+    }),
+    prisma.vitrineSale.findMany({
+      where: { tenantId, soldAt: { gte: period.from, lt: period.to } },
+      include: {
+        listing: {
+          include: {
+            flockGroup: { select: { title: true } },
+            sourceIncubatorBatch: { select: { flockGroup: { select: { title: true } } } }
+          }
+        }
+      }
+    }),
+    prisma.quarantineCase.findMany({
+      where: {
+        tenantId,
+        OR: [{ status: "ACTIVE" }, { entryDate: { gte: period.from, lt: period.to } }]
+      },
+      include: {
+        bird: {
+          select: { ringNumber: true, flockGroup: { select: { title: true } } }
+        },
+        infirmary: { select: { name: true } },
+        treatments: { select: { id: true } }
+      },
+      orderBy: { entryDate: "desc" }
+    }),
+    prisma.bird.findMany({
+      where: {
+        tenantId,
+        acquisitionDate: { gte: period.from, lt: period.to }
+      },
+      select: {
+        ringNumber: true,
+        sex: true,
+        acquisitionDate: true,
+        origin: true,
+        purchaseValue: true,
+        flockGroup: { select: { title: true } }
+      },
+      orderBy: { acquisitionDate: "desc" }
     })
   ]);
 
@@ -264,6 +370,94 @@ export async function getReportData(
     };
   });
 
+  // Coleta de ovos agrupada por grupo de aves
+  const eggsByGroupMap = new Map<string, { total: number; good: number; cracked: number }>();
+  for (const c of eggRowsDetailed) {
+    const key = c.flockGroup?.title ?? "—";
+    const prev = eggsByGroupMap.get(key) ?? { total: 0, good: 0, cracked: 0 };
+    eggsByGroupMap.set(key, {
+      total: prev.total + (c.totalEggs ?? 0),
+      good: prev.good + (c.goodEggs ?? 0),
+      cracked: prev.cracked + (c.crackedEggs ?? 0)
+    });
+  }
+  const eggCollectionsByGroup = Array.from(eggsByGroupMap.entries())
+    .map(([group, v]) => ({
+      group,
+      total: v.total,
+      good: v.good,
+      cracked: v.cracked,
+      goodRate: ratio(v.good, v.total)
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  // Vitrine — snapshot atual de estoque por anuncio
+  const vitrineSnapshot = vitrineListings
+    .map((l) => {
+      const ageMonths = Math.max(
+        0,
+        Math.floor((Date.now() - new Date(l.birthDate).getTime()) / (30 * 24 * 60 * 60 * 1000))
+      );
+      const price = l.priceOverride !== null && l.priceOverride !== undefined ? Number(l.priceOverride) : null;
+      const stockValue = price !== null ? Number((price * l.availableQuantity).toFixed(2)) : 0;
+      const groupLabel =
+        l.sourceIncubatorBatch?.flockGroup?.title ?? l.flockGroup?.title ?? "—";
+      return {
+        group: groupLabel,
+        title: l.title?.trim() || groupLabel,
+        ageMonths,
+        available: l.availableQuantity,
+        currentPrice: price,
+        stockValue
+      };
+    })
+    .sort((a, b) => b.available - a.available);
+
+  // Vendas da vitrine no periodo
+  const vitrineSalesByGroupMap = new Map<string, { sold: number; revenue: number }>();
+  let vitrineSoldTotal = 0;
+  let vitrineRevenueTotal = 0;
+  for (const s of vitrineSales) {
+    const groupLabel =
+      s.listing?.sourceIncubatorBatch?.flockGroup?.title ?? s.listing?.flockGroup?.title ?? "—";
+    const prev = vitrineSalesByGroupMap.get(groupLabel) ?? { sold: 0, revenue: 0 };
+    const revenue = toNumber(s.totalPrice);
+    vitrineSalesByGroupMap.set(groupLabel, {
+      sold: prev.sold + s.quantitySold,
+      revenue: prev.revenue + revenue
+    });
+    vitrineSoldTotal += s.quantitySold;
+    vitrineRevenueTotal += revenue;
+  }
+  const vitrineSalesPayload = {
+    totalSold: vitrineSoldTotal,
+    totalRevenue: Number(vitrineRevenueTotal.toFixed(2)),
+    byGroup: Array.from(vitrineSalesByGroupMap.entries())
+      .map(([group, v]) => ({ group, sold: v.sold, revenue: Number(v.revenue.toFixed(2)) }))
+      .sort((a, b) => b.revenue - a.revenue)
+  };
+
+  // Quarentenas (ativas e do periodo)
+  const quarantineCasesPayload = quarantineCases.map((q) => ({
+    ringNumber: q.bird?.ringNumber ?? "—",
+    group: q.bird?.flockGroup?.title ?? "—",
+    infirmary: q.infirmary?.name ?? "—",
+    entryDate: isoDate(q.entryDate),
+    expectedExitDate: isoDate(q.expectedExitDate),
+    status: q.status,
+    treatmentsCount: q.treatments?.length ?? 0
+  }));
+
+  // Novas aves no plantel (acquisitionDate dentro do periodo)
+  const newBirdsPayload = newBirdsRaw.map((b) => ({
+    ringNumber: b.ringNumber,
+    group: b.flockGroup?.title ?? "—",
+    sex: b.sex,
+    acquisitionDate: isoDate(b.acquisitionDate ?? new Date()),
+    origin: b.origin ?? null,
+    purchaseValue: b.purchaseValue ? Number(b.purchaseValue) : null
+  }));
+
   const conclusion =
     monthNet >= 0
       ? `Periodo com resultado positivo de ${monthNet.toFixed(2)} e taxa de eclosao de ${ratio(batchHatched, eggsSet).toFixed(2)}%.`
@@ -300,7 +494,12 @@ export async function getReportData(
     tables: {
       flockGroups,
       incubatorBatches,
-      topDiagnoses
+      topDiagnoses,
+      eggCollectionsByGroup,
+      vitrineSnapshot,
+      vitrineSales: vitrineSalesPayload,
+      quarantineCases: quarantineCasesPayload,
+      newBirds: newBirdsPayload
     },
     conclusion
   };
