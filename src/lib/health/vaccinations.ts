@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import type {
   BirdVaccinationInput,
-  FlockVaccinationInput
+  FlockVaccinationInput,
+  MultiFlockVaccinationInput
 } from "@/lib/validators/health-catalogs";
 
 export function listVaccinations(tenantId: string, filters?: { birdId?: string }) {
@@ -97,6 +98,59 @@ export async function recordFlockVaccination(
   });
 
   return { count: result.count, flockGroupTitle: flockGroup.title };
+}
+
+export async function recordMultiFlockVaccination(
+  tenantId: string,
+  input: MultiFlockVaccinationInput
+) {
+  const vaccine = await prisma.vaccine.findFirst({
+    where: { id: input.vaccineId, tenantId },
+    select: { id: true }
+  });
+  if (!vaccine) throw new Error("Vacina não encontrada no catálogo.");
+
+  const date = new Date(input.appliedAt);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Data de aplicação inválida.");
+  }
+
+  const groups = await prisma.flockGroup.findMany({
+    where: { tenantId, id: { in: input.flockGroupIds } },
+    select: { id: true, title: true }
+  });
+  if (groups.length === 0) throw new Error("Nenhum lote válido informado.");
+
+  const birds = await prisma.bird.findMany({
+    where: {
+      tenantId,
+      flockGroupId: { in: groups.map((g) => g.id) },
+      status: { not: "DEAD" }
+    },
+    select: { id: true, flockGroupId: true }
+  });
+  if (birds.length === 0) {
+    throw new Error("Nenhuma ave viva nos lotes selecionados.");
+  }
+
+  const notes = input.notes?.trim() || null;
+  const result = await prisma.birdVaccination.createMany({
+    data: birds.map((bird) => ({
+      tenantId,
+      birdId: bird.id,
+      vaccineId: input.vaccineId,
+      appliedAt: date,
+      notes
+    }))
+  });
+
+  const breakdown = groups.map((group) => ({
+    flockGroupId: group.id,
+    flockGroupTitle: group.title,
+    count: birds.filter((b) => b.flockGroupId === group.id).length
+  }));
+
+  return { totalCount: result.count, breakdown };
 }
 
 export async function deleteVaccination(tenantId: string, id: string) {

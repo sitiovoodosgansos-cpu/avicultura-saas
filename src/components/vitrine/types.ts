@@ -30,6 +30,7 @@ export type VitrineListingItem = {
   ageInMonths: number;
   missingTier: boolean;
   isOverride: boolean;
+  lastVaccination: { vaccineName: string; appliedAt: string } | null;
 };
 
 export function formatBRL(value: number | null) {

@@ -1398,6 +1398,12 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                       {group.species.name} - {group.breed.name}
                       {group.variety?.name ? ` - ${group.variety.name}` : ""} - Baia {group.bayNumber}
                     </p>
+                    {group.lastVaccination ? (
+                      <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                        💉 {group.lastVaccination.vaccineName} ·{" "}
+                        {new Date(group.lastVaccination.appliedAt).toLocaleDateString("pt-BR")}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 

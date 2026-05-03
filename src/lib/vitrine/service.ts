@@ -60,6 +60,34 @@ export async function listVitrine(tenantId: string) {
     })
   ]);
 
+  // Ultima vacinacao aplicada nas aves de cada listing (BirdVaccination
+  // mais recente entre os Birds em flockGroupId-filhote da chocada).
+  const listingFlockGroupIds = listings.map((l) => l.flockGroupId);
+  const lastVaccinationsRaw = listingFlockGroupIds.length
+    ? await prisma.birdVaccination.findMany({
+        where: {
+          tenantId,
+          bird: { flockGroupId: { in: listingFlockGroupIds } }
+        },
+        select: {
+          appliedAt: true,
+          bird: { select: { flockGroupId: true } },
+          vaccine: { select: { name: true } }
+        },
+        orderBy: { appliedAt: "desc" }
+      })
+    : [];
+  const lastVaccByListingGroup = new Map<string, { vaccineName: string; appliedAt: Date }>();
+  for (const v of lastVaccinationsRaw) {
+    const groupId = v.bird.flockGroupId;
+    if (!lastVaccByListingGroup.has(groupId)) {
+      lastVaccByListingGroup.set(groupId, {
+        vaccineName: v.vaccine.name,
+        appliedAt: v.appliedAt
+      });
+    }
+  }
+
   const enriched = listings.map((listing) => {
     // Agrupamento da Vitrine sempre pelo lote pai original (raca/especie):
     // se a listing veio de uma chocada, o flockGroup direto eh um
@@ -78,6 +106,8 @@ export async function listVitrine(tenantId: string) {
         : null
     );
 
+    const lastVacc = lastVaccByListingGroup.get(listing.flockGroupId);
+
     return {
       ...listing,
       priceOverride:
@@ -89,7 +119,10 @@ export async function listVitrine(tenantId: string) {
       currentPrice: result.price,
       ageInMonths: result.ageInMonths,
       missingTier: result.missingTier,
-      isOverride: result.isOverride
+      isOverride: result.isOverride,
+      lastVaccination: lastVacc
+        ? { vaccineName: lastVacc.vaccineName, appliedAt: lastVacc.appliedAt.toISOString() }
+        : null
     };
   });
 

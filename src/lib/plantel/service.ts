@@ -277,6 +277,31 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
     filteredByGroup.set(bird.flockGroupId, bucket);
   }
 
+  // Ultima vacinacao aplicada por grupo (entre as aves do grupo): mostra
+  // 'ultima vacina' no card. Pega so a aplicacao mais recente por
+  // {grupo, vacina, dia} - se vacinou o lote inteiro num dia, conta como 1.
+  const allBirdIds = allBirds.map((b) => b.id);
+  const lastVaccinationsRaw = allBirdIds.length
+    ? await prisma.birdVaccination.findMany({
+        where: { tenantId, birdId: { in: allBirdIds } },
+        select: {
+          appliedAt: true,
+          birdId: true,
+          vaccine: { select: { name: true } }
+        },
+        orderBy: { appliedAt: "desc" }
+      })
+    : [];
+  const birdToGroup = new Map(allBirds.map((b) => [b.id, b.flockGroupId]));
+  const lastVaccByGroup = new Map<string, { vaccineName: string; appliedAt: Date }>();
+  for (const v of lastVaccinationsRaw) {
+    const groupId = birdToGroup.get(v.birdId);
+    if (!groupId) continue;
+    if (!lastVaccByGroup.has(groupId)) {
+      lastVaccByGroup.set(groupId, { vaccineName: v.vaccine.name, appliedAt: v.appliedAt });
+    }
+  }
+
   const mappedGroups = groups
     .filter(
       (group) =>
@@ -304,6 +329,8 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
         inVitrine: inVitrineSet.has(bird.id)
       }));
 
+      const lastVacc = lastVaccByGroup.get(group.id);
+
       return {
         ...group,
         summary: {
@@ -314,7 +341,10 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
           daughtersAlive: daughtersAliveFor(group.id),
           ...countByStatus
         },
-        birds: birdsWithVitrine
+        birds: birdsWithVitrine,
+        lastVaccination: lastVacc
+          ? { vaccineName: lastVacc.vaccineName, appliedAt: lastVacc.appliedAt.toISOString() }
+          : null
       };
     })
     .filter(Boolean);

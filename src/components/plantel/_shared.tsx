@@ -41,6 +41,7 @@ export type PlantelGroup = {
     BROODY: number;
   };
   birds: PlantelBird[];
+  lastVaccination: { vaccineName: string; appliedAt: string } | null;
 };
 
 export type BirdHistory = {

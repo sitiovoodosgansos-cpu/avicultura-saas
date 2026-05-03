@@ -117,6 +117,12 @@ export function FlockGroupCard({
                   <p className="mt-0.5 text-[11px] text-slate-500">
                     {formatAge(listing.ageInMonths)}
                   </p>
+                  {listing.lastVaccination ? (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
+                      💉 {listing.lastVaccination.vaccineName} ·{" "}
+                      {new Date(listing.lastVaccination.appliedAt).toLocaleDateString("pt-BR")}
+                    </p>
+                  ) : null}
                   {listing.description ? (
                     <p className="mt-1 line-clamp-2 text-[11px] text-slate-600">
                       {listing.description}
