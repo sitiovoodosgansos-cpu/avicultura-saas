@@ -67,6 +67,20 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showBirdModal, setShowBirdModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showWorkerLinkModal, setShowWorkerLinkModal] = useState(false);
+  const [workerLinkForm, setWorkerLinkForm] = useState<{
+    label: string;
+    allowPlantel: boolean;
+    allowEggs: boolean;
+    allowIncubators: boolean;
+    allowHealth: boolean;
+  }>({
+    label: "",
+    allowPlantel: true,
+    allowEggs: true,
+    allowIncubators: true,
+    allowHealth: true
+  });
   const [lockedBirdGroupId, setLockedBirdGroupId] = useState<string | null>(null);
   const [sellingBird, setSellingBird] = useState<PlantelBird | null>(null);
   const [sellListingForm, setSellListingForm] = useState<{
@@ -321,10 +335,26 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   }
 
   async function createWorkerLink() {
+    if (
+      !workerLinkForm.allowPlantel &&
+      !workerLinkForm.allowEggs &&
+      !workerLinkForm.allowIncubators &&
+      !workerLinkForm.allowHealth
+    ) {
+      setError("Selecione ao menos uma pagina para o funcionario acessar.");
+      return;
+    }
+
     const response = await fetch("/api/worker-links", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: "Link da equipe" })
+      body: JSON.stringify({
+        label: workerLinkForm.label.trim() || "Link da equipe",
+        allowPlantel: workerLinkForm.allowPlantel,
+        allowEggs: workerLinkForm.allowEggs,
+        allowIncubators: workerLinkForm.allowIncubators,
+        allowHealth: workerLinkForm.allowHealth
+      })
     });
 
     if (!response.ok) {
@@ -332,6 +362,14 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       return;
     }
 
+    setShowWorkerLinkModal(false);
+    setWorkerLinkForm({
+      label: "",
+      allowPlantel: true,
+      allowEggs: true,
+      allowIncubators: true,
+      allowHealth: true
+    });
     await loadData();
   }
 
@@ -396,7 +434,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
               Gere um link para funcionario lancar plantel, coleta, chocadeiras e sanidade sem acessar o financeiro.
             </p>
           </div>
-          <Button type="button" onClick={createWorkerLink}>
+          <Button type="button" onClick={() => setShowWorkerLinkModal(true)}>
             Gerar novo link
           </Button>
         </div>
@@ -408,26 +446,34 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             workerLinks.map((link) => (
               <div
                 key={link.id}
-                className="flex flex-col gap-3 rounded-2xl border border-[color:var(--line)] bg-slate-50/70 px-4 py-4 lg:flex-row lg:items-center lg:justify-between"
+                className="flex flex-col gap-3 rounded-2xl border border-[color:var(--line)] bg-slate-50/70 px-4 py-4"
               >
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{link.label}</p>
-                  <p className="text-xs text-slate-500">
-                    {link.isActive ? "Ativo" : "Inativo"} - criado em{" "}
-                    {new Date(link.createdAt).toLocaleDateString("pt-BR")}
-                  </p>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{link.label}</p>
+                    <p className="text-xs text-slate-500">
+                      {link.isActive ? "Ativo" : "Inativo"} - criado em{" "}
+                      {new Date(link.createdAt).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {link.isActive ? (
+                      <>
+                        <Button type="button" variant="outline" onClick={() => copyWorkerLink(link.token)}>
+                          Copiar link
+                        </Button>
+                        <Button type="button" variant="danger" onClick={() => disableWorkerLink(link.id)}>
+                          Desativar
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {link.isActive ? (
-                    <>
-                      <Button type="button" variant="outline" onClick={() => copyWorkerLink(link.token)}>
-                        Copiar link
-                      </Button>
-                      <Button type="button" variant="danger" onClick={() => disableWorkerLink(link.id)}>
-                        Desativar
-                      </Button>
-                    </>
-                  ) : null}
+                <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                  <span className={`rounded-full px-3 py-1 ${link.allowPlantel ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"}`}>🦚 Plantel</span>
+                  <span className={`rounded-full px-3 py-1 ${link.allowEggs ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-400"}`}>🥚 Coleta</span>
+                  <span className={`rounded-full px-3 py-1 ${link.allowIncubators ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>🐣 Chocadeiras</span>
+                  <span className={`rounded-full px-3 py-1 ${link.allowHealth ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-400"}`}>💊 Sanidade</span>
                 </div>
               </div>
             ))
@@ -1252,6 +1298,78 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           <Button type="button" onClick={() => setShowFilterModal(false)}>
             Aplicar
           </Button>
+        </div>
+      </AppModal>
+
+      <AppModal
+        open={showWorkerLinkModal}
+        title="🔗 Novo link da equipe"
+        onClose={() => setShowWorkerLinkModal(false)}
+      >
+        <div className="grid gap-4">
+          <label className="grid gap-1.5">
+            <span className="text-sm font-semibold text-slate-800">Nome do link (opcional)</span>
+            <Input
+              placeholder="Ex: Funcionario do galpao A"
+              value={workerLinkForm.label}
+              onChange={(event) => setWorkerLinkForm((prev) => ({ ...prev, label: event.target.value }))}
+            />
+            <span className="text-xs text-slate-500">Ajuda a identificar para quem voce gerou o link.</span>
+          </label>
+
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Paginas liberadas</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Marque apenas as paginas que este funcionario deve poder acessar e lancar dados.
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <label className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${workerLinkForm.allowPlantel ? "border-sky-300 bg-sky-50 text-sky-900" : "border-[color:var(--line)] bg-white/80 text-slate-700"}`}>
+                <input
+                  type="checkbox"
+                  checked={workerLinkForm.allowPlantel}
+                  onChange={(event) => setWorkerLinkForm((prev) => ({ ...prev, allowPlantel: event.target.checked }))}
+                  className="size-4 cursor-pointer accent-sky-600"
+                />
+                <span>🦚 Plantel</span>
+              </label>
+              <label className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${workerLinkForm.allowEggs ? "border-amber-300 bg-amber-50 text-amber-900" : "border-[color:var(--line)] bg-white/80 text-slate-700"}`}>
+                <input
+                  type="checkbox"
+                  checked={workerLinkForm.allowEggs}
+                  onChange={(event) => setWorkerLinkForm((prev) => ({ ...prev, allowEggs: event.target.checked }))}
+                  className="size-4 cursor-pointer accent-amber-600"
+                />
+                <span>🥚 Coleta de ovos</span>
+              </label>
+              <label className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${workerLinkForm.allowIncubators ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-[color:var(--line)] bg-white/80 text-slate-700"}`}>
+                <input
+                  type="checkbox"
+                  checked={workerLinkForm.allowIncubators}
+                  onChange={(event) => setWorkerLinkForm((prev) => ({ ...prev, allowIncubators: event.target.checked }))}
+                  className="size-4 cursor-pointer accent-emerald-600"
+                />
+                <span>🐣 Chocadeiras</span>
+              </label>
+              <label className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm ${workerLinkForm.allowHealth ? "border-rose-300 bg-rose-50 text-rose-900" : "border-[color:var(--line)] bg-white/80 text-slate-700"}`}>
+                <input
+                  type="checkbox"
+                  checked={workerLinkForm.allowHealth}
+                  onChange={(event) => setWorkerLinkForm((prev) => ({ ...prev, allowHealth: event.target.checked }))}
+                  className="size-4 cursor-pointer accent-rose-600"
+                />
+                <span>💊 Sanidade</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setShowWorkerLinkModal(false)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={createWorkerLink}>
+              Gerar link
+            </Button>
+          </div>
         </div>
       </AppModal>
 

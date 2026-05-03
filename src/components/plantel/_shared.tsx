@@ -90,6 +90,10 @@ export type WorkerLink = {
   token: string;
   isActive: boolean;
   createdAt: string;
+  allowPlantel: boolean;
+  allowEggs: boolean;
+  allowIncubators: boolean;
+  allowHealth: boolean;
 };
 
 export type ExpandFilter = "all" | "female" | "male" | "active" | "sick" | "dead";
