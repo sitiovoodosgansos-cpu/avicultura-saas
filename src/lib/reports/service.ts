@@ -1,15 +1,31 @@
-﻿import { BirdStatus, InfirmaryCaseStatus, ReportType } from "@prisma/client";
+import { BirdStatus, InfirmaryCaseStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
-export type ReportPreset = "7d" | "30d" | "365d" | "custom";
+export type ReportFocus = "GENERAL" | "PLANTEL" | "EGGS" | "HEALTH" | "FINANCE";
+export type ReportGranularity = "EXECUTIVE" | "DETAILED" | "ANALYTICAL";
+export type ReportPreset = "7d" | "30d" | "90d" | "365d" | "ytd" | "custom";
+
+export type Trend = {
+  current: number;
+  previous: number;
+  delta: number;
+  deltaPct: number | null;
+};
+
+export type Insight = {
+  severity: "info" | "warning" | "critical";
+  text: string;
+};
 
 export type ReportData = {
-  reportType: ReportType;
+  focus: ReportFocus;
+  granularity: ReportGranularity;
   period: {
     from: string;
     to: string;
     label: string;
   };
+  comparisonPeriod: { from: string; to: string; label: string } | null;
   generatedAt: string;
   kpis: {
     totalBirds: number;
@@ -25,6 +41,24 @@ export type ReportData = {
     monthIncome: number;
     monthExpenses: number;
     monthNet: number;
+    mortalityRate: number;
+    vaccinatedRate: number;
+    costPerHatched: number;
+    avgTicket: number;
+    avgDaysToSale: number;
+    totalHatched: number;
+    totalSoldVitrine: number;
+    totalRevenueVitrine: number;
+  };
+  trends: {
+    eggsTotal: Trend;
+    hatchRate: Trend;
+    monthNet: Trend;
+    monthIncome: Trend;
+    monthExpenses: Trend;
+    totalHatched: Trend;
+    totalRevenueVitrine: Trend;
+    totalSoldVitrine: Trend;
   };
   charts: {
     eggsByDay: Array<{ date: string; total: number }>;
@@ -88,7 +122,13 @@ export type ReportData = {
       origin: string | null;
       purchaseValue: number | null;
     }>;
+    topReproducers: Array<{ group: string; daughters: number; matrices: number; productivity: number }>;
+    bestHatching: Array<{ incubator: string; group: string; hatched: number; hatchRate: number; eggsSet: number }>;
+    worstHatching: Array<{ incubator: string; group: string; hatched: number; hatchRate: number; eggsSet: number }>;
+    bestPosture: Array<{ group: string; total: number; goodRate: number }>;
+    worstPosture: Array<{ group: string; total: number; goodRate: number }>;
   };
+  insights: Insight[];
   conclusion: string;
 };
 
@@ -126,6 +166,12 @@ function toNumber(value: { toString(): string } | number | null | undefined) {
   return Number(value.toString());
 }
 
+function makeTrend(current: number, previous: number): Trend {
+  const delta = Number((current - previous).toFixed(2));
+  const deltaPct = previous === 0 ? null : Number((((current - previous) / Math.abs(previous)) * 100).toFixed(1));
+  return { current, previous, delta, deltaPct };
+}
+
 export function resolvePeriod(preset: ReportPreset, from?: string, to?: string) {
   const today = startOfDay(new Date());
 
@@ -139,7 +185,16 @@ export function resolvePeriod(preset: ReportPreset, from?: string, to?: string) 
     };
   }
 
-  const delta = preset === "7d" ? 6 : preset === "30d" ? 29 : 364;
+  if (preset === "ytd") {
+    const yearStart = new Date(today.getFullYear(), 0, 1);
+    return {
+      from: yearStart,
+      to: addDays(today, 1),
+      label: `${isoDate(yearStart)} a ${isoDate(today)}`
+    };
+  }
+
+  const delta = preset === "7d" ? 6 : preset === "30d" ? 29 : preset === "90d" ? 89 : 364;
   const periodFrom = addDays(today, -delta);
 
   return {
@@ -149,11 +204,91 @@ export function resolvePeriod(preset: ReportPreset, from?: string, to?: string) 
   };
 }
 
+function previousPeriod(period: { from: Date; to: Date }) {
+  const ms = period.to.getTime() - period.from.getTime();
+  const prevTo = new Date(period.from.getTime());
+  const prevFrom = new Date(period.from.getTime() - ms);
+  return {
+    from: prevFrom,
+    to: prevTo,
+    label: `${isoDate(prevFrom)} a ${isoDate(addDays(prevTo, -1))}`
+  };
+}
+
+type PeriodAggregates = {
+  eggsTotal: number;
+  hatched: number;
+  eggsSet: number;
+  hatchRate: number;
+  income: number;
+  expenses: number;
+  net: number;
+  vitrineSold: number;
+  vitrineRevenue: number;
+};
+
+async function loadPeriodAggregates(
+  tenantId: string,
+  period: { from: Date; to: Date }
+): Promise<PeriodAggregates> {
+  const [eggRows, batchEvents, batches, entries, expenses, vitrineSales] = await Promise.all([
+    prisma.eggCollection.findMany({
+      where: { tenantId, date: { gte: period.from, lt: period.to } },
+      select: { totalEggs: true }
+    }),
+    prisma.incubatorBatchEvent.findMany({
+      where: { tenantId, eventDate: { gte: period.from, lt: period.to }, type: "HATCHED" },
+      select: { quantity: true }
+    }),
+    prisma.incubatorBatch.findMany({
+      where: { tenantId, entryDate: { gte: period.from, lt: period.to } },
+      select: { eggsSet: true }
+    }),
+    prisma.financialEntry.findMany({
+      where: { tenantId, date: { gte: period.from, lt: period.to } },
+      select: { amount: true }
+    }),
+    prisma.financialExpense.findMany({
+      where: { tenantId, date: { gte: period.from, lt: period.to } },
+      select: { amount: true }
+    }),
+    prisma.vitrineSale.findMany({
+      where: { tenantId, soldAt: { gte: period.from, lt: period.to } },
+      select: { quantitySold: true, totalPrice: true }
+    })
+  ]);
+
+  const eggsTotal = eggRows.reduce((sum, r) => sum + r.totalEggs, 0);
+  const hatched = batchEvents.reduce((sum, e) => sum + e.quantity, 0);
+  const eggsSet = batches.reduce((sum, b) => sum + b.eggsSet, 0);
+  const income = Number(entries.reduce((s, e) => s + toNumber(e.amount), 0).toFixed(2));
+  const expenseTotal = Number(expenses.reduce((s, e) => s + toNumber(e.amount), 0).toFixed(2));
+  const net = Number((income - expenseTotal).toFixed(2));
+  const vitrineSold = vitrineSales.reduce((s, v) => s + v.quantitySold, 0);
+  const vitrineRevenue = Number(
+    vitrineSales.reduce((s, v) => s + toNumber(v.totalPrice), 0).toFixed(2)
+  );
+
+  return {
+    eggsTotal,
+    hatched,
+    eggsSet,
+    hatchRate: ratio(hatched, eggsSet),
+    income,
+    expenses: expenseTotal,
+    net,
+    vitrineSold,
+    vitrineRevenue
+  };
+}
+
 export async function getReportData(
   tenantId: string,
-  reportType: ReportType,
+  options: { focus: ReportFocus; granularity: ReportGranularity },
   period: { from: Date; to: Date; label: string }
 ): Promise<ReportData> {
+  const prev = previousPeriod(period);
+
   const [
     birds,
     groups,
@@ -166,7 +301,12 @@ export async function getReportData(
     vitrineListings,
     vitrineSales,
     quarantineCases,
-    newBirdsRaw
+    newBirdsRaw,
+    feedAndMedExpenses,
+    vaccinatedAliveCount,
+    aliveBirdsCount,
+    hatchedEventsForReproducers,
+    prevAggregates
   ] = await Promise.all([
     prisma.bird.findMany({ where: { tenantId }, select: { status: true, flockGroupId: true } }),
     prisma.flockGroup.findMany({
@@ -178,7 +318,7 @@ export async function getReportData(
         species: { select: { name: true } },
         breed: { select: { name: true } },
         variety: { select: { name: true } },
-        birds: { select: { status: true } }
+        birds: { select: { status: true, sex: true } }
       }
     }),
     prisma.eggCollection.findMany({
@@ -212,7 +352,7 @@ export async function getReportData(
     }),
     prisma.financialExpense.findMany({
       where: { tenantId, date: { gte: period.from, lt: period.to } },
-      select: { date: true, amount: true }
+      select: { date: true, amount: true, category: true }
     }),
     prisma.vitrineListing.findMany({
       where: { tenantId, status: "AVAILABLE", availableQuantity: { gt: 0 } },
@@ -260,7 +400,39 @@ export async function getReportData(
         flockGroup: { select: { title: true } }
       },
       orderBy: { acquisitionDate: "desc" }
-    })
+    }),
+    prisma.financialExpense.findMany({
+      where: {
+        tenantId,
+        date: { gte: period.from, lt: period.to },
+        category: { in: ["FEED", "MEDICATION"] }
+      },
+      select: { amount: true }
+    }),
+    prisma.bird.count({
+      where: {
+        tenantId,
+        status: { not: "DEAD" },
+        vaccinations: { some: {} }
+      }
+    }),
+    prisma.bird.count({
+      where: { tenantId, status: { not: "DEAD" } }
+    }),
+    prisma.incubatorBatchEvent.findMany({
+      where: { tenantId, type: "HATCHED", eventDate: { gte: period.from, lt: period.to } },
+      select: {
+        quantity: true,
+        batch: {
+          select: {
+            flockGroup: {
+              select: { id: true, title: true }
+            }
+          }
+        }
+      }
+    }),
+    loadPeriodAggregates(tenantId, prev)
   ]);
 
   const totalBirds = birds.length;
@@ -277,6 +449,7 @@ export async function getReportData(
     .filter((e) => e.type === "HATCHED")
     .reduce((sum, e) => sum + e.quantity, 0);
   const eggsSet = batches.reduce((sum, b) => sum + b.eggsSet, 0);
+  const hatchRate = ratio(batchHatched, eggsSet);
 
   const inTreatment = healthCases.filter((c) => c.status === InfirmaryCaseStatus.TREATING).length;
   const cured = healthCases.filter((c) => c.status === InfirmaryCaseStatus.CURED).length;
@@ -286,6 +459,30 @@ export async function getReportData(
   const monthExpenses = Number(expenses.reduce((sum, e) => sum + toNumber(e.amount), 0).toFixed(2));
   const monthNet = Number((monthIncome - monthExpenses).toFixed(2));
 
+  // KPIs derivados
+  const mortalityRate = ratio(deadBirds, totalBirds);
+  const vaccinatedRate = ratio(vaccinatedAliveCount, aliveBirdsCount);
+  const feedAndMedTotal = feedAndMedExpenses.reduce((s, e) => s + toNumber(e.amount), 0);
+  const costPerHatched = batchHatched > 0 ? Number((feedAndMedTotal / batchHatched).toFixed(2)) : 0;
+
+  const totalSoldVitrine = vitrineSales.reduce((s, v) => s + v.quantitySold, 0);
+  const totalRevenueVitrine = Number(
+    vitrineSales.reduce((s, v) => s + toNumber(v.totalPrice), 0).toFixed(2)
+  );
+  const avgTicket = totalSoldVitrine > 0 ? Number((totalRevenueVitrine / totalSoldVitrine).toFixed(2)) : 0;
+
+  const daysSpan = vitrineSales
+    .map((s) => {
+      if (!s.listing?.birthDate || !s.soldAt) return null;
+      const diff = new Date(s.soldAt).getTime() - new Date(s.listing.birthDate).getTime();
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      return days >= 0 ? days : null;
+    })
+    .filter((v): v is number => v !== null);
+  const avgDaysToSale =
+    daysSpan.length > 0 ? Math.round(daysSpan.reduce((s, d) => s + d, 0) / daysSpan.length) : 0;
+
+  // Charts
   const eggsByDayMap = new Map<string, number>();
   for (const row of eggRows) {
     const key = isoDate(row.date);
@@ -308,7 +505,6 @@ export async function getReportData(
     bucket.expenses += toNumber(row.amount);
     financeMonthMap.set(key, bucket);
   }
-
   const financeByMonth = Array.from(financeMonthMap.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([month, value]) => ({
@@ -327,7 +523,6 @@ export async function getReportData(
     if (row.status === InfirmaryCaseStatus.DEAD) bucket.dead += 1;
     healthMonthMap.set(key, bucket);
   }
-
   const healthByMonth = Array.from(healthMonthMap.entries())
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([month, value]) => ({ month, ...value }));
@@ -337,7 +532,6 @@ export async function getReportData(
     const key = row.diagnosis?.trim() || "Nao informado";
     diagnosisMap.set(key, (diagnosisMap.get(key) ?? 0) + 1);
   }
-
   const topDiagnoses = Array.from(diagnosisMap.entries())
     .map(([diagnosis, count]) => ({ diagnosis, count }))
     .sort((a, b) => b.count - a.count)
@@ -370,7 +564,6 @@ export async function getReportData(
     };
   });
 
-  // Coleta de ovos agrupada por grupo de aves
   const eggsByGroupMap = new Map<string, { total: number; good: number; cracked: number }>();
   for (const c of eggRowsDetailed) {
     const key = c.flockGroup?.title ?? "—";
@@ -391,7 +584,6 @@ export async function getReportData(
     }))
     .sort((a, b) => b.total - a.total);
 
-  // Vitrine — snapshot atual de estoque por anuncio
   const vitrineSnapshot = vitrineListings
     .map((l) => {
       const ageMonths = Math.max(
@@ -413,10 +605,7 @@ export async function getReportData(
     })
     .sort((a, b) => b.available - a.available);
 
-  // Vendas da vitrine no periodo
   const vitrineSalesByGroupMap = new Map<string, { sold: number; revenue: number }>();
-  let vitrineSoldTotal = 0;
-  let vitrineRevenueTotal = 0;
   for (const s of vitrineSales) {
     const groupLabel =
       s.listing?.sourceIncubatorBatch?.flockGroup?.title ?? s.listing?.flockGroup?.title ?? "—";
@@ -426,18 +615,15 @@ export async function getReportData(
       sold: prev.sold + s.quantitySold,
       revenue: prev.revenue + revenue
     });
-    vitrineSoldTotal += s.quantitySold;
-    vitrineRevenueTotal += revenue;
   }
   const vitrineSalesPayload = {
-    totalSold: vitrineSoldTotal,
-    totalRevenue: Number(vitrineRevenueTotal.toFixed(2)),
+    totalSold: totalSoldVitrine,
+    totalRevenue: totalRevenueVitrine,
     byGroup: Array.from(vitrineSalesByGroupMap.entries())
       .map(([group, v]) => ({ group, sold: v.sold, revenue: Number(v.revenue.toFixed(2)) }))
       .sort((a, b) => b.revenue - a.revenue)
   };
 
-  // Quarentenas (ativas e do periodo)
   const quarantineCasesPayload = quarantineCases.map((q) => ({
     ringNumber: q.bird?.ringNumber ?? "—",
     group: q.bird?.flockGroup?.title ?? "—",
@@ -448,7 +634,6 @@ export async function getReportData(
     treatmentsCount: q.treatments?.length ?? 0
   }));
 
-  // Novas aves no plantel (acquisitionDate dentro do periodo)
   const newBirdsPayload = newBirdsRaw.map((b) => ({
     ringNumber: b.ringNumber,
     group: b.flockGroup?.title ?? "—",
@@ -458,17 +643,148 @@ export async function getReportData(
     purchaseValue: b.purchaseValue ? Number(b.purchaseValue) : null
   }));
 
+  // Top reprodutores: agrupa eventos HATCHED por flockGroup pai
+  const reproducerMap = new Map<string, { groupTitle: string; daughters: number }>();
+  for (const ev of hatchedEventsForReproducers) {
+    const fg = ev.batch?.flockGroup;
+    if (!fg?.id) continue;
+    const prev = reproducerMap.get(fg.id) ?? { groupTitle: fg.title, daughters: 0 };
+    prev.daughters += ev.quantity;
+    reproducerMap.set(fg.id, prev);
+  }
+  const matricesByGroupId = new Map<string, number>();
+  for (const g of groups) {
+    matricesByGroupId.set(
+      g.id,
+      g.birds.filter((b) => b.sex === "FEMALE" && b.status !== BirdStatus.DEAD).length
+    );
+  }
+  const topReproducers = Array.from(reproducerMap.entries())
+    .map(([id, v]) => {
+      const matrices = matricesByGroupId.get(id) ?? 0;
+      const productivity = matrices > 0 ? Number((v.daughters / matrices).toFixed(2)) : v.daughters;
+      return { group: v.groupTitle, daughters: v.daughters, matrices, productivity };
+    })
+    .sort((a, b) => b.daughters - a.daughters)
+    .slice(0, 5);
+
+  // Best/Worst hatching: ranqueia chocadeiras com pelo menos 5 ovos
+  const rankableBatches = incubatorBatches
+    .filter((b) => b.eggsSet >= 5)
+    .map((b) => ({ ...b }));
+  const bestHatching = [...rankableBatches]
+    .sort((a, b) => b.hatchRate - a.hatchRate)
+    .slice(0, 5);
+  const worstHatching = [...rankableBatches]
+    .sort((a, b) => a.hatchRate - b.hatchRate)
+    .slice(0, 5);
+
+  // Best/Worst postura: rankeia grupos com pelo menos 1 coleta
+  const posturaRanked = eggCollectionsByGroup.filter((e) => e.total > 0);
+  const bestPosture = [...posturaRanked].sort((a, b) => b.total - a.total).slice(0, 5);
+  const worstPosture = [...posturaRanked].sort((a, b) => a.total - b.total).slice(0, 5);
+
+  // Trends vs período anterior
+  const trends = {
+    eggsTotal: makeTrend(eggsTotal, prevAggregates.eggsTotal),
+    hatchRate: makeTrend(hatchRate, prevAggregates.hatchRate),
+    monthNet: makeTrend(monthNet, prevAggregates.net),
+    monthIncome: makeTrend(monthIncome, prevAggregates.income),
+    monthExpenses: makeTrend(monthExpenses, prevAggregates.expenses),
+    totalHatched: makeTrend(batchHatched, prevAggregates.hatched),
+    totalRevenueVitrine: makeTrend(totalRevenueVitrine, prevAggregates.vitrineRevenue),
+    totalSoldVitrine: makeTrend(totalSoldVitrine, prevAggregates.vitrineSold)
+  };
+
+  // Insights acionaveis
+  const insights: Insight[] = [];
+  if (monthNet < 0) {
+    insights.push({
+      severity: "critical",
+      text: `Resultado financeiro negativo de R$ ${Math.abs(monthNet).toFixed(2)}. Revisar custos e perdas biológicas.`
+    });
+  }
+  if (mortalityRate > 5) {
+    insights.push({
+      severity: "warning",
+      text: `Mortalidade de ${mortalityRate.toFixed(1)}% acima do limite seguro de 5% — investigar causas no plantel.`
+    });
+  }
+  if (eggsSet >= 10 && hatchRate < 50) {
+    insights.push({
+      severity: "warning",
+      text: `Taxa de eclosão de ${hatchRate.toFixed(1)}% está baixa (referência 65%+). Verificar temperatura/umidade das chocadeiras.`
+    });
+  }
+  if (aliveBirdsCount > 0 && vaccinatedRate < 80) {
+    insights.push({
+      severity: "info",
+      text: `${(100 - vaccinatedRate).toFixed(0)}% das aves vivas sem vacinação registrada. Aves vacinadas valorizam mais para venda.`
+    });
+  }
+  if (eggsTotal > 0 && eggCollectionsByGroup.some((g) => g.goodRate < 80)) {
+    const worstGood = eggCollectionsByGroup
+      .filter((g) => g.total >= 10)
+      .sort((a, b) => a.goodRate - b.goodRate)[0];
+    if (worstGood) {
+      insights.push({
+        severity: "warning",
+        text: `Grupo "${worstGood.group}" com ${worstGood.goodRate.toFixed(1)}% ovos bons — revisar manejo de ninhos.`
+      });
+    }
+  }
+  const noPriceCount = vitrineListings.filter((l) => l.priceOverride === null || l.priceOverride === undefined).length;
+  if (noPriceCount > 0) {
+    insights.push({
+      severity: "warning",
+      text: `${noPriceCount} ${noPriceCount === 1 ? "anúncio" : "anúncios"} na vitrine sem preço cadastrado.`
+    });
+  }
+  if (batchHatched > 0 && costPerHatched > 0) {
+    insights.push({
+      severity: "info",
+      text: `Custo médio por filhote produzido: R$ ${costPerHatched.toFixed(2)} (ração + medicamentos no período).`
+    });
+  }
+  if (bestPosture.length > 0 && worstPosture.length > 0 && bestPosture[0].total > 2 * worstPosture[0].total) {
+    insights.push({
+      severity: "info",
+      text: `Lote "${bestPosture[0].group}" produziu ${Math.round(bestPosture[0].total / Math.max(1, worstPosture[0].total))}x mais ovos que "${worstPosture[0].group}".`
+    });
+  }
+  if (trends.monthNet.deltaPct !== null && trends.monthNet.deltaPct < -20) {
+    insights.push({
+      severity: "warning",
+      text: `Resultado caiu ${Math.abs(trends.monthNet.deltaPct).toFixed(0)}% vs período anterior — analisar causa.`
+    });
+  }
+  if (trends.monthNet.deltaPct !== null && trends.monthNet.deltaPct > 20) {
+    insights.push({
+      severity: "info",
+      text: `Resultado cresceu ${trends.monthNet.deltaPct.toFixed(0)}% vs período anterior. Manter o ritmo.`
+    });
+  }
+  if (insights.length === 0) {
+    insights.push({ severity: "info", text: "Nenhum alerta detectado no período. Operação saudável." });
+  }
+
   const conclusion =
     monthNet >= 0
-      ? `Periodo com resultado positivo de ${monthNet.toFixed(2)} e taxa de eclosao de ${ratio(batchHatched, eggsSet).toFixed(2)}%.`
-      : `Periodo com resultado negativo de ${monthNet.toFixed(2)}. Recomendado revisar custos e perdas biologicas.`;
+      ? `Periodo com resultado positivo de R$ ${monthNet.toFixed(2)} e taxa de eclosao de ${hatchRate.toFixed(2)}%.`
+      : `Periodo com resultado negativo de R$ ${Math.abs(monthNet).toFixed(2)}. Recomendado revisar custos e perdas biologicas.`;
 
   return {
-    reportType,
+    focus: options.focus,
+    granularity: options.granularity,
     period: {
       from: isoDate(period.from),
       to: isoDate(addDays(period.to, -1)),
       label: period.label
+    },
+    comparisonPeriod: {
+      from: isoDate(prev.from),
+      to: isoDate(addDays(prev.to, -1)),
+      label: prev.label
     },
     generatedAt: new Date().toISOString(),
     kpis: {
@@ -479,13 +795,22 @@ export async function getReportData(
       eggsTotal,
       goodEggRate: ratio(eggsGood, eggsTotal),
       activeBatches,
-      hatchRate: ratio(batchHatched, eggsSet),
+      hatchRate,
       inTreatment,
       cureRate: ratio(cured, cured + deadInHealth),
       monthIncome,
       monthExpenses,
-      monthNet
+      monthNet,
+      mortalityRate,
+      vaccinatedRate,
+      costPerHatched,
+      avgTicket,
+      avgDaysToSale,
+      totalHatched: batchHatched,
+      totalSoldVitrine,
+      totalRevenueVitrine
     },
+    trends,
     charts: {
       eggsByDay,
       financeByMonth,
@@ -499,8 +824,14 @@ export async function getReportData(
       vitrineSnapshot,
       vitrineSales: vitrineSalesPayload,
       quarantineCases: quarantineCasesPayload,
-      newBirds: newBirdsPayload
+      newBirds: newBirdsPayload,
+      topReproducers,
+      bestHatching,
+      worstHatching,
+      bestPosture,
+      worstPosture
     },
+    insights,
     conclusion
   };
 }
