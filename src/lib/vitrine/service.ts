@@ -9,6 +9,7 @@ import type {
   DeathInput,
   ListingCreateInput,
   ListingUpdateInput,
+  PurchasedListingInput,
   SaleInput
 } from "@/lib/validators/vitrine";
 
@@ -47,7 +48,12 @@ export async function listVitrine(tenantId: string) {
     prisma.flockGroup.findMany({
       where: {
         tenantId,
-        NOT: { title: { startsWith: "Chocada " } }
+        NOT: {
+          OR: [
+            { title: { startsWith: "Chocada " } },
+            { title: { startsWith: "Recria " } }
+          ]
+        }
       },
       select: {
         id: true,
@@ -122,7 +128,13 @@ export async function listVitrine(tenantId: string) {
       isOverride: result.isOverride,
       lastVaccination: lastVacc
         ? { vaccineName: lastVacc.vaccineName, appliedAt: lastVacc.appliedAt.toISOString() }
-        : null
+        : null,
+      purchaseDate: listing.purchaseDate ? listing.purchaseDate.toISOString() : null,
+      purchaseCost:
+        listing.purchaseCost !== null && listing.purchaseCost !== undefined
+          ? Number(listing.purchaseCost)
+          : null,
+      vendorName: listing.vendorName ?? null
     };
   });
 
@@ -161,6 +173,85 @@ export async function createListing(tenantId: string, input: ListingCreateInput)
       description: input.description?.trim() || null
     }
   });
+}
+
+// Cria listing de aves compradas pra revenda (recria). Cria FlockGroup
+// oculto com prefixo 'Recria · ' (filtrado das telas do plantel/sanidade/
+// reports), o VitrineListing apontando pra ele, e uma FinancialExpense
+// (categoria BIRD_PURCHASE) — tudo em transacao.
+export async function createPurchasedListing(tenantId: string, input: PurchasedListingInput) {
+  // valida species/breed/variety pertencem ao tenant
+  const [species, breed, variety] = await Promise.all([
+    prisma.species.findFirst({ where: { id: input.speciesId, tenantId }, select: { id: true, name: true } }),
+    prisma.breed.findFirst({ where: { id: input.breedId, tenantId }, select: { id: true, name: true } }),
+    input.varietyId
+      ? prisma.variety.findFirst({ where: { id: input.varietyId, tenantId }, select: { id: true, name: true } })
+      : Promise.resolve(null)
+  ]);
+  if (!species) throw new Error("Espécie não encontrada.");
+  if (!breed) throw new Error("Raça não encontrada.");
+  if (input.varietyId && !variety) throw new Error("Variedade não encontrada.");
+
+  const purchaseDate = new Date(input.purchaseDate);
+  if (Number.isNaN(purchaseDate.getTime())) throw new Error("Data de compra inválida.");
+
+  const birthDate = birthDateFromAgeInMonths(input.ageInMonths);
+
+  const taxonomy = [breed.name, variety?.name].filter(Boolean).join(" ");
+  const dateLabel = purchaseDate.toLocaleDateString("pt-BR");
+  const groupTitle = `Recria · ${taxonomy} · ${dateLabel}`;
+
+  const result = await prisma.$transaction(async (tx) => {
+    const group = await tx.flockGroup.create({
+      data: {
+        tenantId,
+        speciesId: input.speciesId,
+        breedId: input.breedId,
+        varietyId: input.varietyId ?? null,
+        title: groupTitle,
+        bayNumber: 0,
+        matrixCount: 0,
+        reproducerCount: 0,
+        notes: input.vendorName ? `Vendedor: ${input.vendorName}` : null
+      }
+    });
+
+    const listing = await tx.vitrineListing.create({
+      data: {
+        tenantId,
+        flockGroupId: group.id,
+        title: input.title?.trim() || null,
+        birthDate,
+        initialQuantity: input.initialQuantity,
+        availableQuantity: input.initialQuantity,
+        priceOverride:
+          input.priceOverride !== null && input.priceOverride !== undefined ? input.priceOverride : null,
+        description: input.description?.trim() || null,
+        purchaseDate,
+        purchaseCost: input.purchaseCost,
+        vendorName: input.vendorName?.trim() || null
+      }
+    });
+
+    if (input.purchaseCost > 0) {
+      await tx.financialExpense.create({
+        data: {
+          tenantId,
+          date: purchaseDate,
+          category: "BIRD_PURCHASE",
+          item: `Compra de ${input.initialQuantity} ${input.initialQuantity === 1 ? "ave" : "aves"} — ${taxonomy}`,
+          amount: input.purchaseCost,
+          description: `Recria comprada para revenda${input.vendorName ? ` · ${input.vendorName}` : ""}`,
+          supplier: input.vendorName?.trim() || null,
+          notes: input.description?.trim() || null
+        }
+      });
+    }
+
+    return listing;
+  });
+
+  return result;
 }
 
 export async function updateListing(tenantId: string, id: string, input: ListingUpdateInput) {

@@ -721,6 +721,10 @@ model VitrineListing {
   ornamarketListingId     String?
   ornamarketListingUrl    String?
 
+  purchaseDate DateTime?
+  purchaseCost Decimal?  @db.Decimal(10, 2)
+  vendorName   String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

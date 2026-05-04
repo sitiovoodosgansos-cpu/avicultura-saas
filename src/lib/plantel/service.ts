@@ -305,7 +305,9 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
   const mappedGroups = groups
     .filter(
       (group) =>
-        !allChildGroupIds.has(group.id) && !group.title.startsWith("Chocada ")
+        !allChildGroupIds.has(group.id) &&
+        !group.title.startsWith("Chocada ") &&
+        !group.title.startsWith("Recria ")
     )
     .map((group) => {
       const groupAllBirds = allByGroup.get(group.id) ?? [];

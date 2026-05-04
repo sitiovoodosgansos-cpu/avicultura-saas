@@ -34,7 +34,12 @@ export async function listIncubatorContext(tenantId: string) {
     prisma.flockGroup.findMany({
       where: {
         tenantId,
-        NOT: { title: { startsWith: "Chocada " } }
+        NOT: {
+          OR: [
+            { title: { startsWith: "Chocada " } },
+            { title: { startsWith: "Recria " } }
+          ]
+        }
       },
       select: { id: true, title: true },
       orderBy: { title: "asc" }

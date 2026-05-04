@@ -117,6 +117,12 @@ export function FlockGroupCard({
                   <p className="mt-0.5 text-[11px] text-slate-500">
                     {formatAge(listing.ageInMonths)}
                   </p>
+                  {listing.purchaseDate ? (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                      🛒 Recria comprada
+                      {listing.vendorName ? ` · ${listing.vendorName}` : ""}
+                    </p>
+                  ) : null}
                   {listing.lastVaccination ? (
                     <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800">
                       💉 {listing.lastVaccination.vaccineName} ·{" "}

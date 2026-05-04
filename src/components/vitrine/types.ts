@@ -31,6 +31,9 @@ export type VitrineListingItem = {
   missingTier: boolean;
   isOverride: boolean;
   lastVaccination: { vaccineName: string; appliedAt: string } | null;
+  purchaseDate: string | null;
+  purchaseCost: number | null;
+  vendorName: string | null;
 };
 
 export function formatBRL(value: number | null) {

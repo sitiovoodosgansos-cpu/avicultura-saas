@@ -312,7 +312,12 @@ export async function getReportData(
     prisma.flockGroup.findMany({
       where: {
         tenantId,
-        NOT: { title: { startsWith: "Chocada " } }
+        NOT: {
+          OR: [
+            { title: { startsWith: "Chocada " } },
+            { title: { startsWith: "Recria " } }
+          ]
+        }
       },
       include: {
         species: { select: { name: true } },

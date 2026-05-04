@@ -41,9 +41,24 @@ export const deathSchema = z.object({
   cause: z.string().trim().optional().nullable()
 });
 
+export const purchasedListingSchema = z.object({
+  speciesId: z.string().cuid("Espécie inválida."),
+  breedId: z.string().cuid("Raça inválida."),
+  varietyId: z.string().cuid("Variedade inválida.").optional().nullable(),
+  title: z.string().trim().optional().nullable(),
+  ageInMonths: z.coerce.number().int().min(0, "Idade inválida.").max(999),
+  initialQuantity: z.coerce.number().int().min(1, "Quantidade mínima 1."),
+  purchaseDate: z.string().min(1, "Informe a data de compra."),
+  purchaseCost: z.coerce.number().min(0, "Custo inválido."),
+  vendorName: z.string().trim().optional().nullable(),
+  priceOverride: z.coerce.number().min(0).optional().nullable(),
+  description: z.string().trim().optional().nullable()
+});
+
 export type PriceTierEntryInput = z.infer<typeof priceTierEntrySchema>;
 export type PriceTierBatchInput = z.infer<typeof priceTierBatchSchema>;
 export type ListingCreateInput = z.infer<typeof listingCreateSchema>;
 export type ListingUpdateInput = z.infer<typeof listingUpdateSchema>;
 export type SaleInput = z.infer<typeof saleSchema>;
 export type DeathInput = z.infer<typeof deathSchema>;
+export type PurchasedListingInput = z.infer<typeof purchasedListingSchema>;

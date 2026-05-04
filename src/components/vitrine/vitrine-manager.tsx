@@ -12,6 +12,7 @@ import {
 import { PriceTierManager } from "@/components/vitrine/price-tier-manager";
 import { DeathModal, type DeathFormValues } from "@/components/vitrine/death-modal";
 import { SellModal, type SaleFormValues } from "@/components/vitrine/sell-modal";
+import { PurchaseModal, type PurchaseFormValues } from "@/components/vitrine/purchase-modal";
 import {
   formatBRL,
   type FlockGroupRef,
@@ -37,6 +38,8 @@ export function VitrineManager() {
   const [deathOpen, setDeathOpen] = useState(false);
   const [dying, setDying] = useState<VitrineListingItem | null>(null);
   const [deathError, setDeathError] = useState<string | null>(null);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -148,6 +151,41 @@ export function VitrineManager() {
     }
   }
 
+  async function handlePurchase(values: PurchaseFormValues) {
+    setPurchaseError(null);
+    try {
+      const overrideValue = values.priceOverride.trim();
+      const priceOverride = overrideValue === "" ? null : Number(overrideValue);
+
+      const response = await fetch("/api/vitrine/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          speciesId: values.speciesId,
+          breedId: values.breedId,
+          varietyId: values.varietyId || null,
+          title: values.title || null,
+          ageInMonths: values.ageInMonths,
+          initialQuantity: values.initialQuantity,
+          purchaseDate: values.purchaseDate,
+          purchaseCost: Number(values.purchaseCost),
+          vendorName: values.vendorName || null,
+          priceOverride,
+          description: values.description || null
+        })
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? "Erro ao registrar compra.");
+      }
+      setPurchaseOpen(false);
+      await load();
+    } catch (err) {
+      setPurchaseError(err instanceof Error ? err.message : "Erro ao registrar compra.");
+      throw err;
+    }
+  }
+
   async function handleRemove(id: string) {
     if (!confirm("Remover este anúncio da vitrine?")) return;
     try {
@@ -254,6 +292,9 @@ export function VitrineManager() {
           <Button type="button" variant="outline" onClick={() => setPricesOpen(true)}>
             Tabela de preços
           </Button>
+          <Button type="button" variant="outline" onClick={() => { setPurchaseError(null); setPurchaseOpen(true); }}>
+            🛒 Comprar p/ revenda
+          </Button>
           <Button
             type="button"
             onClick={openCreate}
@@ -355,6 +396,13 @@ export function VitrineManager() {
         }}
         onSubmit={handleDeath}
         error={deathError}
+      />
+
+      <PurchaseModal
+        open={purchaseOpen}
+        onClose={() => setPurchaseOpen(false)}
+        onSubmit={handlePurchase}
+        error={purchaseError}
       />
     </div>
   );
