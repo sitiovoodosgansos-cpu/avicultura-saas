@@ -53,12 +53,40 @@ export async function GET(request: NextRequest) {
     const period = resolvePeriod(preset, from, to);
     const data = await getReportData(auth.session.user.tenantId, { focus, granularity }, period);
 
-    const farm = await prisma.farm.findFirst({
-      where: { tenantId: auth.session.user.tenantId },
-      select: { name: true }
-    });
+    const [farm, tenant] = await Promise.all([
+      prisma.farm.findFirst({
+        where: { tenantId: auth.session.user.tenantId },
+        select: { name: true }
+      }),
+      prisma.tenant.findUnique({
+        where: { id: auth.session.user.tenantId },
+        select: {
+          name: true,
+          legalName: true,
+          logoUrl: true,
+          email: true,
+          phone: true,
+          whatsapp: true,
+          city: true,
+          stateUf: true,
+          cnpj: true
+        }
+      })
+    ]);
 
-    const buffer = await generateReportPdf(data, farm?.name ?? "Sitio sem nome");
+    const tenantHeader = {
+      name: tenant?.name?.trim() || farm?.name?.trim() || "Sitio sem nome",
+      legalName: tenant?.legalName ?? null,
+      logoUrl: tenant?.logoUrl ?? null,
+      email: tenant?.email ?? null,
+      phone: tenant?.phone ?? null,
+      whatsapp: tenant?.whatsapp ?? null,
+      city: tenant?.city ?? null,
+      stateUf: tenant?.stateUf ?? null,
+      cnpj: tenant?.cnpj ?? null
+    };
+
+    const buffer = await generateReportPdf(data, tenantHeader);
     const body = new Uint8Array(buffer);
 
     return new Response(body, {
