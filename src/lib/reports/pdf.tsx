@@ -50,6 +50,7 @@ const AREA_COLORS: Record<string, { bg: string; ink: string }> = {
   plantel: { bg: "#dbeafe", ink: "#1e40af" },
   eggs: { bg: "#fef3c7", ink: "#92400e" },
   incubator: { bg: "#d1fae5", ink: "#065f46" },
+  incubatorWarn: { bg: "#fee2e2", ink: "#991b1b" },
   health: { bg: "#fee2e2", ink: "#991b1b" },
   finance: { bg: "#d1fae5", ink: "#065f46" },
   vitrine: { bg: "#e0e7ff", ink: "#3730a3" },
@@ -448,16 +449,13 @@ function HeroKpi({
       ? styles.heroKpiTrendDown
       : styles.heroKpiTrendNeutral
     : null;
-  const arrow = t?.positive === true ? "▲" : t?.positive === false ? "▼" : "";
   return (
     <View style={styles.heroKpiCard}>
       <View style={styles.heroKpiInner}>
         <Text style={styles.heroKpiLabel}>{label}</Text>
         <Text style={styles.heroKpiValue}>{value}</Text>
         {t && trendStyle ? (
-          <Text style={trendStyle}>
-            {arrow} {t.text} vs período anterior
-          </Text>
+          <Text style={trendStyle}>{t.text} vs período anterior</Text>
         ) : null}
       </View>
     </View>
@@ -483,17 +481,12 @@ function CompactKpi({
       ? styles.kpiTrendDown
       : styles.kpiTrendNeutral
     : null;
-  const arrow = t?.positive === true ? "▲" : t?.positive === false ? "▼" : "";
   return (
     <View style={styles.kpiCard}>
       <View style={styles.kpiInner}>
         <Text style={styles.kpiLabel}>{label}</Text>
         <Text style={styles.kpiValue}>{value}</Text>
-        {t && trendStyle ? (
-          <Text style={trendStyle}>
-            {arrow} {t.text}
-          </Text>
-        ) : null}
+        {t && trendStyle ? <Text style={trendStyle}>{t.text}</Text> : null}
       </View>
     </View>
   );
@@ -837,10 +830,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
 
   return (
     <Document>
-      {/* PAGINA 1: CAPA */}
-      <CoverPage data={data} tenant={tenant} />
-
-      {/* PAGINA 2+: CONTEUDO */}
+      {/* PAGINA 1+: CONTEUDO (capa removida — pouco util pra impressao) */}
       <Page size="A4" style={styles.page}>
         <PageHeader data={data} tenant={tenant} />
         <PageFooter tenant={tenant} />
@@ -865,7 +855,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
                 insight.severity === "critical"
                   ? { bg: PALETTE.criticalBg, border: PALETTE.criticalBorder, ink: PALETTE.criticalInk, icon: "!" }
                   : insight.severity === "warning"
-                  ? { bg: PALETTE.warningBg, border: PALETTE.warningBorder, ink: PALETTE.warningInk, icon: "▲" }
+                  ? { bg: PALETTE.warningBg, border: PALETTE.warningBorder, ink: PALETTE.warningInk, icon: "!" }
                   : { bg: PALETTE.infoBg, border: PALETTE.infoBorder, ink: PALETTE.infoInk, icon: "i" };
               return (
                 <View
@@ -949,10 +939,10 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
           </View>
         ) : null}
 
-        {/* MELHORES E PIORES ECLOSOES */}
-        {cfg.show.bestWorstHatching && (t.bestHatching.length > 0 || t.worstHatching.length > 0) ? (
+        {/* MELHORES ECLOSOES */}
+        {cfg.show.bestWorstHatching && t.bestHatching.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>Eclosões — melhores e piores</Text>
+            <Text style={styles.sectionTitle}>Melhores eclosões</Text>
             <View style={styles.table}>
               <ThColored
                 area="incubator"
@@ -969,7 +959,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
                   key={`best-${i}`}
                   zebra={i % 2 === 1}
                   items={[
-                    { value: `▲ ${b.incubator}`, flex: 1.5 },
+                    { value: b.incubator, flex: 1.5 },
                     { value: b.group, flex: 1.5 },
                     { value: String(b.eggsSet), align: "right" },
                     { value: String(b.hatched), align: "right" },
@@ -977,12 +967,32 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
                   ]}
                 />
               ))}
+            </View>
+          </View>
+        ) : null}
+
+        {/* ECLOSOES ABAIXO DA MEDIA */}
+        {cfg.show.bestWorstHatching && t.worstHatching.length > 0 ? (
+          <View style={styles.section} wrap={false}>
+            <Text style={styles.sectionTitle}>Eclosões abaixo da média</Text>
+            <Text style={styles.sectionSubtitle}>Investigar temperatura e umidade dessas chocadeiras</Text>
+            <View style={styles.table}>
+              <ThColored
+                area="incubatorWarn"
+                items={[
+                  { value: "Chocadeira", flex: 1.5 },
+                  { value: "Lote", flex: 1.5 },
+                  { value: "Ovos", align: "right" },
+                  { value: "Nascidos", align: "right" },
+                  { value: "Eclosão", align: "right" }
+                ]}
+              />
               {t.worstHatching.map((b, i) => (
                 <Td
                   key={`worst-${i}`}
-                  zebra={(t.bestHatching.length + i) % 2 === 1}
+                  zebra={i % 2 === 1}
                   items={[
-                    { value: `▼ ${b.incubator}`, flex: 1.5 },
+                    { value: b.incubator, flex: 1.5 },
                     { value: b.group, flex: 1.5 },
                     { value: String(b.eggsSet), align: "right" },
                     { value: String(b.hatched), align: "right" },
