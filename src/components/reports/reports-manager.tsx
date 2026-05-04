@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type ReportFocus = "GENERAL" | "PLANTEL" | "EGGS" | "HEALTH" | "FINANCE";
-type ReportGranularity = "EXECUTIVE" | "DETAILED" | "ANALYTICAL";
 type ReportPreset = "7d" | "30d" | "90d" | "365d" | "ytd" | "custom";
 
 type Trend = {
@@ -42,7 +41,7 @@ type EstoqueResumo = {
 
 type ReportData = {
   focus: ReportFocus;
-  granularity: ReportGranularity;
+  granularity: string;
   period: { from: string; to: string; label: string };
   comparisonPeriod: { from: string; to: string; label: string } | null;
   generatedAt: string;
@@ -159,12 +158,6 @@ const focusOptions: Array<{ value: ReportFocus; label: string; emoji: string }> 
   { value: "FINANCE", label: "Financeiro & vitrine", emoji: "💰" }
 ];
 
-const granularityOptions: Array<{ value: ReportGranularity; label: string; description: string }> = [
-  { value: "EXECUTIVE", label: "Executivo", description: "Só KPIs com tendência" },
-  { value: "DETAILED", label: "Detalhado", description: "Tabelas e rankings" },
-  { value: "ANALYTICAL", label: "Analítico", description: "Detalhe por ave/lote" }
-];
-
 const presetOptions: Array<{ value: ReportPreset; label: string }> = [
   { value: "7d", label: "Últimos 7 dias" },
   { value: "30d", label: "Últimos 30 dias" },
@@ -232,16 +225,302 @@ function KpiCard({
   );
 }
 
-const focusSections: Record<ReportFocus, { hidden?: Array<"plantel" | "eggs" | "incubator" | "health" | "finance" | "vitrine" | "rankings"> }> = {
-  GENERAL: { hidden: [] },
-  PLANTEL: { hidden: ["finance"] },
-  EGGS: { hidden: ["finance", "health"] },
-  HEALTH: { hidden: ["finance", "vitrine"] },
-  FINANCE: { hidden: ["plantel"] }
+// Cada foco tem seu proprio conjunto de KPIs primarios e secoes visiveis
+type FocusConfig = {
+  primaryKpis: Array<"eggs" | "hatched" | "hatchRate" | "net" | "totalBirds" | "mortality" | "vaccinated" | "inTreatment" | "cureRate" | "goodEgg" | "income" | "expenses" | "revenue" | "ticket" | "daysToSale" | "costPerHatched" | "soldVitrine">;
+  show: {
+    insights: boolean;
+    secondaryKpis: boolean;
+    topReproducers: boolean;
+    bestHatching: boolean;
+    worstHatching: boolean;
+    bestPosture: boolean;
+    flockGroupsTable: boolean;
+    eggCollectionsTable: boolean;
+    incubatorBatchesTable: boolean;
+    quarantineTable: boolean;
+    diagnosesTable: boolean;
+    vitrineEstoque: boolean;
+    revenueByGroup: boolean;
+    newBirds: boolean;
+  };
 };
 
-function isSectionVisible(focus: ReportFocus, section: "plantel" | "eggs" | "incubator" | "health" | "finance" | "vitrine" | "rankings") {
-  return !(focusSections[focus].hidden ?? []).includes(section);
+const focusConfigs: Record<ReportFocus, FocusConfig> = {
+  GENERAL: {
+    primaryKpis: ["eggs", "hatched", "hatchRate", "net"],
+    show: {
+      insights: true,
+      secondaryKpis: true,
+      topReproducers: true,
+      bestHatching: true,
+      worstHatching: true,
+      bestPosture: true,
+      flockGroupsTable: true,
+      eggCollectionsTable: true,
+      incubatorBatchesTable: false,
+      quarantineTable: true,
+      diagnosesTable: true,
+      vitrineEstoque: true,
+      revenueByGroup: true,
+      newBirds: true
+    }
+  },
+  PLANTEL: {
+    primaryKpis: ["totalBirds", "hatched", "mortality", "vaccinated"],
+    show: {
+      insights: true,
+      secondaryKpis: false,
+      topReproducers: true,
+      bestHatching: false,
+      worstHatching: false,
+      bestPosture: false,
+      flockGroupsTable: true,
+      eggCollectionsTable: false,
+      incubatorBatchesTable: false,
+      quarantineTable: false,
+      diagnosesTable: false,
+      vitrineEstoque: false,
+      revenueByGroup: false,
+      newBirds: true
+    }
+  },
+  EGGS: {
+    primaryKpis: ["eggs", "goodEgg", "hatched", "hatchRate"],
+    show: {
+      insights: true,
+      secondaryKpis: false,
+      topReproducers: false,
+      bestHatching: true,
+      worstHatching: true,
+      bestPosture: true,
+      flockGroupsTable: false,
+      eggCollectionsTable: true,
+      incubatorBatchesTable: true,
+      quarantineTable: false,
+      diagnosesTable: false,
+      vitrineEstoque: false,
+      revenueByGroup: false,
+      newBirds: false
+    }
+  },
+  HEALTH: {
+    primaryKpis: ["mortality", "vaccinated", "inTreatment", "cureRate"],
+    show: {
+      insights: true,
+      secondaryKpis: false,
+      topReproducers: false,
+      bestHatching: false,
+      worstHatching: false,
+      bestPosture: false,
+      flockGroupsTable: false,
+      eggCollectionsTable: false,
+      incubatorBatchesTable: false,
+      quarantineTable: true,
+      diagnosesTable: true,
+      vitrineEstoque: false,
+      revenueByGroup: false,
+      newBirds: false
+    }
+  },
+  FINANCE: {
+    primaryKpis: ["net", "revenue", "ticket", "daysToSale"],
+    show: {
+      insights: true,
+      secondaryKpis: false,
+      topReproducers: false,
+      bestHatching: false,
+      worstHatching: false,
+      bestPosture: false,
+      flockGroupsTable: false,
+      eggCollectionsTable: false,
+      incubatorBatchesTable: false,
+      quarantineTable: false,
+      diagnosesTable: false,
+      vitrineEstoque: true,
+      revenueByGroup: true,
+      newBirds: false
+    }
+  }
+};
+
+function renderKpi(
+  key: FocusConfig["primaryKpis"][number],
+  data: ReportData
+) {
+  switch (key) {
+    case "eggs":
+      return (
+        <KpiCard
+          key={key}
+          label="Ovos no período"
+          value={String(data.kpis.eggsTotal)}
+          trend={data.trends.eggsTotal}
+          format="number"
+          emoji="🥚"
+        />
+      );
+    case "hatched":
+      return (
+        <KpiCard
+          key={key}
+          label="Filhotes nascidos"
+          value={String(data.kpis.totalHatched)}
+          trend={data.trends.totalHatched}
+          format="number"
+          emoji="🐣"
+        />
+      );
+    case "hatchRate":
+      return (
+        <KpiCard
+          key={key}
+          label="Taxa de eclosão"
+          value={formatPercent(data.kpis.hatchRate)}
+          trend={data.trends.hatchRate}
+          format="percent"
+          emoji="📈"
+        />
+      );
+    case "net":
+      return (
+        <KpiCard
+          key={key}
+          label="Resultado financeiro"
+          value={formatMoney(data.kpis.monthNet)}
+          trend={data.trends.monthNet}
+          format="money"
+          emoji="💰"
+        />
+      );
+    case "totalBirds":
+      return (
+        <KpiCard
+          key={key}
+          label="Total de aves"
+          value={String(data.kpis.totalBirds)}
+          emoji="🐥"
+        />
+      );
+    case "mortality":
+      return (
+        <KpiCard
+          key={key}
+          label="Mortalidade"
+          value={formatPercent(data.kpis.mortalityRate)}
+          emoji="💀"
+        />
+      );
+    case "vaccinated":
+      return (
+        <KpiCard
+          key={key}
+          label="Vacinação"
+          value={formatPercent(data.kpis.vaccinatedRate)}
+          emoji="💉"
+        />
+      );
+    case "inTreatment":
+      return (
+        <KpiCard
+          key={key}
+          label="Em tratamento"
+          value={String(data.kpis.inTreatment)}
+          emoji="🏥"
+        />
+      );
+    case "cureRate":
+      return (
+        <KpiCard
+          key={key}
+          label="Taxa de cura"
+          value={formatPercent(data.kpis.cureRate)}
+          emoji="✅"
+        />
+      );
+    case "goodEgg":
+      return (
+        <KpiCard
+          key={key}
+          label="Ovos bons"
+          value={formatPercent(data.kpis.goodEggRate)}
+          emoji="✨"
+        />
+      );
+    case "income":
+      return (
+        <KpiCard
+          key={key}
+          label="Entradas"
+          value={formatMoney(data.kpis.monthIncome)}
+          trend={data.trends.monthIncome}
+          format="money"
+          emoji="📥"
+        />
+      );
+    case "expenses":
+      return (
+        <KpiCard
+          key={key}
+          label="Saídas"
+          value={formatMoney(data.kpis.monthExpenses)}
+          trend={data.trends.monthExpenses}
+          format="money"
+          emoji="📤"
+        />
+      );
+    case "revenue":
+      return (
+        <KpiCard
+          key={key}
+          label="Receita vitrine"
+          value={formatMoney(data.kpis.totalRevenueVitrine)}
+          trend={data.trends.totalRevenueVitrine}
+          format="money"
+          emoji="🏪"
+        />
+      );
+    case "ticket":
+      return (
+        <KpiCard
+          key={key}
+          label="Ticket médio"
+          value={data.kpis.avgTicket > 0 ? formatMoney(data.kpis.avgTicket) : "—"}
+          emoji="💵"
+        />
+      );
+    case "daysToSale":
+      return (
+        <KpiCard
+          key={key}
+          label="Dias até venda"
+          value={data.kpis.avgDaysToSale > 0 ? `${data.kpis.avgDaysToSale}d` : "—"}
+          emoji="⏱️"
+        />
+      );
+    case "costPerHatched":
+      return (
+        <KpiCard
+          key={key}
+          label="Custo / filhote"
+          value={data.kpis.costPerHatched > 0 ? formatMoney(data.kpis.costPerHatched) : "—"}
+          emoji="📦"
+        />
+      );
+    case "soldVitrine":
+      return (
+        <KpiCard
+          key={key}
+          label="Aves vendidas"
+          value={String(data.kpis.totalSoldVitrine)}
+          trend={data.trends.totalSoldVitrine}
+          format="number"
+          emoji="🛒"
+        />
+      );
+    default:
+      return null;
+  }
 }
 
 export function ReportsManager() {
@@ -249,7 +528,6 @@ export function ReportsManager() {
   const [error, setError] = useState<string | null>(null);
 
   const [focus, setFocus] = useState<ReportFocus>("GENERAL");
-  const [granularity, setGranularity] = useState<ReportGranularity>("DETAILED");
   const [preset, setPreset] = useState<ReportPreset>("30d");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -263,7 +541,7 @@ export function ReportsManager() {
 
     const params = new URLSearchParams();
     params.set("focus", focus);
-    params.set("granularity", granularity);
+    params.set("granularity", "DETAILED");
     params.set("preset", preset);
     if (preset === "custom") {
       if (from) params.set("from", from);
@@ -307,25 +585,27 @@ export function ReportsManager() {
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus, granularity, preset, from, to]);
+  }, [focus, preset, from, to]);
 
   const pdfUrl = useMemo(() => {
     const params = new URLSearchParams();
     params.set("focus", focus);
-    params.set("granularity", granularity);
+    params.set("granularity", "DETAILED");
     params.set("preset", preset);
     if (preset === "custom") {
       if (from) params.set("from", from);
       if (to) params.set("to", to);
     }
     return `/api/reports/pdf?${params.toString()}`;
-  }, [focus, granularity, preset, from, to]);
+  }, [focus, preset, from, to]);
+
+  const cfg = focusConfigs[focus];
 
   return (
     <main className="space-y-6">
       <PageTitle
         title="Relatórios"
-        description="Indicadores acionáveis com comparação automática vs período anterior."
+        description="Cada foco mostra apenas o tema escolhido. Tendência automática vs período anterior."
         icon="📊"
       />
 
@@ -354,29 +634,6 @@ export function ReportsManager() {
                   }`}
                 >
                   {opt.emoji} {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">
-              Granularidade
-            </label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {granularityOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setGranularity(opt.value)}
-                  title={opt.description}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                    granularity === opt.value
-                      ? "bg-sky-600 text-white shadow-sm"
-                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                  }`}
-                >
-                  {opt.label}
                 </button>
               ))}
             </div>
@@ -448,8 +705,7 @@ export function ReportsManager() {
 
       {data ? (
         <>
-          {/* INSIGHTS no topo - mais importante que KPIs */}
-          {data.insights.length > 0 ? (
+          {cfg.show.insights && data.insights.length > 0 ? (
             <Card>
               <h3 className="text-base font-semibold text-zinc-900">💡 Insights do período</h3>
               <ul className="mt-3 grid gap-2">
@@ -473,116 +729,28 @@ export function ReportsManager() {
             </Card>
           ) : null}
 
-          {/* KPIs principais com tendência */}
+          {/* KPIs primarios — variam por foco */}
           <section className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
-            <KpiCard
-              label="Ovos no período"
-              value={String(data.kpis.eggsTotal)}
-              trend={data.trends.eggsTotal}
-              format="number"
-              emoji="🥚"
-            />
-            <KpiCard
-              label="Filhotes nascidos"
-              value={String(data.kpis.totalHatched)}
-              trend={data.trends.totalHatched}
-              format="number"
-              emoji="🐣"
-            />
-            <KpiCard
-              label="Taxa de eclosão"
-              value={formatPercent(data.kpis.hatchRate)}
-              trend={data.trends.hatchRate}
-              format="percent"
-              emoji="📈"
-            />
-            <KpiCard
-              label="Resultado financeiro"
-              value={formatMoney(data.kpis.monthNet)}
-              trend={data.trends.monthNet}
-              format="money"
-              emoji="💰"
-            />
+            {cfg.primaryKpis.map((key) => renderKpi(key, data))}
           </section>
 
-          {/* KPIs secundários (em granularidade detalhada+) */}
-          {granularity !== "EXECUTIVE" ? (
+          {/* KPIs secundarios so em GENERAL */}
+          {cfg.show.secondaryKpis ? (
             <section className="grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
-              {isSectionVisible(focus, "vitrine") ? (
-                <>
-                  <KpiCard
-                    label="Receita vitrine"
-                    value={formatMoney(data.kpis.totalRevenueVitrine)}
-                    trend={data.trends.totalRevenueVitrine}
-                    format="money"
-                    emoji="🏪"
-                  />
-                  <KpiCard
-                    label="Aves vendidas"
-                    value={String(data.kpis.totalSoldVitrine)}
-                    trend={data.trends.totalSoldVitrine}
-                    format="number"
-                    emoji="🛒"
-                  />
-                  <KpiCard
-                    label="Ticket médio"
-                    value={formatMoney(data.kpis.avgTicket)}
-                    emoji="💵"
-                  />
-                  <KpiCard
-                    label="Dias até venda"
-                    value={`${data.kpis.avgDaysToSale}d`}
-                    emoji="⏱️"
-                  />
-                </>
-              ) : null}
-              {isSectionVisible(focus, "plantel") ? (
-                <>
-                  <KpiCard
-                    label="Total de aves"
-                    value={String(data.kpis.totalBirds)}
-                    emoji="🐥"
-                  />
-                  <KpiCard
-                    label="Mortalidade"
-                    value={formatPercent(data.kpis.mortalityRate)}
-                    emoji="💀"
-                  />
-                  <KpiCard
-                    label="Vacinação"
-                    value={formatPercent(data.kpis.vaccinatedRate)}
-                    emoji="💉"
-                  />
-                  <KpiCard
-                    label="Custo / filhote"
-                    value={
-                      data.kpis.costPerHatched > 0 ? formatMoney(data.kpis.costPerHatched) : "—"
-                    }
-                    emoji="📦"
-                  />
-                </>
-              ) : null}
-              {isSectionVisible(focus, "health") ? (
-                <>
-                  <KpiCard
-                    label="Em tratamento"
-                    value={String(data.kpis.inTreatment)}
-                    emoji="🏥"
-                  />
-                  <KpiCard
-                    label="Taxa de cura"
-                    value={formatPercent(data.kpis.cureRate)}
-                    emoji="✅"
-                  />
-                </>
-              ) : null}
+              <KpiCard label="Receita vitrine" value={formatMoney(data.kpis.totalRevenueVitrine)} trend={data.trends.totalRevenueVitrine} format="money" emoji="🏪" />
+              <KpiCard label="Aves vendidas" value={String(data.kpis.totalSoldVitrine)} trend={data.trends.totalSoldVitrine} format="number" emoji="🛒" />
+              <KpiCard label="Mortalidade" value={formatPercent(data.kpis.mortalityRate)} emoji="💀" />
+              <KpiCard label="Vacinação" value={formatPercent(data.kpis.vaccinatedRate)} emoji="💉" />
             </section>
           ) : null}
 
-          {/* RANKINGS */}
-          {granularity !== "EXECUTIVE" && isSectionVisible(focus, "rankings") ? (
+          {/* RANKINGS — sempre 1 linha visualmente, mas conteudo filtrado */}
+          {(cfg.show.topReproducers && data.tables.topReproducers.length > 0) ||
+          (cfg.show.bestHatching && data.tables.bestHatching.length > 0) ||
+          (cfg.show.worstHatching && data.tables.worstHatching.length > 0) ||
+          (cfg.show.bestPosture && data.tables.bestPosture.length > 0) ? (
             <section className="grid gap-4 lg:grid-cols-2">
-              {data.tables.topReproducers.length > 0 ? (
+              {cfg.show.topReproducers && data.tables.topReproducers.length > 0 ? (
                 <Card>
                   <h3 className="text-base font-semibold text-zinc-900">🏆 Top reprodutores</h3>
                   <p className="mt-1 text-xs text-slate-500">Lotes pais que mais geraram filhotes no período</p>
@@ -609,7 +777,7 @@ export function ReportsManager() {
                 </Card>
               ) : null}
 
-              {data.tables.bestHatching.length > 0 ? (
+              {cfg.show.bestHatching && data.tables.bestHatching.length > 0 ? (
                 <Card>
                   <h3 className="text-base font-semibold text-zinc-900">🐣 Melhores eclosões</h3>
                   <p className="mt-1 text-xs text-slate-500">Chocadeiras com maior taxa no período</p>
@@ -626,7 +794,7 @@ export function ReportsManager() {
                 </Card>
               ) : null}
 
-              {data.tables.worstHatching.length > 0 ? (
+              {cfg.show.worstHatching && data.tables.worstHatching.length > 0 ? (
                 <Card>
                   <h3 className="text-base font-semibold text-zinc-900">⚠️ Eclosões abaixo da média</h3>
                   <p className="mt-1 text-xs text-slate-500">Investigar temperatura/umidade</p>
@@ -643,7 +811,7 @@ export function ReportsManager() {
                 </Card>
               ) : null}
 
-              {data.tables.bestPosture.length > 0 ? (
+              {cfg.show.bestPosture && data.tables.bestPosture.length > 0 ? (
                 <Card>
                   <h3 className="text-base font-semibold text-zinc-900">🥚 Maiores posturas</h3>
                   <p className="mt-1 text-xs text-slate-500">Lotes que mais coletaram ovos</p>
@@ -662,8 +830,8 @@ export function ReportsManager() {
             </section>
           ) : null}
 
-          {/* Tabelas detalhadas (apenas em DETAILED e ANALYTICAL) */}
-          {granularity !== "EXECUTIVE" && isSectionVisible(focus, "plantel") ? (
+          {/* Plantel por grupo */}
+          {cfg.show.flockGroupsTable ? (
             <Card>
               <h3 className="text-base font-semibold text-zinc-900">Plantel por grupo</h3>
               {data.tables.flockGroups.length === 0 ? (
@@ -699,7 +867,128 @@ export function ReportsManager() {
             </Card>
           ) : null}
 
-          {granularity !== "EXECUTIVE" && isSectionVisible(focus, "vitrine") && estoque ? (
+          {/* Coleta de ovos */}
+          {cfg.show.eggCollectionsTable && data.tables.eggCollectionsByGroup.length > 0 ? (
+            <Card>
+              <h3 className="text-base font-semibold text-zinc-900">Coleta de ovos por grupo</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                      <th className="py-2 pr-3">Grupo</th>
+                      <th className="py-2 pr-3 text-right">Total</th>
+                      <th className="py-2 pr-3 text-right">Bons</th>
+                      <th className="py-2 pr-3 text-right">Trincados</th>
+                      <th className="py-2 pr-3 text-right">% Bons</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.tables.eggCollectionsByGroup.slice(0, 12).map((row, i) => (
+                      <tr key={i} className="border-b border-zinc-100">
+                        <td className="py-2 pr-3">{row.group}</td>
+                        <td className="py-2 pr-3 text-right">{row.total}</td>
+                        <td className="py-2 pr-3 text-right">{row.good}</td>
+                        <td className="py-2 pr-3 text-right">{row.cracked}</td>
+                        <td className="py-2 pr-3 text-right">{formatPercent(row.goodRate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : null}
+
+          {/* Chocadeiras detalhadas */}
+          {cfg.show.incubatorBatchesTable && data.tables.incubatorBatches.length > 0 ? (
+            <Card>
+              <h3 className="text-base font-semibold text-zinc-900">Chocadeiras e lotes</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                      <th className="py-2 pr-3">Chocadeira</th>
+                      <th className="py-2 pr-3">Grupo</th>
+                      <th className="py-2 pr-3 text-right">Ovos</th>
+                      <th className="py-2 pr-3 text-right">Nascidos</th>
+                      <th className="py-2 pr-3 text-right">Inférteis</th>
+                      <th className="py-2 pr-3 text-right">Eclosão</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.tables.incubatorBatches.slice(0, 12).map((b, i) => (
+                      <tr key={i} className="border-b border-zinc-100">
+                        <td className="py-2 pr-3">{b.incubator}</td>
+                        <td className="py-2 pr-3">{b.group}</td>
+                        <td className="py-2 pr-3 text-right">{b.eggsSet}</td>
+                        <td className="py-2 pr-3 text-right">{b.hatched}</td>
+                        <td className="py-2 pr-3 text-right">{b.infertile}</td>
+                        <td className="py-2 pr-3 text-right">{formatPercent(b.hatchRate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : null}
+
+          {/* Quarentena */}
+          {cfg.show.quarantineTable && data.tables.quarantineCases.length > 0 ? (
+            <Card>
+              <h3 className="text-base font-semibold text-zinc-900">🛡️ Quarentenas (ativas + iniciadas no período)</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                      <th className="py-2 pr-3">Anilha</th>
+                      <th className="py-2 pr-3">Grupo</th>
+                      <th className="py-2 pr-3">Enfermaria</th>
+                      <th className="py-2 pr-3">Entrada</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3 text-right">Trat.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.tables.quarantineCases.slice(0, 12).map((q, i) => (
+                      <tr key={i} className="border-b border-zinc-100">
+                        <td className="py-2 pr-3">{q.ringNumber}</td>
+                        <td className="py-2 pr-3">{q.group}</td>
+                        <td className="py-2 pr-3">{q.infirmary}</td>
+                        <td className="py-2 pr-3">{new Date(q.entryDate).toLocaleDateString("pt-BR")}</td>
+                        <td className="py-2 pr-3">{q.status}</td>
+                        <td className="py-2 pr-3 text-right">{q.treatmentsCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : null}
+
+          {/* Diagnosticos */}
+          {cfg.show.diagnosesTable && data.tables.topDiagnoses.length > 0 ? (
+            <Card>
+              <h3 className="text-base font-semibold text-zinc-900">🩺 Diagnósticos recorrentes</h3>
+              <table className="mt-3 min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                    <th className="py-2 pr-3">Diagnóstico</th>
+                    <th className="py-2 pr-3 text-right">Ocorrências</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.tables.topDiagnoses.map((d, i) => (
+                    <tr key={i} className="border-b border-zinc-100">
+                      <td className="py-2 pr-3">{d.diagnosis}</td>
+                      <td className="py-2 pr-3 text-right">{d.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          ) : null}
+
+          {/* Estoque vitrine */}
+          {cfg.show.vitrineEstoque && estoque ? (
             <Card>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-base font-semibold text-zinc-900">🏪 Estoque para venda (Vitrine)</h3>
@@ -756,7 +1045,8 @@ export function ReportsManager() {
             </Card>
           ) : null}
 
-          {granularity !== "EXECUTIVE" && isSectionVisible(focus, "finance") && data.tables.vitrineSales.byGroup.length > 0 ? (
+          {/* Receita por grupo (vitrine) */}
+          {cfg.show.revenueByGroup && data.tables.vitrineSales.byGroup.length > 0 ? (
             <Card>
               <h3 className="text-base font-semibold text-zinc-900">💰 Receita por grupo (vitrine)</h3>
               <table className="mt-3 min-w-full text-sm">
@@ -782,6 +1072,43 @@ export function ReportsManager() {
                   </tr>
                 </tbody>
               </table>
+            </Card>
+          ) : null}
+
+          {/* Novas aves no plantel */}
+          {cfg.show.newBirds && data.tables.newBirds.length > 0 ? (
+            <Card>
+              <h3 className="text-base font-semibold text-zinc-900">🐥 Novas aves no plantel</h3>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                      <th className="py-2 pr-3">Anilha</th>
+                      <th className="py-2 pr-3">Grupo</th>
+                      <th className="py-2 pr-3">Sexo</th>
+                      <th className="py-2 pr-3">Aquisição</th>
+                      <th className="py-2 pr-3">Origem</th>
+                      <th className="py-2 pr-3 text-right">Custo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.tables.newBirds.slice(0, 12).map((b, i) => (
+                      <tr key={i} className="border-b border-zinc-100">
+                        <td className="py-2 pr-3">{b.ringNumber}</td>
+                        <td className="py-2 pr-3">{b.group}</td>
+                        <td className="py-2 pr-3">
+                          {b.sex === "FEMALE" ? "Fêmea" : b.sex === "MALE" ? "Macho" : "—"}
+                        </td>
+                        <td className="py-2 pr-3">{new Date(b.acquisitionDate).toLocaleDateString("pt-BR")}</td>
+                        <td className="py-2 pr-3">{b.origin ?? "—"}</td>
+                        <td className="py-2 pr-3 text-right">
+                          {b.purchaseValue !== null ? formatMoney(b.purchaseValue) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           ) : null}
         </>

@@ -225,23 +225,163 @@ function KpiBox({
   );
 }
 
-function isVisible(focus: ReportFocus, section: "plantel" | "eggs" | "incubator" | "health" | "finance" | "vitrine") {
-  if (focus === "GENERAL") return true;
-  if (focus === "PLANTEL") return section !== "finance";
-  if (focus === "EGGS") return section !== "finance" && section !== "health";
-  if (focus === "HEALTH") return section !== "finance" && section !== "vitrine";
-  if (focus === "FINANCE") return section !== "plantel";
-  return true;
+type PdfFocusConfig = {
+  primaryKpis: Array<"eggs" | "hatched" | "hatchRate" | "net" | "totalBirds" | "mortality" | "vaccinated" | "inTreatment" | "cureRate" | "goodEgg" | "revenue" | "ticket" | "daysToSale">;
+  secondaryKpis: Array<"revenue" | "soldVitrine" | "mortality" | "vaccinated" | "costPerHatched" | "income" | "expenses">;
+  show: {
+    financeSummary: boolean;
+    topReproducers: boolean;
+    bestWorstHatching: boolean;
+    bestPosture: boolean;
+    flockGroupsTable: boolean;
+    eggCollectionsTable: boolean;
+    incubatorBatchesTable: boolean;
+    quarantineTable: boolean;
+    diagnosesTable: boolean;
+    vitrineSnapshot: boolean;
+    revenueByGroup: boolean;
+    newBirds: boolean;
+  };
+};
+
+const pdfFocusConfigs: Record<ReportFocus, PdfFocusConfig> = {
+  GENERAL: {
+    primaryKpis: ["eggs", "hatched", "hatchRate", "net"],
+    secondaryKpis: ["revenue", "soldVitrine", "mortality", "vaccinated", "costPerHatched"],
+    show: {
+      financeSummary: true,
+      topReproducers: true,
+      bestWorstHatching: true,
+      bestPosture: false,
+      flockGroupsTable: true,
+      eggCollectionsTable: true,
+      incubatorBatchesTable: false,
+      quarantineTable: true,
+      diagnosesTable: true,
+      vitrineSnapshot: true,
+      revenueByGroup: true,
+      newBirds: true
+    }
+  },
+  PLANTEL: {
+    primaryKpis: ["totalBirds", "hatched", "mortality", "vaccinated"],
+    secondaryKpis: [],
+    show: {
+      financeSummary: false,
+      topReproducers: true,
+      bestWorstHatching: false,
+      bestPosture: false,
+      flockGroupsTable: true,
+      eggCollectionsTable: false,
+      incubatorBatchesTable: false,
+      quarantineTable: false,
+      diagnosesTable: false,
+      vitrineSnapshot: false,
+      revenueByGroup: false,
+      newBirds: true
+    }
+  },
+  EGGS: {
+    primaryKpis: ["eggs", "goodEgg", "hatched", "hatchRate"],
+    secondaryKpis: [],
+    show: {
+      financeSummary: false,
+      topReproducers: false,
+      bestWorstHatching: true,
+      bestPosture: true,
+      flockGroupsTable: false,
+      eggCollectionsTable: true,
+      incubatorBatchesTable: true,
+      quarantineTable: false,
+      diagnosesTable: false,
+      vitrineSnapshot: false,
+      revenueByGroup: false,
+      newBirds: false
+    }
+  },
+  HEALTH: {
+    primaryKpis: ["mortality", "vaccinated", "inTreatment", "cureRate"],
+    secondaryKpis: [],
+    show: {
+      financeSummary: false,
+      topReproducers: false,
+      bestWorstHatching: false,
+      bestPosture: false,
+      flockGroupsTable: false,
+      eggCollectionsTable: false,
+      incubatorBatchesTable: false,
+      quarantineTable: true,
+      diagnosesTable: true,
+      vitrineSnapshot: false,
+      revenueByGroup: false,
+      newBirds: false
+    }
+  },
+  FINANCE: {
+    primaryKpis: ["net", "revenue", "ticket", "daysToSale"],
+    secondaryKpis: ["income", "expenses", "costPerHatched"],
+    show: {
+      financeSummary: true,
+      topReproducers: false,
+      bestWorstHatching: false,
+      bestPosture: false,
+      flockGroupsTable: false,
+      eggCollectionsTable: false,
+      incubatorBatchesTable: false,
+      quarantineTable: false,
+      diagnosesTable: false,
+      vitrineSnapshot: true,
+      revenueByGroup: true,
+      newBirds: false
+    }
+  }
+};
+
+function renderPdfKpi(key: PdfFocusConfig["primaryKpis"][number] | PdfFocusConfig["secondaryKpis"][number], data: ReportData) {
+  const k = data.kpis;
+  switch (key) {
+    case "eggs":
+      return <KpiBox key={key} label="Ovos no período" value={String(k.eggsTotal)} trend={data.trends.eggsTotal} format="number" />;
+    case "hatched":
+      return <KpiBox key={key} label="Filhotes nascidos" value={String(k.totalHatched)} trend={data.trends.totalHatched} format="number" />;
+    case "hatchRate":
+      return <KpiBox key={key} label="Taxa de eclosão" value={`${k.hatchRate.toFixed(1)}%`} trend={data.trends.hatchRate} format="percent" />;
+    case "net":
+      return <KpiBox key={key} label="Resultado financeiro" value={formatMoney(k.monthNet)} trend={data.trends.monthNet} format="money" />;
+    case "totalBirds":
+      return <KpiBox key={key} label="Total de aves" value={String(k.totalBirds)} />;
+    case "mortality":
+      return <KpiBox key={key} label="Mortalidade" value={`${k.mortalityRate.toFixed(1)}%`} />;
+    case "vaccinated":
+      return <KpiBox key={key} label="Vacinação" value={`${k.vaccinatedRate.toFixed(1)}%`} />;
+    case "inTreatment":
+      return <KpiBox key={key} label="Em tratamento" value={String(k.inTreatment)} />;
+    case "cureRate":
+      return <KpiBox key={key} label="Taxa de cura" value={`${k.cureRate.toFixed(1)}%`} />;
+    case "goodEgg":
+      return <KpiBox key={key} label="Ovos bons" value={`${k.goodEggRate.toFixed(1)}%`} />;
+    case "revenue":
+      return <KpiBox key={key} label="Receita vitrine" value={formatMoney(k.totalRevenueVitrine)} trend={data.trends.totalRevenueVitrine} format="money" />;
+    case "soldVitrine":
+      return <KpiBox key={key} label="Aves vendidas" value={String(k.totalSoldVitrine)} trend={data.trends.totalSoldVitrine} format="number" />;
+    case "ticket":
+      return <KpiBox key={key} label="Ticket médio" value={k.avgTicket > 0 ? formatMoney(k.avgTicket) : "—"} />;
+    case "daysToSale":
+      return <KpiBox key={key} label="Dias até venda" value={k.avgDaysToSale > 0 ? `${k.avgDaysToSale}d` : "—"} />;
+    case "costPerHatched":
+      return <KpiBox key={key} label="Custo / filhote" value={k.costPerHatched > 0 ? formatMoney(k.costPerHatched) : "—"} />;
+    case "income":
+      return <KpiBox key={key} label="Entradas" value={formatMoney(k.monthIncome)} trend={data.trends.monthIncome} format="money" />;
+    case "expenses":
+      return <KpiBox key={key} label="Saídas" value={formatMoney(k.monthExpenses)} trend={data.trends.monthExpenses} format="money" />;
+    default:
+      return null;
+  }
 }
 
 function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }) {
   const t = data.tables;
-  const granularityLabel =
-    data.granularity === "EXECUTIVE"
-      ? "Executivo"
-      : data.granularity === "ANALYTICAL"
-      ? "Analítico"
-      : "Detalhado";
+  const cfg = pdfFocusConfigs[data.focus];
 
   return (
     <Document>
@@ -256,9 +396,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
           <Text style={styles.subtitle}>
             Gerado em: {new Date(data.generatedAt).toLocaleString("pt-BR")}
           </Text>
-          <Text style={styles.badge}>
-            {focusLabel(data.focus)} · {granularityLabel}
-          </Text>
+          <Text style={styles.badge}>{focusLabel(data.focus)}</Text>
         </View>
 
         {/* INSIGHTS - sempre no topo */}
@@ -287,27 +425,19 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
           </View>
         ) : null}
 
-        {/* KPIs principais com tendência */}
+        {/* KPIs principais com tendência (variam por foco) */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Indicadores principais</Text>
           <View style={styles.kpiGrid}>
-            <KpiBox label="Ovos no período" value={String(data.kpis.eggsTotal)} trend={data.trends.eggsTotal} format="number" />
-            <KpiBox label="Filhotes nascidos" value={String(data.kpis.totalHatched)} trend={data.trends.totalHatched} format="number" />
-            <KpiBox label="Taxa de eclosão" value={`${data.kpis.hatchRate.toFixed(1)}%`} trend={data.trends.hatchRate} format="percent" />
-            <KpiBox label="Resultado financeiro" value={formatMoney(data.kpis.monthNet)} trend={data.trends.monthNet} format="money" />
-            <KpiBox label="Receita vitrine" value={formatMoney(data.kpis.totalRevenueVitrine)} trend={data.trends.totalRevenueVitrine} format="money" />
-            <KpiBox label="Aves vendidas" value={String(data.kpis.totalSoldVitrine)} trend={data.trends.totalSoldVitrine} format="number" />
-            <KpiBox label="Mortalidade" value={`${data.kpis.mortalityRate.toFixed(1)}%`} />
-            <KpiBox label="Vacinação" value={`${data.kpis.vaccinatedRate.toFixed(1)}%`} />
-            <KpiBox label="Custo / filhote" value={data.kpis.costPerHatched > 0 ? formatMoney(data.kpis.costPerHatched) : "—"} />
+            {cfg.primaryKpis.map((k) => renderPdfKpi(k, data))}
+            {cfg.secondaryKpis.map((k) => renderPdfKpi(k, data))}
           </View>
         </View>
 
-        {/* No modo Executivo, só KPIs + insights */}
-        {data.granularity !== "EXECUTIVE" ? (
+        {true ? (
           <>
             {/* Resumo financeiro */}
-            {isVisible(data.focus, "finance") ? (
+            {cfg.show.financeSummary ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>Resumo financeiro</Text>
                 <View style={styles.table}>
@@ -326,7 +456,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
             ) : null}
 
             {/* RANKINGS */}
-            {t.topReproducers.length > 0 ? (
+            {cfg.show.topReproducers && t.topReproducers.length > 0 ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>🏆 Top 5 reprodutores (filhotes no período)</Text>
                 <View style={styles.table}>
@@ -353,7 +483,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
               </View>
             ) : null}
 
-            {(t.bestHatching.length > 0 || t.worstHatching.length > 0) && isVisible(data.focus, "incubator") ? (
+            {cfg.show.bestWorstHatching && (t.bestHatching.length > 0 || t.worstHatching.length > 0) ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>🐣 Eclosões — melhores e piores</Text>
                 <View style={styles.table}>
@@ -395,7 +525,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
             ) : null}
 
             {/* Plantel por grupo */}
-            {isVisible(data.focus, "plantel") ? (
+            {cfg.show.flockGroupsTable ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>Plantel por grupo</Text>
                 <View style={styles.table}>
@@ -431,7 +561,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
             ) : null}
 
             {/* Coleta de ovos */}
-            {isVisible(data.focus, "eggs") ? (
+            {cfg.show.eggCollectionsTable ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>Coleta de ovos por grupo</Text>
                 <View style={styles.table}>
@@ -465,7 +595,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
             ) : null}
 
             {/* Chocadeiras detalhadas */}
-            {isVisible(data.focus, "incubator") ? (
+            {cfg.show.incubatorBatchesTable ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>Chocadeiras e lotes</Text>
                 <View style={styles.table}>
@@ -501,7 +631,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
             ) : null}
 
             {/* Vitrine snapshot */}
-            {isVisible(data.focus, "vitrine") ? (
+            {cfg.show.vitrineSnapshot ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>Vitrine — estoque atual</Text>
                 <View style={styles.table}>
@@ -537,7 +667,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
             ) : null}
 
             {/* Receita por raça (vitrine) */}
-            {isVisible(data.focus, "finance") || isVisible(data.focus, "vitrine") ? (
+            {cfg.show.revenueByGroup ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>💰 Receita por grupo (vitrine)</Text>
                 <View style={styles.table}>
@@ -574,7 +704,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
             ) : null}
 
             {/* Quarentena */}
-            {isVisible(data.focus, "health") ? (
+            {cfg.show.quarantineTable ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>Quarentena (ativas + iniciadas no período)</Text>
                 <View style={styles.table}>
@@ -612,7 +742,7 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
             ) : null}
 
             {/* Diagnósticos */}
-            {isVisible(data.focus, "health") ? (
+            {cfg.show.diagnosesTable ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>Diagnósticos recorrentes</Text>
                 <View style={styles.table}>
@@ -639,8 +769,8 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
               </View>
             ) : null}
 
-            {/* Novas aves no plantel — só na granularidade Analitica */}
-            {data.granularity === "ANALYTICAL" && isVisible(data.focus, "plantel") ? (
+            {/* Novas aves no plantel */}
+            {cfg.show.newBirds ? (
               <View style={styles.section} wrap={false}>
                 <Text style={styles.sectionTitle}>Novas aves no plantel (no período)</Text>
                 <View style={styles.table}>
