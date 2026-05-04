@@ -7,7 +7,7 @@ import {
   View,
   renderToBuffer
 } from "@react-pdf/renderer";
-import { ReportData } from "@/lib/reports/service";
+import { ReportData, ReportFocus, Trend } from "@/lib/reports/service";
 
 const styles = StyleSheet.create({
   page: {
@@ -24,6 +24,13 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: "bold", color: "#0f766e" },
   subtitle: { marginTop: 3, fontSize: 9, color: "#4b5563" },
+  badge: {
+    marginTop: 4,
+    fontSize: 8,
+    color: "#0f766e",
+    textTransform: "uppercase",
+    letterSpacing: 0.5
+  },
   section: { marginTop: 12 },
   sectionTitle: {
     fontSize: 11,
@@ -45,6 +52,9 @@ const styles = StyleSheet.create({
   kpiLabel: { fontSize: 7, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.3 },
   kpiValue: { marginTop: 2, fontSize: 11, fontWeight: "bold" },
   kpiValueSmall: { marginTop: 2, fontSize: 9, fontWeight: "bold" },
+  kpiTrendUp: { fontSize: 7, color: "#047857", marginTop: 1 },
+  kpiTrendDown: { fontSize: 7, color: "#b91c1c", marginTop: 1 },
+  kpiTrendNeutral: { fontSize: 7, color: "#6b7280", marginTop: 1 },
   table: {
     borderWidth: 1,
     borderColor: "#e5e7eb",
@@ -61,14 +71,44 @@ const styles = StyleSheet.create({
   cellNum: { flex: 1, padding: 4, fontSize: 8, textAlign: "right" },
   cellNumHead: { flex: 1, padding: 4, fontSize: 7, fontWeight: "bold", color: "#374151", textAlign: "right", textTransform: "uppercase", letterSpacing: 0.3 },
   empty: { padding: 6, fontSize: 8, color: "#9ca3af", fontStyle: "italic", textAlign: "center" },
-  conclusion: {
-    marginTop: 14,
-    padding: 8,
-    backgroundColor: "#ecfeff",
-    borderWidth: 1,
-    borderColor: "#bae6fd",
-    borderRadius: 4
+  insightCritical: {
+    marginBottom: 4,
+    padding: 6,
+    backgroundColor: "#fef2f2",
+    borderLeftWidth: 3,
+    borderLeftColor: "#dc2626",
+    fontSize: 9,
+    color: "#7f1d1d"
   },
+  insightWarning: {
+    marginBottom: 4,
+    padding: 6,
+    backgroundColor: "#fffbeb",
+    borderLeftWidth: 3,
+    borderLeftColor: "#d97706",
+    fontSize: 9,
+    color: "#78350f"
+  },
+  insightInfo: {
+    marginBottom: 4,
+    padding: 6,
+    backgroundColor: "#eff6ff",
+    borderLeftWidth: 3,
+    borderLeftColor: "#2563eb",
+    fontSize: 9,
+    color: "#1e3a8a"
+  },
+  rankRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#f3f4f6",
+    fontSize: 8
+  },
+  rankLabel: { flex: 3 },
+  rankValue: { flex: 1, textAlign: "right", fontWeight: "bold" },
   footer: {
     marginTop: 18,
     fontSize: 7,
@@ -90,6 +130,28 @@ function sexLabel(sex: "FEMALE" | "MALE" | "UNKNOWN"): string {
 }
 function quarantineStatusLabel(s: string) {
   return s === "ACTIVE" ? "Ativa" : s === "COMPLETED" ? "Concluída" : "Cancelada";
+}
+function focusLabel(focus: ReportFocus): string {
+  if (focus === "PLANTEL") return "Plantel & filhotes";
+  if (focus === "EGGS") return "Postura & chocadeira";
+  if (focus === "HEALTH") return "Sanidade";
+  if (focus === "FINANCE") return "Financeiro & vitrine";
+  return "Geral";
+}
+
+function trendText(trend: Trend, format: "money" | "percent" | "number"): { text: string; positive: boolean | null } {
+  if (trend.deltaPct === null) {
+    if (trend.current === 0) return { text: "—", positive: null };
+    return { text: "novo", positive: true };
+  }
+  const sign = trend.deltaPct >= 0 ? "+" : "";
+  let text: string;
+  if (format === "money") {
+    text = `${sign}${trend.deltaPct.toFixed(0)}% (${formatMoney(trend.delta)})`;
+  } else {
+    text = `${sign}${trend.deltaPct.toFixed(0)}%`;
+  }
+  return { text, positive: trend.delta >= 0 };
 }
 
 type CellSpec = { value: string; flex?: number; align?: "left" | "right" };
@@ -130,8 +192,57 @@ function Td({ items }: { items: CellSpec[] }) {
   );
 }
 
+function KpiBox({
+  label,
+  value,
+  trend,
+  format
+}: {
+  label: string;
+  value: string;
+  trend?: Trend;
+  format?: "money" | "percent" | "number";
+}) {
+  const t = trend ? trendText(trend, format ?? "number") : null;
+  const trendStyle = t
+    ? t.positive === true
+      ? styles.kpiTrendUp
+      : t.positive === false
+      ? styles.kpiTrendDown
+      : styles.kpiTrendNeutral
+    : null;
+  const arrow = t?.positive === true ? "▲" : t?.positive === false ? "▼" : "";
+  return (
+    <View style={styles.kpiCard}>
+      <Text style={styles.kpiLabel}>{label}</Text>
+      <Text style={styles.kpiValue}>{value}</Text>
+      {t && trendStyle ? (
+        <Text style={trendStyle}>
+          {arrow} {t.text} vs anterior
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+function isVisible(focus: ReportFocus, section: "plantel" | "eggs" | "incubator" | "health" | "finance" | "vitrine") {
+  if (focus === "GENERAL") return true;
+  if (focus === "PLANTEL") return section !== "finance";
+  if (focus === "EGGS") return section !== "finance" && section !== "health";
+  if (focus === "HEALTH") return section !== "finance" && section !== "vitrine";
+  if (focus === "FINANCE") return section !== "plantel";
+  return true;
+}
+
 function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }) {
   const t = data.tables;
+  const granularityLabel =
+    data.granularity === "EXECUTIVE"
+      ? "Executivo"
+      : data.granularity === "ANALYTICAL"
+      ? "Analítico"
+      : "Detalhado";
+
   return (
     <Document>
       <Page size="A4" style={styles.page} wrap>
@@ -139,338 +250,432 @@ function ReportPdfDoc({ data, farmName }: { data: ReportData; farmName: string }
           <Text style={styles.title}>Relatório do Criatório</Text>
           <Text style={styles.subtitle}>{farmName}</Text>
           <Text style={styles.subtitle}>Período: {data.period.label}</Text>
+          {data.comparisonPeriod ? (
+            <Text style={styles.subtitle}>Comparado com: {data.comparisonPeriod.label}</Text>
+          ) : null}
           <Text style={styles.subtitle}>
             Gerado em: {new Date(data.generatedAt).toLocaleString("pt-BR")}
           </Text>
+          <Text style={styles.badge}>
+            {focusLabel(data.focus)} · {granularityLabel}
+          </Text>
         </View>
 
-        {/* Indicadores */}
+        {/* INSIGHTS - sempre no topo */}
+        {data.insights.length > 0 ? (
+          <View style={styles.section} wrap={false}>
+            <Text style={styles.sectionTitle}>💡 Insights do período</Text>
+            {data.insights.map((insight, i) => {
+              const style =
+                insight.severity === "critical"
+                  ? styles.insightCritical
+                  : insight.severity === "warning"
+                  ? styles.insightWarning
+                  : styles.insightInfo;
+              const icon =
+                insight.severity === "critical"
+                  ? "[CRITICO]"
+                  : insight.severity === "warning"
+                  ? "[ALERTA]"
+                  : "[INFO]";
+              return (
+                <Text key={i} style={style}>
+                  {icon} {insight.text}
+                </Text>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {/* KPIs principais com tendência */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Indicadores principais</Text>
           <View style={styles.kpiGrid}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Aves ativas</Text>
-              <Text style={styles.kpiValue}>{data.kpis.activeBirds}</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Aves doentes</Text>
-              <Text style={styles.kpiValue}>{data.kpis.sickBirds}</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Aves mortas</Text>
-              <Text style={styles.kpiValue}>{data.kpis.deadBirds}</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Ovos no período</Text>
-              <Text style={styles.kpiValue}>{data.kpis.eggsTotal}</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Taxa ovos bons</Text>
-              <Text style={styles.kpiValue}>{data.kpis.goodEggRate.toFixed(1)}%</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Taxa de eclosão</Text>
-              <Text style={styles.kpiValue}>{data.kpis.hatchRate.toFixed(1)}%</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Em tratamento</Text>
-              <Text style={styles.kpiValue}>{data.kpis.inTreatment}</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Taxa de cura</Text>
-              <Text style={styles.kpiValue}>{data.kpis.cureRate.toFixed(1)}%</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>Resultado financeiro</Text>
-              <Text style={styles.kpiValueSmall}>{formatMoney(data.kpis.monthNet)}</Text>
-            </View>
+            <KpiBox label="Ovos no período" value={String(data.kpis.eggsTotal)} trend={data.trends.eggsTotal} format="number" />
+            <KpiBox label="Filhotes nascidos" value={String(data.kpis.totalHatched)} trend={data.trends.totalHatched} format="number" />
+            <KpiBox label="Taxa de eclosão" value={`${data.kpis.hatchRate.toFixed(1)}%`} trend={data.trends.hatchRate} format="percent" />
+            <KpiBox label="Resultado financeiro" value={formatMoney(data.kpis.monthNet)} trend={data.trends.monthNet} format="money" />
+            <KpiBox label="Receita vitrine" value={formatMoney(data.kpis.totalRevenueVitrine)} trend={data.trends.totalRevenueVitrine} format="money" />
+            <KpiBox label="Aves vendidas" value={String(data.kpis.totalSoldVitrine)} trend={data.trends.totalSoldVitrine} format="number" />
+            <KpiBox label="Mortalidade" value={`${data.kpis.mortalityRate.toFixed(1)}%`} />
+            <KpiBox label="Vacinação" value={`${data.kpis.vaccinatedRate.toFixed(1)}%`} />
+            <KpiBox label="Custo / filhote" value={data.kpis.costPerHatched > 0 ? formatMoney(data.kpis.costPerHatched) : "—"} />
           </View>
         </View>
 
-        {/* Financeiro */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Resumo financeiro</Text>
-          <View style={styles.table}>
-            <Th items={[{ value: "Entradas" }, { value: "Saídas" }, { value: "Líquido" }]} />
-            <Td
-              items={[
-                { value: formatMoney(data.kpis.monthIncome) },
-                { value: formatMoney(data.kpis.monthExpenses) },
-                { value: formatMoney(data.kpis.monthNet) }
-              ]}
-            />
-          </View>
-        </View>
-
-        {/* Plantel por grupo */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Plantel por grupo</Text>
-          <View style={styles.table}>
-            <Th
-              items={[
-                { value: "Grupo", flex: 2 },
-                { value: "Espécie/Raça", flex: 2 },
-                { value: "Total", align: "right" },
-                { value: "Ativas", align: "right" },
-                { value: "Doentes", align: "right" },
-                { value: "Mortas", align: "right" }
-              ]}
-            />
-            {t.flockGroups.length === 0 ? (
-              <Text style={styles.empty}>Nenhum grupo cadastrado.</Text>
-            ) : (
-              t.flockGroups.slice(0, 12).map((g, i) => (
-                <Td
-                  key={i}
-                  items={[
-                    { value: g.title, flex: 2 },
-                    { value: `${g.species}/${g.breed}${g.variety ? "/" + g.variety : ""}`, flex: 2 },
-                    { value: String(g.totalBirds), align: "right" },
-                    { value: String(g.active), align: "right" },
-                    { value: String(g.sick), align: "right" },
-                    { value: String(g.dead), align: "right" }
-                  ]}
-                />
-              ))
-            )}
-          </View>
-        </View>
-
-        {/* Coleta de ovos */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Coleta de ovos por grupo</Text>
-          <View style={styles.table}>
-            <Th
-              items={[
-                { value: "Grupo", flex: 2 },
-                { value: "Total", align: "right" },
-                { value: "Bons", align: "right" },
-                { value: "Trincados", align: "right" },
-                { value: "% Bons", align: "right" }
-              ]}
-            />
-            {t.eggCollectionsByGroup.length === 0 ? (
-              <Text style={styles.empty}>Sem coletas registradas no período.</Text>
-            ) : (
-              t.eggCollectionsByGroup.slice(0, 12).map((c, i) => (
-                <Td
-                  key={i}
-                  items={[
-                    { value: c.group, flex: 2 },
-                    { value: String(c.total), align: "right" },
-                    { value: String(c.good), align: "right" },
-                    { value: String(c.cracked), align: "right" },
-                    { value: `${c.goodRate.toFixed(1)}%`, align: "right" }
-                  ]}
-                />
-              ))
-            )}
-          </View>
-        </View>
-
-        {/* Chocadeiras */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Chocadeiras e lotes</Text>
-          <View style={styles.table}>
-            <Th
-              items={[
-                { value: "Chocadeira", flex: 1.5 },
-                { value: "Grupo", flex: 1.5 },
-                { value: "Ovos", align: "right" },
-                { value: "Nascidos", align: "right" },
-                { value: "Inférteis", align: "right" },
-                { value: "Eclosão", align: "right" }
-              ]}
-            />
-            {t.incubatorBatches.length === 0 ? (
-              <Text style={styles.empty}>Sem lotes no período.</Text>
-            ) : (
-              t.incubatorBatches.slice(0, 12).map((b, i) => (
-                <Td
-                  key={i}
-                  items={[
-                    { value: b.incubator, flex: 1.5 },
-                    { value: b.group, flex: 1.5 },
-                    { value: String(b.eggsSet), align: "right" },
-                    { value: String(b.hatched), align: "right" },
-                    { value: String(b.infertile), align: "right" },
-                    { value: `${b.hatchRate.toFixed(1)}%`, align: "right" }
-                  ]}
-                />
-              ))
-            )}
-          </View>
-        </View>
-
-        {/* Vitrine — estoque */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Vitrine — estoque atual</Text>
-          <View style={styles.table}>
-            <Th
-              items={[
-                { value: "Grupo", flex: 1.5 },
-                { value: "Anúncio", flex: 2 },
-                { value: "Idade", align: "right" },
-                { value: "Disp.", align: "right" },
-                { value: "Preço un.", align: "right" },
-                { value: "Estoque", align: "right" }
-              ]}
-            />
-            {t.vitrineSnapshot.length === 0 ? (
-              <Text style={styles.empty}>Sem aves disponíveis na vitrine.</Text>
-            ) : (
-              t.vitrineSnapshot.slice(0, 14).map((v, i) => (
-                <Td
-                  key={i}
-                  items={[
-                    { value: v.group, flex: 1.5 },
-                    { value: v.title, flex: 2 },
-                    { value: `${v.ageMonths}m`, align: "right" },
-                    { value: String(v.available), align: "right" },
-                    { value: v.currentPrice !== null ? formatMoney(v.currentPrice) : "—", align: "right" },
-                    { value: formatMoney(v.stockValue), align: "right" }
-                  ]}
-                />
-              ))
-            )}
-          </View>
-        </View>
-
-        {/* Vitrine — vendas no período */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Vitrine — vendas no período</Text>
-          <View style={styles.table}>
-            <Th
-              items={[
-                { value: "Grupo", flex: 2 },
-                { value: "Vendidos", align: "right" },
-                { value: "Receita", align: "right" }
-              ]}
-            />
-            {t.vitrineSales.byGroup.length === 0 ? (
-              <Text style={styles.empty}>Nenhuma venda no período.</Text>
-            ) : (
-              <>
-                {t.vitrineSales.byGroup.slice(0, 10).map((v, i) => (
+        {/* No modo Executivo, só KPIs + insights */}
+        {data.granularity !== "EXECUTIVE" ? (
+          <>
+            {/* Resumo financeiro */}
+            {isVisible(data.focus, "finance") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>Resumo financeiro</Text>
+                <View style={styles.table}>
+                  <Th items={[{ value: "Entradas" }, { value: "Saídas" }, { value: "Líquido" }, { value: "Ticket médio" }, { value: "Dias até venda" }]} />
                   <Td
-                    key={i}
                     items={[
-                      { value: v.group, flex: 2 },
-                      { value: String(v.sold), align: "right" },
-                      { value: formatMoney(v.revenue), align: "right" }
+                      { value: formatMoney(data.kpis.monthIncome) },
+                      { value: formatMoney(data.kpis.monthExpenses) },
+                      { value: formatMoney(data.kpis.monthNet) },
+                      { value: data.kpis.avgTicket > 0 ? formatMoney(data.kpis.avgTicket) : "—" },
+                      { value: data.kpis.avgDaysToSale > 0 ? `${data.kpis.avgDaysToSale}d` : "—" }
                     ]}
                   />
-                ))}
-                <View style={[styles.row, styles.headerRow]}>
-                  <Text style={[styles.cellHead, { flex: 2 }]}>Total</Text>
-                  <Text style={styles.cellNumHead}>{t.vitrineSales.totalSold}</Text>
-                  <Text style={styles.cellNumHead}>{formatMoney(t.vitrineSales.totalRevenue)}</Text>
                 </View>
-              </>
-            )}
-          </View>
-        </View>
+              </View>
+            ) : null}
 
-        {/* Quarentena */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Quarentena (ativas + iniciadas no período)</Text>
-          <View style={styles.table}>
-            <Th
-              items={[
-                { value: "Anilha", flex: 1 },
-                { value: "Grupo", flex: 1.5 },
-                { value: "Enfermaria", flex: 1.5 },
-                { value: "Entrada", align: "right" },
-                { value: "Saída prev.", align: "right" },
-                { value: "Status", align: "right" },
-                { value: "Trat.", align: "right" }
-              ]}
-            />
-            {t.quarantineCases.length === 0 ? (
-              <Text style={styles.empty}>Sem quarentenas no período.</Text>
-            ) : (
-              t.quarantineCases.slice(0, 14).map((q, i) => (
-                <Td
-                  key={i}
-                  items={[
-                    { value: q.ringNumber, flex: 1 },
-                    { value: q.group, flex: 1.5 },
-                    { value: q.infirmary, flex: 1.5 },
-                    { value: fmtDate(q.entryDate), align: "right" },
-                    { value: fmtDate(q.expectedExitDate), align: "right" },
-                    { value: quarantineStatusLabel(q.status), align: "right" },
-                    { value: String(q.treatmentsCount), align: "right" }
-                  ]}
-                />
-              ))
-            )}
-          </View>
-        </View>
+            {/* RANKINGS */}
+            {t.topReproducers.length > 0 ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>🏆 Top 5 reprodutores (filhotes no período)</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Lote", flex: 2 },
+                      { value: "Filhotes", align: "right" },
+                      { value: "Matrizes", align: "right" },
+                      { value: "Por matriz", align: "right" }
+                    ]}
+                  />
+                  {t.topReproducers.map((r, i) => (
+                    <Td
+                      key={i}
+                      items={[
+                        { value: r.group, flex: 2 },
+                        { value: String(r.daughters), align: "right" },
+                        { value: String(r.matrices), align: "right" },
+                        { value: String(r.productivity), align: "right" }
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
-        {/* Novas aves no plantel */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Novas aves no plantel (no período)</Text>
-          <View style={styles.table}>
-            <Th
-              items={[
-                { value: "Anilha", flex: 1 },
-                { value: "Grupo", flex: 1.5 },
-                { value: "Sexo", flex: 0.8 },
-                { value: "Aquisição", align: "right" },
-                { value: "Origem", flex: 1.5 },
-                { value: "Custo", align: "right" }
-              ]}
-            />
-            {t.newBirds.length === 0 ? (
-              <Text style={styles.empty}>Nenhuma nova ave registrada no período.</Text>
-            ) : (
-              t.newBirds.slice(0, 14).map((b, i) => (
-                <Td
-                  key={i}
-                  items={[
-                    { value: b.ringNumber, flex: 1 },
-                    { value: b.group, flex: 1.5 },
-                    { value: sexLabel(b.sex), flex: 0.8 },
-                    { value: fmtDate(b.acquisitionDate), align: "right" },
-                    { value: b.origin ?? "—", flex: 1.5 },
-                    { value: b.purchaseValue !== null ? formatMoney(b.purchaseValue) : "—", align: "right" }
-                  ]}
-                />
-              ))
-            )}
-          </View>
-        </View>
+            {(t.bestHatching.length > 0 || t.worstHatching.length > 0) && isVisible(data.focus, "incubator") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>🐣 Eclosões — melhores e piores</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Chocadeira", flex: 1.5 },
+                      { value: "Lote", flex: 1.5 },
+                      { value: "Ovos", align: "right" },
+                      { value: "Nascidos", align: "right" },
+                      { value: "Eclosão", align: "right" }
+                    ]}
+                  />
+                  {t.bestHatching.map((b, i) => (
+                    <Td
+                      key={`best-${i}`}
+                      items={[
+                        { value: `↑ ${b.incubator}`, flex: 1.5 },
+                        { value: b.group, flex: 1.5 },
+                        { value: String(b.eggsSet), align: "right" },
+                        { value: String(b.hatched), align: "right" },
+                        { value: `${b.hatchRate.toFixed(1)}%`, align: "right" }
+                      ]}
+                    />
+                  ))}
+                  {t.worstHatching.map((b, i) => (
+                    <Td
+                      key={`worst-${i}`}
+                      items={[
+                        { value: `↓ ${b.incubator}`, flex: 1.5 },
+                        { value: b.group, flex: 1.5 },
+                        { value: String(b.eggsSet), align: "right" },
+                        { value: String(b.hatched), align: "right" },
+                        { value: `${b.hatchRate.toFixed(1)}%`, align: "right" }
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
-        {/* Diagnósticos */}
-        <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>Diagnósticos recorrentes</Text>
-          <View style={styles.table}>
-            <Th
-              items={[
-                { value: "Diagnóstico", flex: 3 },
-                { value: "Ocorrências", align: "right" }
-              ]}
-            />
-            {t.topDiagnoses.length === 0 ? (
-              <Text style={styles.empty}>Sem ocorrências registradas.</Text>
-            ) : (
-              t.topDiagnoses.slice(0, 8).map((d, i) => (
-                <Td
-                  key={i}
-                  items={[
-                    { value: d.diagnosis, flex: 3 },
-                    { value: String(d.count), align: "right" }
-                  ]}
-                />
-              ))
-            )}
-          </View>
-        </View>
+            {/* Plantel por grupo */}
+            {isVisible(data.focus, "plantel") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>Plantel por grupo</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Grupo", flex: 2 },
+                      { value: "Espécie/Raça", flex: 2 },
+                      { value: "Total", align: "right" },
+                      { value: "Ativas", align: "right" },
+                      { value: "Doentes", align: "right" },
+                      { value: "Mortas", align: "right" }
+                    ]}
+                  />
+                  {t.flockGroups.length === 0 ? (
+                    <Text style={styles.empty}>Nenhum grupo cadastrado.</Text>
+                  ) : (
+                    t.flockGroups.slice(0, 12).map((g, i) => (
+                      <Td
+                        key={i}
+                        items={[
+                          { value: g.title, flex: 2 },
+                          { value: `${g.species}/${g.breed}${g.variety ? "/" + g.variety : ""}`, flex: 2 },
+                          { value: String(g.totalBirds), align: "right" },
+                          { value: String(g.active), align: "right" },
+                          { value: String(g.sick), align: "right" },
+                          { value: String(g.dead), align: "right" }
+                        ]}
+                      />
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
 
-        <View style={styles.conclusion}>
-          <Text style={styles.sectionTitle}>Conclusão automática</Text>
-          <Text>{data.conclusion}</Text>
-        </View>
+            {/* Coleta de ovos */}
+            {isVisible(data.focus, "eggs") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>Coleta de ovos por grupo</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Grupo", flex: 2 },
+                      { value: "Total", align: "right" },
+                      { value: "Bons", align: "right" },
+                      { value: "Trincados", align: "right" },
+                      { value: "% Bons", align: "right" }
+                    ]}
+                  />
+                  {t.eggCollectionsByGroup.length === 0 ? (
+                    <Text style={styles.empty}>Sem coletas registradas no período.</Text>
+                  ) : (
+                    t.eggCollectionsByGroup.slice(0, 12).map((c, i) => (
+                      <Td
+                        key={i}
+                        items={[
+                          { value: c.group, flex: 2 },
+                          { value: String(c.total), align: "right" },
+                          { value: String(c.good), align: "right" },
+                          { value: String(c.cracked), align: "right" },
+                          { value: `${c.goodRate.toFixed(1)}%`, align: "right" }
+                        ]}
+                      />
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Chocadeiras detalhadas */}
+            {isVisible(data.focus, "incubator") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>Chocadeiras e lotes</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Chocadeira", flex: 1.5 },
+                      { value: "Grupo", flex: 1.5 },
+                      { value: "Ovos", align: "right" },
+                      { value: "Nascidos", align: "right" },
+                      { value: "Inférteis", align: "right" },
+                      { value: "Eclosão", align: "right" }
+                    ]}
+                  />
+                  {t.incubatorBatches.length === 0 ? (
+                    <Text style={styles.empty}>Sem lotes no período.</Text>
+                  ) : (
+                    t.incubatorBatches.slice(0, 12).map((b, i) => (
+                      <Td
+                        key={i}
+                        items={[
+                          { value: b.incubator, flex: 1.5 },
+                          { value: b.group, flex: 1.5 },
+                          { value: String(b.eggsSet), align: "right" },
+                          { value: String(b.hatched), align: "right" },
+                          { value: String(b.infertile), align: "right" },
+                          { value: `${b.hatchRate.toFixed(1)}%`, align: "right" }
+                        ]}
+                      />
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Vitrine snapshot */}
+            {isVisible(data.focus, "vitrine") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>Vitrine — estoque atual</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Grupo", flex: 1.5 },
+                      { value: "Anúncio", flex: 2 },
+                      { value: "Idade", align: "right" },
+                      { value: "Disp.", align: "right" },
+                      { value: "Preço un.", align: "right" },
+                      { value: "Estoque", align: "right" }
+                    ]}
+                  />
+                  {t.vitrineSnapshot.length === 0 ? (
+                    <Text style={styles.empty}>Sem aves disponíveis na vitrine.</Text>
+                  ) : (
+                    t.vitrineSnapshot.slice(0, 14).map((v, i) => (
+                      <Td
+                        key={i}
+                        items={[
+                          { value: v.group, flex: 1.5 },
+                          { value: v.title, flex: 2 },
+                          { value: `${v.ageMonths}m`, align: "right" },
+                          { value: String(v.available), align: "right" },
+                          { value: v.currentPrice !== null ? formatMoney(v.currentPrice) : "—", align: "right" },
+                          { value: formatMoney(v.stockValue), align: "right" }
+                        ]}
+                      />
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Receita por raça (vitrine) */}
+            {isVisible(data.focus, "finance") || isVisible(data.focus, "vitrine") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>💰 Receita por grupo (vitrine)</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Grupo", flex: 2 },
+                      { value: "Vendidos", align: "right" },
+                      { value: "Receita", align: "right" }
+                    ]}
+                  />
+                  {t.vitrineSales.byGroup.length === 0 ? (
+                    <Text style={styles.empty}>Nenhuma venda no período.</Text>
+                  ) : (
+                    <>
+                      {t.vitrineSales.byGroup.slice(0, 10).map((v, i) => (
+                        <Td
+                          key={i}
+                          items={[
+                            { value: v.group, flex: 2 },
+                            { value: String(v.sold), align: "right" },
+                            { value: formatMoney(v.revenue), align: "right" }
+                          ]}
+                        />
+                      ))}
+                      <View style={[styles.row, styles.headerRow]}>
+                        <Text style={[styles.cellHead, { flex: 2 }]}>Total</Text>
+                        <Text style={styles.cellNumHead}>{t.vitrineSales.totalSold}</Text>
+                        <Text style={styles.cellNumHead}>{formatMoney(t.vitrineSales.totalRevenue)}</Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Quarentena */}
+            {isVisible(data.focus, "health") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>Quarentena (ativas + iniciadas no período)</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Anilha", flex: 1 },
+                      { value: "Grupo", flex: 1.5 },
+                      { value: "Enfermaria", flex: 1.5 },
+                      { value: "Entrada", align: "right" },
+                      { value: "Saída prev.", align: "right" },
+                      { value: "Status", align: "right" },
+                      { value: "Trat.", align: "right" }
+                    ]}
+                  />
+                  {t.quarantineCases.length === 0 ? (
+                    <Text style={styles.empty}>Sem quarentenas no período.</Text>
+                  ) : (
+                    t.quarantineCases.slice(0, 14).map((q, i) => (
+                      <Td
+                        key={i}
+                        items={[
+                          { value: q.ringNumber, flex: 1 },
+                          { value: q.group, flex: 1.5 },
+                          { value: q.infirmary, flex: 1.5 },
+                          { value: fmtDate(q.entryDate), align: "right" },
+                          { value: fmtDate(q.expectedExitDate), align: "right" },
+                          { value: quarantineStatusLabel(q.status), align: "right" },
+                          { value: String(q.treatmentsCount), align: "right" }
+                        ]}
+                      />
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Diagnósticos */}
+            {isVisible(data.focus, "health") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>Diagnósticos recorrentes</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Diagnóstico", flex: 3 },
+                      { value: "Ocorrências", align: "right" }
+                    ]}
+                  />
+                  {t.topDiagnoses.length === 0 ? (
+                    <Text style={styles.empty}>Sem ocorrências registradas.</Text>
+                  ) : (
+                    t.topDiagnoses.slice(0, 8).map((d, i) => (
+                      <Td
+                        key={i}
+                        items={[
+                          { value: d.diagnosis, flex: 3 },
+                          { value: String(d.count), align: "right" }
+                        ]}
+                      />
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Novas aves no plantel — só na granularidade Analitica */}
+            {data.granularity === "ANALYTICAL" && isVisible(data.focus, "plantel") ? (
+              <View style={styles.section} wrap={false}>
+                <Text style={styles.sectionTitle}>Novas aves no plantel (no período)</Text>
+                <View style={styles.table}>
+                  <Th
+                    items={[
+                      { value: "Anilha", flex: 1 },
+                      { value: "Grupo", flex: 1.5 },
+                      { value: "Sexo", flex: 0.8 },
+                      { value: "Aquisição", align: "right" },
+                      { value: "Origem", flex: 1.5 },
+                      { value: "Custo", align: "right" }
+                    ]}
+                  />
+                  {t.newBirds.length === 0 ? (
+                    <Text style={styles.empty}>Nenhuma nova ave registrada no período.</Text>
+                  ) : (
+                    t.newBirds.slice(0, 14).map((b, i) => (
+                      <Td
+                        key={i}
+                        items={[
+                          { value: b.ringNumber, flex: 1 },
+                          { value: b.group, flex: 1.5 },
+                          { value: sexLabel(b.sex), flex: 0.8 },
+                          { value: fmtDate(b.acquisitionDate), align: "right" },
+                          { value: b.origin ?? "—", flex: 1.5 },
+                          { value: b.purchaseValue !== null ? formatMoney(b.purchaseValue) : "—", align: "right" }
+                        ]}
+                      />
+                    ))
+                  )}
+                </View>
+              </View>
+            ) : null}
+          </>
+        ) : null}
 
         <Text style={styles.footer}>
           Documento gerado pelo Ornabird — Gestão de Criatórios Ornamentais.
