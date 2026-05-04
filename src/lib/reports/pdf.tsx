@@ -761,9 +761,9 @@ function CoverPage({
         <View style={styles.coverContactBlock}>
           <Text style={styles.coverContactLabel}>Contato</Text>
           <View style={styles.coverContactRow}>
-            {tenant.email ? <Text style={styles.coverContactItem}>✉ {tenant.email}</Text> : null}
-            {tenant.phone ? <Text style={styles.coverContactItem}>☎ {tenant.phone}</Text> : null}
-            {tenant.whatsapp ? <Text style={styles.coverContactItem}>📱 {tenant.whatsapp}</Text> : null}
+            {tenant.email ? <Text style={styles.coverContactItem}>Email: {tenant.email}</Text> : null}
+            {tenant.phone ? <Text style={styles.coverContactItem}>Tel: {tenant.phone}</Text> : null}
+            {tenant.whatsapp ? <Text style={styles.coverContactItem}>WhatsApp: {tenant.whatsapp}</Text> : null}
             {tenant.cnpj ? <Text style={styles.coverContactItem}>CNPJ: {tenant.cnpj}</Text> : null}
           </View>
         </View>
@@ -847,7 +847,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
 
         {/* RESUMO EXECUTIVO */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Resumo executivo</Text>
+          <Text style={styles.sectionTitle}>Resumo executivo</Text>
           <Text style={styles.sectionSubtitle}>
             Indicadores principais com comparação automática vs período anterior
           </Text>
@@ -859,7 +859,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* INSIGHTS GRANDES */}
         {data.insights.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>💡 Insights do período</Text>
+            <Text style={styles.sectionTitle}>Insights do período</Text>
             {data.insights.slice(0, 5).map((insight, i) => {
               const colors =
                 insight.severity === "critical"
@@ -885,7 +885,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
 
         {/* PLANO DE ACAO */}
         <View style={styles.section} wrap={false}>
-          <Text style={styles.sectionTitle}>🎯 Plano de ação sugerido</Text>
+          <Text style={styles.sectionTitle}>Plano de ação sugerido</Text>
           {actionPlan.map((step, i) => (
             <Text key={i} style={styles.actionPlanItem}>
               <Text style={styles.actionBullet}>{i + 1}.</Text>  {step}
@@ -906,7 +906,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* RESUMO FINANCEIRO */}
         {cfg.show.financeSummary ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>💰 Resumo financeiro</Text>
+            <Text style={styles.sectionTitle}>Resumo financeiro</Text>
             <View style={styles.table}>
               <ThColored
                 area="finance"
@@ -934,7 +934,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* RANKING: TOP REPRODUTORES (barras horizontais) */}
         {cfg.show.topReproducers && t.topReproducers.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🏆 Top reprodutores</Text>
+            <Text style={styles.sectionTitle}>Top reprodutores</Text>
             <Text style={styles.sectionSubtitle}>Lotes pais com mais filhotes no período</Text>
             {t.topReproducers.map((r, i) => (
               <RankBar
@@ -952,7 +952,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* MELHORES E PIORES ECLOSOES */}
         {cfg.show.bestWorstHatching && (t.bestHatching.length > 0 || t.worstHatching.length > 0) ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🐣 Eclosões — melhores e piores</Text>
+            <Text style={styles.sectionTitle}>Eclosões — melhores e piores</Text>
             <View style={styles.table}>
               <ThColored
                 area="incubator"
@@ -997,7 +997,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* RANKING: MAIORES POSTURAS (barras) */}
         {cfg.show.bestPosture && t.bestPosture.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🥚 Maiores posturas</Text>
+            <Text style={styles.sectionTitle}>Maiores posturas</Text>
             <Text style={styles.sectionSubtitle}>Lotes que mais coletaram ovos</Text>
             {t.bestPosture.map((p, i) => (
               <RankBar
@@ -1015,7 +1015,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* PLANTEL POR GRUPO */}
         {cfg.show.flockGroupsTable ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🦚 Plantel por grupo</Text>
+            <Text style={styles.sectionTitle}>Plantel por grupo</Text>
             <View style={styles.table}>
               <ThColored
                 area="plantel"
@@ -1065,7 +1065,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* COLETA DE OVOS */}
         {cfg.show.eggCollectionsTable && t.eggCollectionsByGroup.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🥚 Coleta de ovos por grupo</Text>
+            <Text style={styles.sectionTitle}>Coleta de ovos por grupo</Text>
             <View style={styles.table}>
               <ThColored
                 area="eggs"
@@ -1106,7 +1106,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* CHOCADEIRAS */}
         {cfg.show.incubatorBatchesTable && t.incubatorBatches.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🐣 Chocadeiras e lotes</Text>
+            <Text style={styles.sectionTitle}>Chocadeiras e lotes</Text>
             <View style={styles.table}>
               <ThColored
                 area="incubator"
@@ -1150,7 +1150,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* VITRINE SNAPSHOT */}
         {cfg.show.vitrineSnapshot ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🏪 Vitrine — estoque atual</Text>
+            <Text style={styles.sectionTitle}>Vitrine — estoque atual</Text>
             <View style={styles.table}>
               <ThColored
                 area="vitrine"
@@ -1200,7 +1200,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* RECEITA POR GRUPO (barras) */}
         {cfg.show.revenueByGroup && t.vitrineSales.byGroup.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>💰 Receita por grupo (vitrine)</Text>
+            <Text style={styles.sectionTitle}>Receita por grupo (vitrine)</Text>
             {t.vitrineSales.byGroup.slice(0, 8).map((row, i) => (
               <RankBar
                 key={i}
@@ -1222,7 +1222,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* QUARENTENA */}
         {cfg.show.quarantineTable ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🛡️ Quarentenas (ativas + iniciadas no período)</Text>
+            <Text style={styles.sectionTitle}>Quarentenas (ativas + iniciadas no período)</Text>
             <View style={styles.table}>
               <ThColored
                 area="health"
@@ -1262,7 +1262,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* DIAGNOSTICOS */}
         {cfg.show.diagnosesTable && t.topDiagnoses.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🩺 Diagnósticos recorrentes</Text>
+            <Text style={styles.sectionTitle}>Diagnósticos recorrentes</Text>
             <View style={styles.table}>
               <ThColored
                 area="health"
@@ -1288,7 +1288,7 @@ function ReportPdfDoc({ data, tenant }: { data: ReportData; tenant: TenantHeader
         {/* NOVAS AVES NO PLANTEL */}
         {cfg.show.newBirds && t.newBirds.length > 0 ? (
           <View style={styles.section} wrap={false}>
-            <Text style={styles.sectionTitle}>🐥 Novas aves no plantel</Text>
+            <Text style={styles.sectionTitle}>Novas aves no plantel</Text>
             <View style={styles.table}>
               <ThColored
                 area="plantel"
