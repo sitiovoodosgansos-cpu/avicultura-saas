@@ -127,13 +127,6 @@ function trayHeader(tray: Tray) {
   return parts.join(" · ");
 }
 
-function modeLabel(mode: SelectionMode) {
-  if (mode === "sale") return "Venda";
-  if (mode === "transfer") return "Chocadeira";
-  if (mode === "discard") return "Descarte";
-  return "";
-}
-
 export function PrateleiraManager() {
   const [trays, setTrays] = useState<Tray[]>([]);
   const [incubators, setIncubators] = useState<IncubatorOption[]>([]);
@@ -215,8 +208,6 @@ export function PrateleiraManager() {
     };
   }, [trays]);
 
-  const selectedCount = selection.size;
-  const selectedEggs = useMemo(() => Array.from(selection.values()).reduce((s, it) => s + it.quantity, 0), [selection]);
   const saleSubtotal = useMemo(() => {
     if (selectionMode !== "sale") return 0;
     return Array.from(selection.values()).reduce((s, it) => s + (it.quantity || 0) * (it.unitPrice || 0), 0);
@@ -231,34 +222,34 @@ export function PrateleiraManager() {
   function handleEntryAction(entry: TrayEntry, tray: Tray, mode: NonNullable<SelectionMode>) {
     if (entry.available <= 0) return;
 
-    if (selectionMode && selectionMode !== mode && selection.size > 0) {
-      setError(`Voce ja tem itens selecionados em "${modeLabel(selectionMode)}". Finalize ou cancele antes de mudar.`);
-      return;
+    setSelectionMode(mode);
+    setSelection(new Map([[entry.id, {
+      entryId: entry.id,
+      trayId: tray.id,
+      trayLabel: trayHeader(tray),
+      trayHasFlockGroup: Boolean(tray.flockGroupId),
+      quantity: entry.available,
+      available: entry.available,
+      unitPrice: 0
+    }]]));
+
+    // reset campos do modal conforme o modo
+    if (mode === "sale") {
+      setSaleCustomer("");
+      setSaleSoldAt(today);
+      setSalePaymentMethod("PIX");
+      setSaleDeliveryType("PICKUP");
+      setSaleShippingFee(0);
+      setSaleNotes("");
+    } else if (mode === "transfer") {
+      setTransferIncubatorId(incubators.find((i) => i.status === "ACTIVE")?.id ?? "");
+      setTransferNotes("");
+    } else {
+      setDiscardNotes("");
     }
 
-    if (!selectionMode) setSelectionMode(mode);
-
-    setSelection((prev) => {
-      const next = new Map(prev);
-      const existing = next.get(entry.id);
-      if (existing) {
-        next.delete(entry.id);
-      } else {
-        next.set(entry.id, {
-          entryId: entry.id,
-          trayId: tray.id,
-          trayLabel: trayHeader(tray),
-          trayHasFlockGroup: Boolean(tray.flockGroupId),
-          quantity: entry.available,
-          available: entry.available,
-          unitPrice: 0
-        });
-      }
-      // se ficou vazio, sai do modo
-      if (next.size === 0) setSelectionMode(null);
-      return next;
-    });
     setError(null);
+    setShowFinalizeModal(true);
   }
 
   function updateSelectionQuantity(entryId: string, quantity: number) {
@@ -317,21 +308,6 @@ export function PrateleiraManager() {
       breedLabel: group.breed.name,
       varietyLabel: group.variety?.name ?? ""
     }));
-  }
-
-  function openFinalize() {
-    if (!selectionMode || selection.size === 0) return;
-    setSaleCustomer("");
-    setSaleSoldAt(today);
-    setSalePaymentMethod("PIX");
-    setSaleDeliveryType("PICKUP");
-    setSaleShippingFee(0);
-    setSaleNotes("");
-    setTransferIncubatorId(incubators.find((i) => i.status === "ACTIVE")?.id ?? "");
-    setTransferNotes("");
-    setDiscardNotes("");
-    setError(null);
-    setShowFinalizeModal(true);
   }
 
   async function submitFinalize(event: React.FormEvent<HTMLFormElement>) {
@@ -566,10 +542,8 @@ export function PrateleiraManager() {
                   const elapsedMs = Date.now() - entryDateMs;
                   const ageProgress = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100));
                   const progress = ageProgress;
-                  const selected = selection.get(entry.id);
-                  const disabledOther = selectionMode !== null && selection.size > 0;
                   return (
-                    <div key={entry.id} className={`rounded-lg border bg-white/80 p-2 ${selected ? "border-emerald-300 ring-1 ring-emerald-200" : "border-white"}`}>
+                    <div key={entry.id} className="rounded-lg border border-white bg-white/80 p-2">
                       <div className="flex items-center justify-between gap-1.5">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <span className="text-[11px] font-semibold text-zinc-600">{formatDateBr(entry.entryDate)}</span>
@@ -585,22 +559,22 @@ export function PrateleiraManager() {
                         <div className="flex shrink-0 items-center gap-0.5">
                           <ActionIcon
                             mode="sale"
-                            selected={Boolean(selected) && selectionMode === "sale"}
-                            disabled={entry.available <= 0 || (disabledOther && selectionMode !== "sale")}
+                            selected={false}
+                            disabled={entry.available <= 0}
                             onClick={() => handleEntryAction(entry, tray, "sale")}
-                            title="Adicionar a venda"
+                            title="Vender"
                           />
                           <ActionIcon
                             mode="transfer"
-                            selected={Boolean(selected) && selectionMode === "transfer"}
-                            disabled={entry.available <= 0 || (disabledOther && selectionMode !== "transfer")}
+                            selected={false}
+                            disabled={entry.available <= 0}
                             onClick={() => handleEntryAction(entry, tray, "transfer")}
-                            title="Adicionar a chocadeira"
+                            title="Enviar para chocadeira"
                           />
                           <ActionIcon
                             mode="discard"
-                            selected={Boolean(selected) && selectionMode === "discard"}
-                            disabled={entry.available <= 0 || (disabledOther && selectionMode !== "discard")}
+                            selected={false}
+                            disabled={entry.available <= 0}
                             onClick={() => handleEntryAction(entry, tray, "discard")}
                             title="Descartar"
                           />
@@ -644,38 +618,6 @@ export function PrateleiraManager() {
         </button>
       </section>
 
-      {selectionMode && selection.size > 0 ? (
-        <div className="fixed inset-x-3 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-[60] mx-auto max-w-3xl rounded-2xl border border-zinc-200 bg-white p-3 shadow-2xl md:bottom-6 md:p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span
-                className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-white ${
-                  selectionMode === "sale" ? "bg-emerald-600" : selectionMode === "transfer" ? "bg-amber-600" : "bg-rose-600"
-                }`}
-              >
-                <span className="text-lg leading-none" aria-hidden>
-                  {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🐣" : "🗑️"}
-                </span>
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-zinc-900">Modo: {modeLabel(selectionMode)}</p>
-                <p className="text-xs text-zinc-500">
-                  {selectedCount} {selectedCount === 1 ? "data selecionada" : "datas selecionadas"} · {selectedEggs} ovos
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={clearSelection}>
-                <X className="mr-1 h-4 w-4" /> Cancelar
-              </Button>
-              <Button type="button" onClick={openFinalize}>
-                Finalizar
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       <AppModal
         open={showFinalizeModal}
         title={
@@ -688,7 +630,7 @@ export function PrateleiraManager() {
                 : ""
         }
         error={error}
-        onClose={() => setShowFinalizeModal(false)}
+        onClose={() => { setShowFinalizeModal(false); clearSelection(); }}
       >
         <form className="grid gap-3" onSubmit={submitFinalize}>
           {selectionMode === "sale" ? (
@@ -877,7 +819,7 @@ export function PrateleiraManager() {
                     ? "Confirmar transferencia"
                     : "Confirmar descarte"}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setShowFinalizeModal(false)}>
+            <Button type="button" variant="outline" onClick={() => { setShowFinalizeModal(false); clearSelection(); }}>
               Voltar
             </Button>
           </div>
