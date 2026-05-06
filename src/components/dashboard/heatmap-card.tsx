@@ -177,10 +177,10 @@ function HeatmapGrid({
   colorFor: (v: number) => string;
   monthLabels: { col: number; month: number }[];
 }) {
-  const CELL = 16;
-  const GAP = 3;
-  const LABEL_TOP = 16;
-  const LABEL_LEFT = 22;
+  const CELL = 22;
+  const GAP = 4;
+  const LABEL_TOP = 18;
+  const LABEL_LEFT = 26;
   const cols = grid.length;
   const width = LABEL_LEFT + cols * (CELL + GAP);
   const height = LABEL_TOP + 7 * (CELL + GAP);

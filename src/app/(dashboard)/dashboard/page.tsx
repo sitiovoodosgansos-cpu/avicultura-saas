@@ -163,18 +163,6 @@ export default async function DashboardPage() {
 
 
 
-      <section>
-        <HeatmapCard
-          title="Postura nos últimos 60 dias"
-          subtitle="Quanto mais escuro, mais ovos coletados naquele dia"
-          data={data.charts.postureHeatmap}
-          palette="amber"
-          icon={<Egg className="h-5 w-5" />}
-          days={60}
-          emptyMessage="Registre coletas no Coleta pra construir esse calendário."
-        />
-      </section>
-
       <section className="grid gap-4 xl:grid-cols-2">
         <DonutCard
           title="Composição do plantel"
@@ -192,6 +180,18 @@ export default async function DashboardPage() {
           }))}
           emptyMessage="Cadastre aves no Plantel pra ver a composição."
         />
+        <HeatmapCard
+          title="Postura nos últimos 60 dias"
+          subtitle="Quanto mais escuro, mais ovos coletados naquele dia"
+          data={data.charts.postureHeatmap}
+          palette="amber"
+          icon={<Egg className="h-5 w-5" />}
+          days={60}
+          emptyMessage="Registre coletas no Coleta pra construir esse calendário."
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
         <BarCard
           title="Aves por raça"
           subtitle="Top 8 grupos por quantidade"
@@ -201,9 +201,6 @@ export default async function DashboardPage() {
           layout="horizontal"
           emptyMessage="Adicione grupos no Plantel pra ver o ranking de raças."
         />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
         <DonutCard
           title="Receita vs Despesa do mês"
           subtitle="Comparativo financeiro mensal"
@@ -219,6 +216,9 @@ export default async function DashboardPage() {
           format="currency"
           emptyMessage="Registre entradas e saídas pra ver o saldo do mês."
         />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
         <LineChartCard
           title="Evolução da coleta de ovos"
           subtitle="Produção diária nos últimos 30 dias"
@@ -226,6 +226,14 @@ export default async function DashboardPage() {
           palette="amber"
           icon={<Egg className="h-5 w-5" />}
           emptyMessage="Registre sua primeira coleta pra ver a curva nascer."
+        />
+        <LineChartCard
+          title="Evolução do criatório"
+          subtitle="Novas aves por mês (últimos 12 meses)"
+          data={chartAviaryGrowth}
+          palette="emerald"
+          icon={<Bird className="h-5 w-5" />}
+          emptyMessage="As novas aves do plantel vão aparecer aqui mês a mês."
         />
       </section>
 
@@ -245,26 +253,6 @@ export default async function DashboardPage() {
           subtitle="Eclodidos / Inférteis / Perdidos por mês"
           data={data.charts.batchResultsByMonth}
           icon={<EggFried className="h-5 w-5" />}
-        />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
-        <LineChartCard
-          title="Evolução do criatório"
-          subtitle="Novas aves por mês (últimos 12 meses)"
-          data={chartAviaryGrowth}
-          palette="emerald"
-          icon={<Bird className="h-5 w-5" />}
-          emptyMessage="As novas aves do plantel vão aparecer aqui mês a mês."
-        />
-        <LineChartCard
-          title="Desempenho das chocadeiras"
-          subtitle="Taxa de eclosão no período"
-          data={chartIncubator}
-          palette="orange"
-          icon={<EggFried className="h-5 w-5" />}
-          emptyMessage="Finalize um lote na chocadeira pra acompanhar a eclosão."
-          format="percent"
         />
       </section>
 
