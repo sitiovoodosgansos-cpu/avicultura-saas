@@ -652,6 +652,11 @@ model WorkerAccessLink {
   allowEggs       Boolean  @default(true)
   allowIncubators Boolean  @default(true)
   allowHealth     Boolean  @default(true)
+  allowDashboard  Boolean  @default(true)
+  allowPrateleira Boolean  @default(true)
+  allowVitrine    Boolean  @default(true)
+  allowFinanceiro Boolean  @default(true)
+  allowRelatorios Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -668,6 +673,11 @@ model EmployeeAccount {
   allowEggs       Boolean           @default(true)
   allowIncubators Boolean           @default(true)
   allowHealth     Boolean           @default(true)
+  allowDashboard  Boolean           @default(true)
+  allowPrateleira Boolean           @default(true)
+  allowVitrine    Boolean           @default(true)
+  allowFinanceiro Boolean           @default(true)
+  allowRelatorios Boolean           @default(true)
   lastLoginAt     DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt

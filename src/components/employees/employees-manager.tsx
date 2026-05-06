@@ -14,6 +14,11 @@ type Employee = {
   allowEggs: boolean;
   allowIncubators: boolean;
   allowHealth: boolean;
+  allowDashboard: boolean;
+  allowPrateleira: boolean;
+  allowVitrine: boolean;
+  allowFinanceiro: boolean;
+  allowRelatorios: boolean;
   lastLoginAt: string | null;
   createdAt: string;
 };
@@ -27,6 +32,11 @@ type EmployeeForm = {
   allowEggs: boolean;
   allowIncubators: boolean;
   allowHealth: boolean;
+  allowDashboard: boolean;
+  allowPrateleira: boolean;
+  allowVitrine: boolean;
+  allowFinanceiro: boolean;
+  allowRelatorios: boolean;
 };
 
 const emptyForm: EmployeeForm = {
@@ -37,8 +47,26 @@ const emptyForm: EmployeeForm = {
   allowPlantel: true,
   allowEggs: true,
   allowIncubators: true,
-  allowHealth: true
+  allowHealth: true,
+  allowDashboard: true,
+  allowPrateleira: true,
+  allowVitrine: true,
+  allowFinanceiro: true,
+  allowRelatorios: true
 };
+
+// Lista declarativa pra renderizar checkboxes em grid sem repetir codigo
+const PERMISSION_PAGES: Array<{ key: keyof EmployeeForm; label: string }> = [
+  { key: "allowDashboard", label: "Dashboard" },
+  { key: "allowPlantel", label: "Plantel" },
+  { key: "allowEggs", label: "Coleta de ovos" },
+  { key: "allowPrateleira", label: "Prateleira" },
+  { key: "allowIncubators", label: "Chocadeiras" },
+  { key: "allowVitrine", label: "Vitrine" },
+  { key: "allowHealth", label: "Sanidade" },
+  { key: "allowFinanceiro", label: "Financeiro" },
+  { key: "allowRelatorios", label: "Relatórios" }
+];
 
 function Toggle({
   label,
@@ -113,7 +141,12 @@ export function EmployeesManager() {
       allowPlantel: employee.allowPlantel,
       allowEggs: employee.allowEggs,
       allowIncubators: employee.allowIncubators,
-      allowHealth: employee.allowHealth
+      allowHealth: employee.allowHealth,
+      allowDashboard: employee.allowDashboard,
+      allowPrateleira: employee.allowPrateleira,
+      allowVitrine: employee.allowVitrine,
+      allowFinanceiro: employee.allowFinanceiro,
+      allowRelatorios: employee.allowRelatorios
     });
     setError(null);
     setSuccess(null);
@@ -272,11 +305,34 @@ export function EmployeesManager() {
                 type="password"
               />
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <Toggle label="Liberar Plantel" checked={form.allowPlantel} onChange={(value) => setForm((prev) => ({ ...prev, allowPlantel: value }))} />
-                <Toggle label="Liberar Coleta de ovos" checked={form.allowEggs} onChange={(value) => setForm((prev) => ({ ...prev, allowEggs: value }))} />
-                <Toggle label="Liberar Chocadeiras" checked={form.allowIncubators} onChange={(value) => setForm((prev) => ({ ...prev, allowIncubators: value }))} />
-                <Toggle label="Liberar Sanidade" checked={form.allowHealth} onChange={(value) => setForm((prev) => ({ ...prev, allowHealth: value }))} />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <p className="col-span-full text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Páginas liberadas (Perfil é restrito ao titular)
+                </p>
+                <button
+                  type="button"
+                  className="col-span-full text-left text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                  onClick={() => {
+                    const allTrue = PERMISSION_PAGES.every((p) => form[p.key]);
+                    setForm((prev) => {
+                      const next = { ...prev };
+                      for (const p of PERMISSION_PAGES) {
+                        (next as Record<string, unknown>)[p.key as string] = !allTrue;
+                      }
+                      return next;
+                    });
+                  }}
+                >
+                  {PERMISSION_PAGES.every((p) => form[p.key]) ? "Desmarcar todas" : "Marcar todas"}
+                </button>
+                {PERMISSION_PAGES.map((p) => (
+                  <Toggle
+                    key={p.key}
+                    label={p.label}
+                    checked={Boolean(form[p.key])}
+                    onChange={(value) => setForm((prev) => ({ ...prev, [p.key]: value }))}
+                  />
+                ))}
               </div>
 
               <Toggle label="Acesso ativo" checked={form.isActive} onChange={(value) => setForm((prev) => ({ ...prev, isActive: value }))} />

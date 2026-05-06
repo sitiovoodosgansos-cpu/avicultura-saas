@@ -8,7 +8,12 @@ const employeeObjectSchema = z.object({
   allowPlantel: z.boolean().optional(),
   allowEggs: z.boolean().optional(),
   allowIncubators: z.boolean().optional(),
-  allowHealth: z.boolean().optional()
+  allowHealth: z.boolean().optional(),
+  allowDashboard: z.boolean().optional(),
+  allowPrateleira: z.boolean().optional(),
+  allowVitrine: z.boolean().optional(),
+  allowFinanceiro: z.boolean().optional(),
+  allowRelatorios: z.boolean().optional()
 });
 
 type ModuleShape = {
@@ -16,10 +21,25 @@ type ModuleShape = {
   allowEggs?: boolean;
   allowIncubators?: boolean;
   allowHealth?: boolean;
+  allowDashboard?: boolean;
+  allowPrateleira?: boolean;
+  allowVitrine?: boolean;
+  allowFinanceiro?: boolean;
+  allowRelatorios?: boolean;
 };
 
 function hasAtLeastOneModule(value: ModuleShape) {
-  return Boolean(value.allowPlantel) || Boolean(value.allowEggs) || Boolean(value.allowIncubators) || Boolean(value.allowHealth);
+  return (
+    Boolean(value.allowPlantel) ||
+    Boolean(value.allowEggs) ||
+    Boolean(value.allowIncubators) ||
+    Boolean(value.allowHealth) ||
+    Boolean(value.allowDashboard) ||
+    Boolean(value.allowPrateleira) ||
+    Boolean(value.allowVitrine) ||
+    Boolean(value.allowFinanceiro) ||
+    Boolean(value.allowRelatorios)
+  );
 }
 
 export const employeeSchema = employeeObjectSchema.refine(hasAtLeastOneModule, {

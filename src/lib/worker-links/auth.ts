@@ -2,10 +2,18 @@ import { NextResponse } from "next/server";
 import { getTenantBilling } from "@/lib/billing/service";
 import { getWorkerLinkByToken } from "@/lib/worker-links/service";
 
-export async function getWorkerLinkOr401(
-  token: string,
-  module: "plantel" | "eggs" | "incubators" | "health"
-) {
+type WorkerModule =
+  | "plantel"
+  | "eggs"
+  | "incubators"
+  | "health"
+  | "dashboard"
+  | "prateleira"
+  | "vitrine"
+  | "financeiro"
+  | "relatorios";
+
+export async function getWorkerLinkOr401(token: string, module: WorkerModule) {
   const link = await getWorkerLinkByToken(token);
 
   if (!link) {
@@ -26,13 +34,19 @@ export async function getWorkerLinkOr401(
     };
   }
 
-  const allowed =
-    (module === "plantel" && link.allowPlantel) ||
-    (module === "eggs" && link.allowEggs) ||
-    (module === "incubators" && link.allowIncubators) ||
-    (module === "health" && link.allowHealth);
+  const moduleAllowedMap: Record<WorkerModule, boolean> = {
+    plantel: link.allowPlantel,
+    eggs: link.allowEggs,
+    incubators: link.allowIncubators,
+    health: link.allowHealth,
+    dashboard: link.allowDashboard,
+    prateleira: link.allowPrateleira,
+    vitrine: link.allowVitrine,
+    financeiro: link.allowFinanceiro,
+    relatorios: link.allowRelatorios
+  };
 
-  if (!allowed) {
+  if (!moduleAllowedMap[module]) {
     return {
       ok: false as const,
       response: NextResponse.json({ error: "Este link nao possui acesso a este modulo." }, { status: 403 })

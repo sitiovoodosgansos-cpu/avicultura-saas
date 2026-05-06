@@ -1,6 +1,59 @@
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 
+// Os 9 campos de permissao por pagina (perfil eh sempre owner-only).
+type Permissions = {
+  allowPlantel?: boolean;
+  allowEggs?: boolean;
+  allowIncubators?: boolean;
+  allowHealth?: boolean;
+  allowDashboard?: boolean;
+  allowPrateleira?: boolean;
+  allowVitrine?: boolean;
+  allowFinanceiro?: boolean;
+  allowRelatorios?: boolean;
+};
+
+const PERMISSION_SELECT = {
+  allowPlantel: true,
+  allowEggs: true,
+  allowIncubators: true,
+  allowHealth: true,
+  allowDashboard: true,
+  allowPrateleira: true,
+  allowVitrine: true,
+  allowFinanceiro: true,
+  allowRelatorios: true
+} as const;
+
+function permissionsForCreate(input: Permissions) {
+  return {
+    allowPlantel: input.allowPlantel ?? true,
+    allowEggs: input.allowEggs ?? true,
+    allowIncubators: input.allowIncubators ?? true,
+    allowHealth: input.allowHealth ?? true,
+    allowDashboard: input.allowDashboard ?? true,
+    allowPrateleira: input.allowPrateleira ?? true,
+    allowVitrine: input.allowVitrine ?? true,
+    allowFinanceiro: input.allowFinanceiro ?? true,
+    allowRelatorios: input.allowRelatorios ?? true
+  };
+}
+
+function permissionsForUpdate(input: Permissions, existing: Permissions & { [key: string]: unknown }) {
+  return {
+    allowPlantel: input.allowPlantel ?? Boolean(existing.allowPlantel),
+    allowEggs: input.allowEggs ?? Boolean(existing.allowEggs),
+    allowIncubators: input.allowIncubators ?? Boolean(existing.allowIncubators),
+    allowHealth: input.allowHealth ?? Boolean(existing.allowHealth),
+    allowDashboard: input.allowDashboard ?? Boolean(existing.allowDashboard),
+    allowPrateleira: input.allowPrateleira ?? Boolean(existing.allowPrateleira),
+    allowVitrine: input.allowVitrine ?? Boolean(existing.allowVitrine),
+    allowFinanceiro: input.allowFinanceiro ?? Boolean(existing.allowFinanceiro),
+    allowRelatorios: input.allowRelatorios ?? Boolean(existing.allowRelatorios)
+  };
+}
+
 export async function listEmployees(tenantId: string) {
   return prisma.employeeAccount.findMany({
     where: { tenantId },
@@ -10,10 +63,7 @@ export async function listEmployees(tenantId: string) {
       name: true,
       email: true,
       isActive: true,
-      allowPlantel: true,
-      allowEggs: true,
-      allowIncubators: true,
-      allowHealth: true,
+      ...PERMISSION_SELECT,
       lastLoginAt: true,
       createdAt: true
     }
@@ -27,11 +77,7 @@ export async function createEmployee(
     email: string;
     password: string;
     isActive?: boolean;
-    allowPlantel?: boolean;
-    allowEggs?: boolean;
-    allowIncubators?: boolean;
-    allowHealth?: boolean;
-  }
+  } & Permissions
 ) {
   const normalizedEmail = input.email.trim().toLowerCase();
   const existing = await prisma.employeeAccount.findFirst({
@@ -51,10 +97,7 @@ export async function createEmployee(
       email: normalizedEmail,
       passwordHash,
       isActive: input.isActive ?? true,
-      allowPlantel: input.allowPlantel ?? true,
-      allowEggs: input.allowEggs ?? true,
-      allowIncubators: input.allowIncubators ?? true,
-      allowHealth: input.allowHealth ?? true
+      ...permissionsForCreate(input)
     }
   });
 
@@ -69,11 +112,7 @@ export async function updateEmployee(
     email: string;
     password?: string;
     isActive?: boolean;
-    allowPlantel?: boolean;
-    allowEggs?: boolean;
-    allowIncubators?: boolean;
-    allowHealth?: boolean;
-  }
+  } & Permissions
 ) {
   const normalizedEmail = input.email.trim().toLowerCase();
   const existing = await prisma.employeeAccount.findFirst({
@@ -101,10 +140,7 @@ export async function updateEmployee(
       email: normalizedEmail,
       passwordHash,
       isActive: input.isActive ?? existing.isActive,
-      allowPlantel: input.allowPlantel ?? existing.allowPlantel,
-      allowEggs: input.allowEggs ?? existing.allowEggs,
-      allowIncubators: input.allowIncubators ?? existing.allowIncubators,
-      allowHealth: input.allowHealth ?? existing.allowHealth
+      ...permissionsForUpdate(input, existing)
     }
   });
 

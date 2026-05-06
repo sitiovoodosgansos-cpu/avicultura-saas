@@ -4,7 +4,43 @@ import { authOptions } from "@/lib/auth/options";
 import { getTenantBilling } from "@/lib/billing/service";
 import { getCurrentEmployeeSession } from "@/lib/employees/auth";
 
-type EmployeePermission = "plantel" | "eggs" | "incubators" | "health";
+type EmployeePermission =
+  | "plantel"
+  | "eggs"
+  | "incubators"
+  | "health"
+  | "dashboard"
+  | "prateleira"
+  | "vitrine"
+  | "financeiro"
+  | "relatorios";
+
+function isPermissionAllowed(
+  permission: EmployeePermission,
+  emp: {
+    allowPlantel: boolean;
+    allowEggs: boolean;
+    allowIncubators: boolean;
+    allowHealth: boolean;
+    allowDashboard: boolean;
+    allowPrateleira: boolean;
+    allowVitrine: boolean;
+    allowFinanceiro: boolean;
+    allowRelatorios: boolean;
+  }
+): boolean {
+  switch (permission) {
+    case "plantel": return emp.allowPlantel;
+    case "eggs": return emp.allowEggs;
+    case "incubators": return emp.allowIncubators;
+    case "health": return emp.allowHealth;
+    case "dashboard": return emp.allowDashboard;
+    case "prateleira": return emp.allowPrateleira;
+    case "vitrine": return emp.allowVitrine;
+    case "financeiro": return emp.allowFinanceiro;
+    case "relatorios": return emp.allowRelatorios;
+  }
+}
 
 export async function getApiSessionOr401(options?: {
   allowBlocked?: boolean;
@@ -33,11 +69,7 @@ export async function getApiSessionOr401(options?: {
         }
       }
 
-      const allowed =
-        (options.employeePermission === "plantel" && employeeSession.employee.allowPlantel) ||
-        (options.employeePermission === "eggs" && employeeSession.employee.allowEggs) ||
-        (options.employeePermission === "incubators" && employeeSession.employee.allowIncubators) ||
-        (options.employeePermission === "health" && employeeSession.employee.allowHealth);
+      const allowed = isPermissionAllowed(options.employeePermission, employeeSession.employee);
 
       if (!allowed) {
         return {
@@ -60,7 +92,12 @@ export async function getApiSessionOr401(options?: {
               allowPlantel: employeeSession.employee.allowPlantel,
               allowEggs: employeeSession.employee.allowEggs,
               allowIncubators: employeeSession.employee.allowIncubators,
-              allowHealth: employeeSession.employee.allowHealth
+              allowHealth: employeeSession.employee.allowHealth,
+              allowDashboard: employeeSession.employee.allowDashboard,
+              allowPrateleira: employeeSession.employee.allowPrateleira,
+              allowVitrine: employeeSession.employee.allowVitrine,
+              allowFinanceiro: employeeSession.employee.allowFinanceiro,
+              allowRelatorios: employeeSession.employee.allowRelatorios
             }
           }
         }
@@ -126,11 +163,7 @@ export async function getApiSessionOr401(options?: {
   }
 
   if (options?.employeePermission) {
-    const allowed =
-      (options.employeePermission === "plantel" && employeeSession.employee.allowPlantel) ||
-      (options.employeePermission === "eggs" && employeeSession.employee.allowEggs) ||
-      (options.employeePermission === "incubators" && employeeSession.employee.allowIncubators) ||
-      (options.employeePermission === "health" && employeeSession.employee.allowHealth);
+    const allowed = isPermissionAllowed(options.employeePermission, employeeSession.employee);
 
     if (!allowed) {
       return {
@@ -154,7 +187,12 @@ export async function getApiSessionOr401(options?: {
           allowPlantel: employeeSession.employee.allowPlantel,
           allowEggs: employeeSession.employee.allowEggs,
           allowIncubators: employeeSession.employee.allowIncubators,
-          allowHealth: employeeSession.employee.allowHealth
+          allowHealth: employeeSession.employee.allowHealth,
+          allowDashboard: employeeSession.employee.allowDashboard,
+          allowPrateleira: employeeSession.employee.allowPrateleira,
+          allowVitrine: employeeSession.employee.allowVitrine,
+          allowFinanceiro: employeeSession.employee.allowFinanceiro,
+          allowRelatorios: employeeSession.employee.allowRelatorios
         }
       }
     }

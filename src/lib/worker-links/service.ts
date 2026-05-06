@@ -16,6 +16,11 @@ export async function createWorkerLink(
     allowEggs?: boolean;
     allowIncubators?: boolean;
     allowHealth?: boolean;
+    allowDashboard?: boolean;
+    allowPrateleira?: boolean;
+    allowVitrine?: boolean;
+    allowFinanceiro?: boolean;
+    allowRelatorios?: boolean;
   }
 ) {
   return prisma.workerAccessLink.create({
@@ -26,7 +31,12 @@ export async function createWorkerLink(
       allowPlantel: input?.allowPlantel ?? true,
       allowEggs: input?.allowEggs ?? true,
       allowIncubators: input?.allowIncubators ?? true,
-      allowHealth: input?.allowHealth ?? true
+      allowHealth: input?.allowHealth ?? true,
+      allowDashboard: input?.allowDashboard ?? true,
+      allowPrateleira: input?.allowPrateleira ?? true,
+      allowVitrine: input?.allowVitrine ?? true,
+      allowFinanceiro: input?.allowFinanceiro ?? true,
+      allowRelatorios: input?.allowRelatorios ?? true
     }
   });
 }
