@@ -1,22 +1,38 @@
+import { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
-import { IconBadge } from "@/components/ui/icon-badge";
+import { CHART_PALETTE, type PaletteKey } from "./_chart-foundation";
 
 type KpiCardProps = {
   title: string;
   value: string;
   hint?: string;
-  emoji?: string;
+  icon: ReactNode;
+  palette?: PaletteKey;
 };
 
-export function KpiCard({ title, value, hint, emoji = "📊" }: KpiCardProps) {
+export function KpiCard({ title, value, hint, icon, palette = "amber" }: KpiCardProps) {
+  const c = CHART_PALETTE[palette];
   return (
-    <Card className="h-full">
+    <Card className="h-full transition-shadow hover:shadow-[0_12px_40px_rgba(15,23,42,0.08)]">
       <div className="flex flex-col items-center gap-2 text-center sm:items-start sm:gap-3 sm:text-left">
-        <IconBadge emoji={emoji} tone="amber" className="size-10 rounded-xl text-lg sm:size-10 sm:rounded-xl" />
+        <div
+          className="flex size-10 items-center justify-center rounded-xl text-white shadow-sm sm:size-11"
+          style={{ background: `linear-gradient(135deg, ${c.from} 0%, ${c.to} 100%)` }}
+        >
+          {icon}
+        </div>
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400 sm:text-xs">{title}</p>
-          <p className="mt-1 text-2xl font-semibold text-zinc-900 sm:mt-2">{value}</p>
-          {hint ? <p className="mt-1 text-[12px] text-zinc-500 sm:mt-2 sm:text-xs">{hint}</p> : null}
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 sm:text-xs">
+            {title}
+          </p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 sm:mt-2 sm:text-3xl">
+            {value}
+          </p>
+          {hint ? (
+            <p className="mt-1 text-[12px] leading-relaxed text-slate-500 sm:mt-2 sm:text-xs">
+              {hint}
+            </p>
+          ) : null}
         </div>
       </div>
     </Card>
