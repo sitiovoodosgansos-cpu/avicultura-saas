@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function TenantProfileEditor() {
+  const router = useRouter();
   const [data, setData] = useState<TenantProfile>(empty);
+  const [snapshot, setSnapshot] = useState<TenantProfile>(empty);
+  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -68,7 +72,9 @@ export function TenantProfileEditor() {
     }
     const json = (await res.json()) as { url: string };
     setData((d) => ({ ...d, logoUrl: json.url }));
+    setSnapshot((s) => ({ ...s, logoUrl: json.url })); // upload eh persistido na hora; cancel nao reverte
     setMessage("Logo atualizado.");
+    router.refresh(); // header tambem mostra o logo novo
   }
 
   useEffect(() => {
@@ -85,7 +91,7 @@ export function TenantProfileEditor() {
         return;
       }
       const t = json.tenant;
-      setData({
+      const loaded: TenantProfile = {
         id: t.id,
         name: t.name ?? "",
         legalName: t.legalName ?? "",
@@ -99,7 +105,9 @@ export function TenantProfileEditor() {
         zipCode: t.zipCode ?? "",
         logoUrl: t.logoUrl ?? "",
         receiptNotes: t.receiptNotes ?? ""
-      });
+      };
+      setData(loaded);
+      setSnapshot(loaded);
       setLoading(false);
     }
     void load();
@@ -122,7 +130,17 @@ export function TenantProfileEditor() {
       setMessage(body.error ?? "Erro ao salvar.");
       return;
     }
+    setSnapshot(data);
+    setIsEditing(false);
     setMessage("Perfil atualizado com sucesso.");
+    // refresh layout pra atualizar nome/logo no header "Conta ativa"
+    router.refresh();
+  }
+
+  function cancelEdit() {
+    setData(snapshot);
+    setIsEditing(false);
+    setMessage(null);
   }
 
   return (
@@ -140,43 +158,49 @@ export function TenantProfileEditor() {
         <p className="mt-4 text-sm text-zinc-500">Carregando...</p>
       ) : (
         <>
+          {(() => {
+            const ro = !isEditing;
+            const roCls = ro ? "bg-zinc-50 cursor-default" : "";
+            return (
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <Field label="Nome do criatório">
-              <Input value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} placeholder="Sítio Voo dos Gansos" />
+              <Input readOnly={ro} className={roCls} value={data.name} onChange={(e) => setData({ ...data, name: e.target.value })} placeholder="Sítio Voo dos Gansos" />
             </Field>
             <Field label="Razão social (opcional)">
-              <Input value={data.legalName ?? ""} onChange={(e) => setData({ ...data, legalName: e.target.value })} placeholder="Nome jurídico" />
+              <Input readOnly={ro} className={roCls} value={data.legalName ?? ""} onChange={(e) => setData({ ...data, legalName: e.target.value })} placeholder="Nome jurídico" />
             </Field>
             <Field label="CNPJ / CPF">
-              <Input value={data.cnpj ?? ""} onChange={(e) => setData({ ...data, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
+              <Input readOnly={ro} className={roCls} value={data.cnpj ?? ""} onChange={(e) => setData({ ...data, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />
             </Field>
             <Field label="E-mail">
-              <Input value={data.email ?? ""} onChange={(e) => setData({ ...data, email: e.target.value })} placeholder="contato@criatorio.com" />
+              <Input readOnly={ro} className={roCls} value={data.email ?? ""} onChange={(e) => setData({ ...data, email: e.target.value })} placeholder="contato@criatorio.com" />
             </Field>
             <Field label="Telefone">
-              <Input value={data.phone ?? ""} onChange={(e) => setData({ ...data, phone: e.target.value })} placeholder="(00) 0000-0000" />
+              <Input readOnly={ro} className={roCls} value={data.phone ?? ""} onChange={(e) => setData({ ...data, phone: e.target.value })} placeholder="(00) 0000-0000" />
             </Field>
             <Field label="WhatsApp">
-              <Input value={data.whatsapp ?? ""} onChange={(e) => setData({ ...data, whatsapp: e.target.value })} placeholder="(00) 90000-0000" />
+              <Input readOnly={ro} className={roCls} value={data.whatsapp ?? ""} onChange={(e) => setData({ ...data, whatsapp: e.target.value })} placeholder="(00) 90000-0000" />
             </Field>
             <Field label="Endereço">
-              <Input value={data.addressLine ?? ""} onChange={(e) => setData({ ...data, addressLine: e.target.value })} placeholder="Rua / nº / bairro" />
+              <Input readOnly={ro} className={roCls} value={data.addressLine ?? ""} onChange={(e) => setData({ ...data, addressLine: e.target.value })} placeholder="Rua / nº / bairro" />
             </Field>
             <div className="grid grid-cols-3 gap-2">
               <Field label="Cidade">
-                <Input value={data.city ?? ""} onChange={(e) => setData({ ...data, city: e.target.value })} />
+                <Input readOnly={ro} className={roCls} value={data.city ?? ""} onChange={(e) => setData({ ...data, city: e.target.value })} />
               </Field>
               <Field label="UF">
-                <Input maxLength={2} value={data.stateUf ?? ""} onChange={(e) => setData({ ...data, stateUf: e.target.value.toUpperCase() })} />
+                <Input readOnly={ro} className={roCls} maxLength={2} value={data.stateUf ?? ""} onChange={(e) => setData({ ...data, stateUf: e.target.value.toUpperCase() })} />
               </Field>
               <Field label="CEP">
-                <Input value={data.zipCode ?? ""} onChange={(e) => setData({ ...data, zipCode: e.target.value })} />
+                <Input readOnly={ro} className={roCls} value={data.zipCode ?? ""} onChange={(e) => setData({ ...data, zipCode: e.target.value })} />
               </Field>
             </div>
             <Field label="Observações nos recibos">
-              <Input value={data.receiptNotes ?? ""} onChange={(e) => setData({ ...data, receiptNotes: e.target.value })} placeholder="Termos, garantias..." />
+              <Input readOnly={ro} className={roCls} value={data.receiptNotes ?? ""} onChange={(e) => setData({ ...data, receiptNotes: e.target.value })} placeholder="Termos, garantias..." />
             </Field>
           </div>
+            );
+          })()}
 
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-3">
             {data.logoUrl ? (
@@ -201,33 +225,46 @@ export function TenantProfileEditor() {
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
               />
-              <div className="mt-1 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={uploadingLogo}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {uploadingLogo ? "Enviando..." : data.logoUrl ? "Trocar logo" : "Enviar logo"}
-                </Button>
-                {data.logoUrl ? (
+              {isEditing ? (
+                <div className="mt-1 flex flex-wrap gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     disabled={uploadingLogo}
-                    onClick={() => setData((d) => ({ ...d, logoUrl: "" }))}
+                    onClick={() => fileInputRef.current?.click()}
                   >
-                    Remover
+                    {uploadingLogo ? "Enviando..." : data.logoUrl ? "Trocar logo" : "Enviar logo"}
                   </Button>
-                ) : null}
-              </div>
+                  {data.logoUrl ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={uploadingLogo}
+                      onClick={() => setData((d) => ({ ...d, logoUrl: "" }))}
+                    >
+                      Remover
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Button type="button" disabled={saving} onClick={save}>
-              {saving ? "Salvando..." : "Salvar perfil"}
-            </Button>
+            {isEditing ? (
+              <>
+                <Button type="button" disabled={saving} onClick={save}>
+                  {saving ? "Salvando..." : "Salvar perfil"}
+                </Button>
+                <Button type="button" variant="outline" disabled={saving} onClick={cancelEdit}>
+                  Cancelar
+                </Button>
+              </>
+            ) : (
+              <Button type="button" onClick={() => { setIsEditing(true); setMessage(null); }}>
+                Editar
+              </Button>
+            )}
             {message ? (
               <span
                 className={`text-xs font-semibold ${
