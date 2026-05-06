@@ -160,6 +160,8 @@ export default async function DashboardPage() {
         />
       </section>
 
+      {/* === DEBUG BISECT: false esconde tudo abaixo (charts novos) === */}
+      {false && (<>
       <section>
         <HeatmapCard
           title="Postura nos últimos 60 dias"
@@ -180,7 +182,7 @@ export default async function DashboardPage() {
           icon={<Bird className="h-5 w-5" />}
           centerLabel="Total no plantel"
           centerValue={String(
-            data.charts.plantelComposition.reduce((s, d) => s + d.value, 0)
+            data.charts.plantelComposition.reduce((s: number, d: { value: number }) => s + d.value, 0)
           )}
           centerHint="aves vivas"
           data={[
@@ -335,6 +337,9 @@ export default async function DashboardPage() {
           emptyMessage="Casos da enfermaria vão aparecer aqui — torço pra continuar zerado."
         />
       </section>
+
+      </>)}
+      {/* === fim debug bisect === */}
 
       <section>
         <Card>
