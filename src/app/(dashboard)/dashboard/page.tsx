@@ -186,12 +186,11 @@ export default async function DashboardPage() {
             data.charts.plantelComposition.reduce((s: number, d: { value: number }) => s + d.value, 0)
           )}
           centerHint="aves vivas"
-          data={[
-            { ...data.charts.plantelComposition[0], palette: "emerald" as const },
-            { ...data.charts.plantelComposition[1], palette: "indigo" as const },
-            { ...data.charts.plantelComposition[2], palette: "amber" as const }
-          ].filter((d) => d && typeof d.value === "number")}
-          emptyMessage="Cadastre matrizes e reprodutores no Plantel pra ver a composição."
+          data={data.charts.plantelComposition.map((d, i) => ({
+            ...d,
+            palette: (["emerald", "indigo", "amber", "pink"] as const)[i % 4]
+          }))}
+          emptyMessage="Cadastre aves no Plantel pra ver a composição."
         />
         <BarCard
           title="Aves por raça"

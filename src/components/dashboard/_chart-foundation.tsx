@@ -3,6 +3,7 @@
 import { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { CHART_PALETTE, CATEGORICAL_PALETTE, type PaletteKey } from "./palette";
+import { ScrollReveal } from "./scroll-reveal";
 
 // Re-exporta pra manter compat com imports antigos
 export { CHART_PALETTE, CATEGORICAL_PALETTE };
@@ -138,7 +139,9 @@ export function ChartCardShell({
         </div>
         {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
       </div>
-      {children}
+      {/* Filhos so montam quando o card entra no viewport — animacoes
+          do Recharts/heatmap tocam de acordo com o scroll, nao tudo de uma vez. */}
+      <ScrollReveal>{children}</ScrollReveal>
     </Card>
   );
 }

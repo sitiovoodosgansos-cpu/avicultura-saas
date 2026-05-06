@@ -1,7 +1,5 @@
 "use client";
 
-import CalendarHeatmap from "react-calendar-heatmap";
-import "react-calendar-heatmap/dist/styles.css";
 import { ReactNode, useMemo } from "react";
 import {
   CHART_PALETTE,
@@ -23,6 +21,9 @@ type HeatmapCardProps = {
   emptyMessage?: string;
 };
 
+const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
+
 export function HeatmapCard({
   title,
   subtitle,
@@ -32,32 +33,51 @@ export function HeatmapCard({
   days = 60,
   emptyMessage = "Sem dados pra exibir ainda."
 }: HeatmapCardProps) {
-  const isEmpty = data.length === 0 || data.every((d) => !d.value);
   const c = CHART_PALETTE[palette];
+  const isEmpty = data.length === 0 || data.every((d) => !d.value);
 
-  const endDate = useMemo(() => new Date(), []);
-  const startDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - days);
-    return d;
-  }, [days]);
+  // Index dos valores por YYYY-MM-DD pra lookup rapido
+  const byDay = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of data) map.set(d.date, d.value);
+    return map;
+  }, [data]);
 
   const max = useMemo(() => Math.max(1, ...data.map((d) => d.value)), [data]);
 
-  function classForValue(v: { value?: number } | undefined) {
-    if (!v || !v.value) return "fill-slate-100";
-    const ratio = v.value / max;
-    if (ratio >= 0.85) return "heatmap-l5";
-    if (ratio >= 0.65) return "heatmap-l4";
-    if (ratio >= 0.4) return "heatmap-l3";
-    if (ratio >= 0.2) return "heatmap-l2";
-    return "heatmap-l1";
-  }
+  // Constroi a grade de dias: comeca no domingo da semana de (hoje - days)
+  // pra alinhar bem visualmente. Cada coluna = 1 semana, 7 linhas = dias.
+  const grid = useMemo(() => buildGrid(days), [days]);
 
-  // Total e media pra mostrar como hint no rodape
+  // Total + media pra mostrar no rodape
   const total = data.reduce((s, d) => s + d.value, 0);
   const activeDays = data.filter((d) => d.value > 0).length;
   const avg = activeDays > 0 ? total / activeDays : 0;
+
+  function colorFor(v: number) {
+    if (!v) return "#f1f5f9"; // slate-50 (vazio)
+    const ratio = v / max;
+    const opacity =
+      ratio >= 0.85 ? 1 : ratio >= 0.65 ? 0.78 : ratio >= 0.4 ? 0.55 : ratio >= 0.2 ? 0.36 : 0.18;
+    return `${c.accent}${Math.round(opacity * 255).toString(16).padStart(2, "0")}`;
+  }
+
+  // Semanas onde o mes muda - pra desenhar label no topo
+  const monthLabels = useMemo(() => {
+    const labels: { col: number; month: number }[] = [];
+    let lastMonth = -1;
+    for (let col = 0; col < grid.length; col++) {
+      const week = grid[col];
+      const firstDay = week.find((d) => d !== null);
+      if (!firstDay) continue;
+      const m = firstDay.getMonth();
+      if (m !== lastMonth) {
+        labels.push({ col, month: m });
+        lastMonth = m;
+      }
+    }
+    return labels;
+  }, [grid]);
 
   return (
     <ChartCardShell
@@ -80,35 +100,16 @@ export function HeatmapCard({
         {isEmpty ? (
           <EmptyChart icon={icon} message={emptyMessage} />
         ) : (
-          <div className="ornabird-heatmap flex h-full flex-col">
-            <style>{`
-              .ornabird-heatmap .react-calendar-heatmap { font-family: inherit; }
-              .ornabird-heatmap .react-calendar-heatmap text { font-size: 6px !important; fill: #94a3b8 !important; }
-              .ornabird-heatmap .react-calendar-heatmap .react-calendar-heatmap-month-label { font-size: 7px !important; fill: #64748b !important; font-weight: 600 !important; }
-              .ornabird-heatmap .react-calendar-heatmap .react-calendar-heatmap-weekday-label { font-size: 6px !important; fill: #94a3b8 !important; }
-              .ornabird-heatmap .react-calendar-heatmap rect { rx: 2; ry: 2; stroke: #ffffff; stroke-width: 1; }
-              .ornabird-heatmap .react-calendar-heatmap .heatmap-l1 { fill: ${hexAlpha(c.accent, 0.18)} !important; }
-              .ornabird-heatmap .react-calendar-heatmap .heatmap-l2 { fill: ${hexAlpha(c.accent, 0.36)} !important; }
-              .ornabird-heatmap .react-calendar-heatmap .heatmap-l3 { fill: ${hexAlpha(c.accent, 0.55)} !important; }
-              .ornabird-heatmap .react-calendar-heatmap .heatmap-l4 { fill: ${hexAlpha(c.accent, 0.78)} !important; }
-              .ornabird-heatmap .react-calendar-heatmap .heatmap-l5 { fill: ${c.accent} !important; }
-              .ornabird-heatmap .react-calendar-heatmap .fill-slate-100 { fill: #f1f5f9 !important; }
-            `}</style>
-            <div className="flex-1">
-              <CalendarHeatmap
-                startDate={startDate}
-                endDate={endDate}
-                values={data as { date: string; value: number }[]}
-                classForValue={(v) => classForValue(v as unknown as { value?: number } | undefined)}
-                showWeekdayLabels
-                titleForValue={(v) => {
-                  const val = v as unknown as { date?: string; value?: number } | undefined;
-                  if (!val || !val.value) return "Sem coleta";
-                  return `${val.date}: ${val.value} ovos`;
-                }}
+          <div className="flex h-full flex-col">
+            <div className="flex flex-1 items-center justify-center overflow-x-auto">
+              <HeatmapGrid
+                grid={grid}
+                byDay={byDay}
+                colorFor={colorFor}
+                monthLabels={monthLabels}
               />
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
               <div>
                 <span className="font-semibold tabular-nums text-slate-900">{activeDays}</span>{" "}
                 dias com coleta · média{" "}
@@ -123,7 +124,9 @@ export function HeatmapCard({
                   <span
                     key={i}
                     className="block h-2.5 w-2.5 rounded-sm"
-                    style={{ backgroundColor: hexAlpha(c.accent, a) }}
+                    style={{
+                      backgroundColor: `${c.accent}${Math.round(a * 255).toString(16).padStart(2, "0")}`
+                    }}
                   />
                 ))}
                 <span className="text-[10px] text-slate-400">Mais</span>
@@ -136,7 +139,117 @@ export function HeatmapCard({
   );
 }
 
-function hexAlpha(hex: string, alpha: number): string {
-  const a = Math.round(alpha * 255).toString(16).padStart(2, "0");
-  return `${hex}${a}`;
+// Grid: array de SEMANAS (cada semana = array de 7 Date|null, dom→sab).
+// A primeira semana pode ter null nos dias antes do startDate.
+function buildGrid(days: number): Array<Array<Date | null>> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - (days - 1));
+
+  // Volta ate o domingo da semana do start
+  const firstSun = new Date(start);
+  firstSun.setDate(firstSun.getDate() - firstSun.getDay());
+
+  const weeks: Array<Array<Date | null>> = [];
+  const cursor = new Date(firstSun);
+  while (cursor <= today) {
+    const week: Array<Date | null> = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(cursor);
+      if (d < start || d > today) week.push(null);
+      else week.push(new Date(d));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+function HeatmapGrid({
+  grid,
+  byDay,
+  colorFor,
+  monthLabels
+}: {
+  grid: Array<Array<Date | null>>;
+  byDay: Map<string, number>;
+  colorFor: (v: number) => string;
+  monthLabels: { col: number; month: number }[];
+}) {
+  const CELL = 16;
+  const GAP = 3;
+  const LABEL_TOP = 16;
+  const LABEL_LEFT = 22;
+  const cols = grid.length;
+  const width = LABEL_LEFT + cols * (CELL + GAP);
+  const height = LABEL_TOP + 7 * (CELL + GAP);
+
+  return (
+    <svg width={width} height={height} className="font-sans">
+      {/* Month labels no topo */}
+      {monthLabels.map((m, i) => (
+        <text
+          key={i}
+          x={LABEL_LEFT + m.col * (CELL + GAP)}
+          y={11}
+          fontSize={10}
+          fontWeight={600}
+          fill="#64748b"
+        >
+          {MONTHS[m.month]}
+        </text>
+      ))}
+
+      {/* Weekday labels (so segunda, quarta, sexta pra nao poluir) */}
+      {[1, 3, 5].map((row) => (
+        <text
+          key={row}
+          x={0}
+          y={LABEL_TOP + row * (CELL + GAP) + 11}
+          fontSize={9}
+          fill="#94a3b8"
+        >
+          {WEEKDAYS[row]}
+        </text>
+      ))}
+
+      {/* Cells */}
+      {grid.map((week, col) =>
+        week.map((day, row) => {
+          if (!day) {
+            return (
+              <rect
+                key={`${col}-${row}`}
+                x={LABEL_LEFT + col * (CELL + GAP)}
+                y={LABEL_TOP + row * (CELL + GAP)}
+                width={CELL}
+                height={CELL}
+                rx={3}
+                fill="transparent"
+              />
+            );
+          }
+          const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+          const value = byDay.get(key) ?? 0;
+          const dateLabel = day.toLocaleDateString("pt-BR");
+          return (
+            <rect
+              key={`${col}-${row}`}
+              x={LABEL_LEFT + col * (CELL + GAP)}
+              y={LABEL_TOP + row * (CELL + GAP)}
+              width={CELL}
+              height={CELL}
+              rx={3}
+              fill={colorFor(value)}
+              stroke="#ffffff"
+              strokeWidth={1}
+            >
+              <title>{value > 0 ? `${dateLabel}: ${value} ovos` : `${dateLabel}: sem coleta`}</title>
+            </rect>
+          );
+        })
+      )}
+    </svg>
+  );
 }

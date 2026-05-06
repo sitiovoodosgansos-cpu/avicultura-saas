@@ -506,7 +506,13 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       healthEvolution,
       hatchByMonth,
       salesByMonth,
-      plantelComposition: buildPlantelComposition(flockGroupsForTotal, filhotesAlive),
+      plantelComposition: buildPlantelComposition({
+        matrixBirds,
+        reproducerBirds,
+        sickBirds,
+        broodyBirds,
+        filhotesAlive
+      }),
       topGroups: buildTopGroups(flockGroupsForTotal),
       postureHeatmap: buildPostureHeatmap(eggsLast60),
       hatchGauge: buildHatchGauge(batchEvents, now),
@@ -523,19 +529,19 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   };
 }
 
-function buildPlantelComposition(
-  groups: Array<{ matrixCount: number; reproducerCount: number; _count: { birds: number } }>,
-  filhotesAlive: number
-): Array<{ label: string; value: number }> {
-  const matrizes = groups.reduce((s, g) => s + g.matrixCount, 0);
-  const reprodutores = groups.reduce((s, g) => s + g.reproducerCount, 0);
-  const totalBirdsInGroups = groups.reduce((s, g) => s + g._count.birds, 0);
-  const outrosNoGrupo = Math.max(0, totalBirdsInGroups - matrizes - reprodutores);
+function buildPlantelComposition(input: {
+  matrixBirds: number;     // sex=FEMALE & status=ACTIVE em grupos visiveis
+  reproducerBirds: number; // sex=MALE & status=ACTIVE em grupos visiveis
+  sickBirds: number;
+  broodyBirds: number;
+  filhotesAlive: number;   // aves em grupos Chocada (filhotes auto-criados)
+}): Array<{ label: string; value: number }> {
   return [
-    { label: "Matrizes", value: matrizes },
-    { label: "Reprodutores", value: reprodutores },
-    { label: "Filhotes", value: filhotesAlive + outrosNoGrupo }
-  ];
+    { label: "Fêmeas adultas", value: input.matrixBirds },
+    { label: "Machos adultos", value: input.reproducerBirds },
+    { label: "Filhotes", value: input.filhotesAlive },
+    { label: "Em tratamento / choco", value: input.sickBirds + input.broodyBirds }
+  ].filter((d) => d.value > 0);
 }
 
 function buildTopGroups(
