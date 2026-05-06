@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
-import { CHART_PALETTE, type PaletteKey } from "./_chart-foundation";
+import { CHART_PALETTE, type PaletteKey } from "./palette";
 
 type KpiCardProps = {
   title: string;

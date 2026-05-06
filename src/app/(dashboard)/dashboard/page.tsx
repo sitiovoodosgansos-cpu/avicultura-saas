@@ -92,6 +92,12 @@ export default async function DashboardPage() {
         icon="🏠"
       />
 
+      {data.warning ? (
+        <Card>
+          <p className="text-sm text-amber-700">{data.warning}</p>
+        </Card>
+      ) : null}
+
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <KpiCard
           title="Aves totais"
@@ -100,9 +106,29 @@ export default async function DashboardPage() {
           palette="emerald"
           hint={`Ativas: ${data.kpis.activeBirds} | Doentes: ${data.kpis.sickBirds} | Mortas: ${data.kpis.deadBirds}`}
         />
+        <KpiCard
+          title="Grupos de aves"
+          value={String(data.kpis.flockGroups)}
+          icon={<Users className="h-5 w-5" />}
+          palette="indigo"
+          hint={`Chocas: ${data.kpis.broodyBirds}`}
+        />
+        <KpiCard
+          title="Ovos coletados hoje"
+          value={String(data.kpis.eggsToday)}
+          icon={<Egg className="h-5 w-5" />}
+          palette="amber"
+          hint={`Bons: ${data.kpis.goodEggsToday} | Trincados: ${data.kpis.crackedEggsToday} | Taxa bons: ${formatPercent(data.kpis.goodEggRateToday)}`}
+        />
+        <KpiCard
+          title="Financeiro do mês"
+          value={formatCurrency(data.kpis.monthNet)}
+          icon={<Wallet className="h-5 w-5" />}
+          palette="emerald"
+          hint={`Entradas: ${formatCurrency(data.kpis.monthIncome)} | Saídas: ${formatCurrency(data.kpis.monthExpenses)}`}
+        />
       </section>
 
-      {false && (<>
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <KpiCard
           title="Lotes ativos"
@@ -133,10 +159,10 @@ export default async function DashboardPage() {
           hint={`Resultado 30d: ${formatCurrency(data.periodSummary.days30.net)} | 365d: ${formatCurrency(data.periodSummary.days365.net)}`}
         />
       </section>
-      </>)}
 
-      {/* === DEBUG BISECT: false esconde tudo abaixo (charts novos) === */}
-      {false && (<>
+
+
+
       <section>
         <HeatmapCard
           title="Postura nos últimos 60 dias"
@@ -313,8 +339,8 @@ export default async function DashboardPage() {
         />
       </section>
 
-      </>)}
-      {/* === fim debug bisect === */}
+
+
 
       <section>
         <Card>
