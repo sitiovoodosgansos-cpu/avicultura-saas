@@ -145,18 +145,18 @@ export default async function DashboardPage() {
           hint={`Taxa recuperação: ${formatPercent(data.kpis.recoveryRate)}`}
         />
         <KpiCard
-          title="Resumo 7 dias"
-          value={`${data.periodSummary.days7.eggs} ovos`}
+          title="Vendas 7 dias"
+          value={`${data.periodSummary.days7.sales} vendas`}
           icon={<CalendarDays className="h-5 w-5" />}
           palette="sky"
-          hint={`Resultado: ${formatCurrency(data.periodSummary.days7.net)} | Casos: ${data.periodSummary.days7.healthCases}`}
+          hint={`${data.periodSummary.days7.itemsSold} itens vendidos | Receita: ${formatCurrency(data.periodSummary.days7.revenue)}`}
         />
         <KpiCard
-          title="Resumo 30 / 365 dias"
-          value={`${data.periodSummary.days30.eggs} / ${data.periodSummary.days365.eggs} ovos`}
+          title="Vendas 30 / 365 dias"
+          value={`${data.periodSummary.days30.sales} / ${data.periodSummary.days365.sales} vendas`}
           icon={<TrendingUp className="h-5 w-5" />}
           palette="violet"
-          hint={`Resultado 30d: ${formatCurrency(data.periodSummary.days30.net)} | 365d: ${formatCurrency(data.periodSummary.days365.net)}`}
+          hint={`Itens 30d: ${data.periodSummary.days30.itemsSold} | Receita 365d: ${formatCurrency(data.periodSummary.days365.revenue)}`}
         />
       </section>
 

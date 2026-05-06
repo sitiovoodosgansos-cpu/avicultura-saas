@@ -41,9 +41,9 @@ export type DashboardData = {
     monthNet: number;
   };
   periodSummary: {
-    days7: { eggs: number; net: number; healthCases: number };
-    days30: { eggs: number; net: number; healthCases: number };
-    days365: { eggs: number; net: number; healthCases: number };
+    days7: { eggs: number; net: number; healthCases: number; sales: number; itemsSold: number; revenue: number };
+    days30: { eggs: number; net: number; healthCases: number; sales: number; itemsSold: number; revenue: number };
+    days365: { eggs: number; net: number; healthCases: number; sales: number; itemsSold: number; revenue: number };
   };
   charts: {
     eggCollection: Array<{ label: string; total: number }>;
@@ -130,6 +130,37 @@ async function healthCasesForRange(tenantId: string, from: Date) {
     where: { tenantId, openedAt: { gte: from } }
   });
   return count;
+}
+
+// Vendas (EggSale + VitrineSale) num intervalo: numero de transacoes,
+// itens vendidos (somatorio quantidades) e receita total agregada.
+async function salesForRange(tenantId: string, from: Date) {
+  const [eggSales, vitrineSales] = await Promise.all([
+    prisma.eggSale.findMany({
+      where: { tenantId, soldAt: { gte: from } },
+      select: {
+        totalAmount: true,
+        items: { select: { quantity: true } }
+      }
+    }),
+    prisma.vitrineSale.findMany({
+      where: { tenantId, soldAt: { gte: from } },
+      select: { totalPrice: true, quantitySold: true }
+    })
+  ]);
+
+  const eggSalesCount = eggSales.length;
+  const vitrineSalesCount = vitrineSales.length;
+  const eggItems = eggSales.reduce((s, sale) => s + sale.items.reduce((a, i) => a + i.quantity, 0), 0);
+  const vitrineItems = vitrineSales.reduce((s, sale) => s + sale.quantitySold, 0);
+  const eggRevenue = eggSales.reduce((s, sale) => s + toNumber(sale.totalAmount), 0);
+  const vitrineRevenue = vitrineSales.reduce((s, sale) => s + toNumber(sale.totalPrice), 0);
+
+  return {
+    sales: eggSalesCount + vitrineSalesCount,
+    itemsSold: eggItems + vitrineItems,
+    revenue: Number((eggRevenue + vitrineRevenue).toFixed(2))
+  };
 }
 
 function dateBucketLastDays(days: number) {
@@ -469,6 +500,9 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const health7 = await healthCasesForRange(tenantId, days7);
   const health30 = await healthCasesForRange(tenantId, days30);
   const health365 = await healthCasesForRange(tenantId, days365);
+  const sales7 = await salesForRange(tenantId, days7);
+  const sales30 = await salesForRange(tenantId, days30);
+  const sales365 = await salesForRange(tenantId, days365);
 
   return {
     kpis: {
@@ -494,9 +528,9 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       monthNet
     },
     periodSummary: {
-      days7: { eggs: eggsRange7, net: net7, healthCases: health7 },
-      days30: { eggs: eggsRange30, net: net30, healthCases: health30 },
-      days365: { eggs: eggsRange365, net: net365, healthCases: health365 }
+      days7: { eggs: eggsRange7, net: net7, healthCases: health7, ...sales7 },
+      days30: { eggs: eggsRange30, net: net30, healthCases: health30, ...sales30 },
+      days365: { eggs: eggsRange365, net: net365, healthCases: health365, ...sales365 }
     },
     charts: {
       eggCollection,
@@ -721,9 +755,9 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
         monthNet: 0
       },
       periodSummary: {
-        days7: { eggs: 0, net: 0, healthCases: 0 },
-        days30: { eggs: 0, net: 0, healthCases: 0 },
-        days365: { eggs: 0, net: 0, healthCases: 0 }
+        days7: { eggs: 0, net: 0, healthCases: 0, sales: 0, itemsSold: 0, revenue: 0 },
+        days30: { eggs: 0, net: 0, healthCases: 0, sales: 0, itemsSold: 0, revenue: 0 },
+        days365: { eggs: 0, net: 0, healthCases: 0, sales: 0, itemsSold: 0, revenue: 0 }
       },
       charts: {
         eggCollection: [],
