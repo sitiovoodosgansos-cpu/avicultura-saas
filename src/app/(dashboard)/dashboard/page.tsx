@@ -10,7 +10,10 @@ import {
   EggFried,
   PiggyBank,
   Users,
-  Stethoscope
+  Stethoscope,
+  Filter,
+  Award,
+  Receipt
 } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
@@ -22,6 +25,8 @@ import { BarCard } from "@/components/dashboard/bar-card";
 import { HeatmapCard } from "@/components/dashboard/heatmap-card";
 import { GaugeCard } from "@/components/dashboard/gauge-card";
 import { StackedResultsCard } from "@/components/dashboard/stacked-results-card";
+import { FunnelCard } from "@/components/dashboard/funnel-card";
+import { StackedHorizontalCard } from "@/components/dashboard/stacked-horizontal-card";
 import { getCurrentSession } from "@/lib/auth/session";
 import { getTenantBilling } from "@/lib/billing/service";
 import { getDashboardDataSafe } from "@/lib/dashboard/queries";
@@ -252,6 +257,39 @@ export default async function DashboardPage() {
           icon={<EggFried className="h-5 w-5" />}
           emptyMessage="Finalize um lote na chocadeira pra acompanhar a eclosão."
           formatter={(v) => `${v.toFixed(1)}%`}
+        />
+      </section>
+
+      <section>
+        <FunnelCard
+          title="Jornada das aves"
+          subtitle="Do ovo eclodido até a venda"
+          stages={data.charts.funnelStages}
+          palette="indigo"
+          icon={<Filter className="h-5 w-5" />}
+          emptyMessage="Quando houver eclosões e vendas, o funil vai mostrar a conversão."
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <BarCard
+          title="Receita por raça"
+          subtitle="Top grupos por valor vendido na vitrine"
+          data={data.charts.revenueByGroup}
+          palette="violet"
+          icon={<Award className="h-5 w-5" />}
+          layout="horizontal"
+          formatter={(v) => formatCurrency(v)}
+          emptyMessage="As vendas da vitrine vão revelar quem rende mais."
+        />
+        <StackedHorizontalCard
+          title="Despesas do mês por categoria"
+          subtitle="Onde o dinheiro está saindo"
+          segments={data.charts.expensesByCategory}
+          palette="rose"
+          icon={<Receipt className="h-5 w-5" />}
+          formatter={(v) => formatCurrency(v)}
+          emptyMessage="Ainda não há despesas registradas neste mês."
         />
       </section>
 

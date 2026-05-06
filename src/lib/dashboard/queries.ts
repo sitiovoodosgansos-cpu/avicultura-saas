@@ -58,6 +58,9 @@ export type DashboardData = {
     postureHeatmap: Array<{ date: string; value: number }>;
     hatchGauge: { current: number; previous: number };
     batchResultsByMonth: Array<{ label: string; hatched: number; infertile: number; lost: number }>;
+    funnelStages: Array<{ label: string; value: number }>;
+    revenueByGroup: Array<{ label: string; value: number }>;
+    expensesByCategory: Array<{ label: string; value: number }>;
   };
   warning?: string;
 };
@@ -179,7 +182,10 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     healthCuredLast12,
     birdsLast12Rows,
     filhotesAlive,
-    eggsLast60
+    eggsLast60,
+    vitrineSalesAll,
+    vitrineAvailableAgg,
+    expensesThisMonth
   ] = await Promise.all([
     prisma.flockGroup.findMany({
       where: { tenantId, ...visibleGroupFilter },
@@ -279,6 +285,33 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         flockGroup: visibleGroupFilter
       },
       select: { date: true, totalEggs: true }
+    }),
+    // Vendas da vitrine all-time pra funnel + receita por grupo.
+    // Resolve grupo via listing.flockGroup (preferindo o pai via
+    // sourceIncubatorBatch quando o listing aponta pra Chocada).
+    prisma.vitrineSale.findMany({
+      where: { tenantId },
+      select: {
+        quantitySold: true,
+        totalPrice: true,
+        listing: {
+          select: {
+            flockGroup: { select: { title: true } },
+            sourceIncubatorBatch: { select: { flockGroup: { select: { title: true } } } }
+          }
+        }
+      }
+    }),
+    // Aves disponiveis na vitrine agora
+    prisma.vitrineListing.aggregate({
+      where: { tenantId, status: "AVAILABLE" },
+      _sum: { availableQuantity: true }
+    }),
+    // Despesas do mes agrupadas por categoria
+    prisma.financialExpense.groupBy({
+      by: ["category"],
+      where: { tenantId, date: { gte: monthStart } },
+      _sum: { amount: true }
     })
   ]);
 
@@ -477,7 +510,15 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       topGroups: buildTopGroups(flockGroupsForTotal),
       postureHeatmap: buildPostureHeatmap(eggsLast60),
       hatchGauge: buildHatchGauge(batchEvents, now),
-      batchResultsByMonth: buildBatchResultsByMonth(batchEvents, monthBuckets)
+      batchResultsByMonth: buildBatchResultsByMonth(batchEvents, monthBuckets),
+      funnelStages: buildFunnelStages({
+        hatchedTotal: hatchCount,
+        filhotesAlive,
+        availableInVitrine: vitrineAvailableAgg._sum.availableQuantity ?? 0,
+        soldAllTime: vitrineSalesAll.reduce((s, x) => s + x.quantitySold, 0)
+      }),
+      revenueByGroup: buildRevenueByGroup(vitrineSalesAll),
+      expensesByCategory: buildExpensesByCategory(expensesThisMonth)
     }
   };
 }
@@ -570,6 +611,81 @@ function buildBatchResultsByMonth(
   });
 }
 
+function buildFunnelStages(input: {
+  hatchedTotal: number;
+  filhotesAlive: number;
+  availableInVitrine: number;
+  soldAllTime: number;
+}): Array<{ label: string; value: number }> {
+  // Funnel da jornada da ave: nasce -> sobrevive -> vira anuncio -> eh vendida.
+  // Filtra etapas zero pra evitar funil esquisito.
+  const all: Array<{ label: string; value: number }> = [
+    { label: "Nascidos", value: input.hatchedTotal },
+    { label: "Vivos", value: input.filhotesAlive },
+    { label: "Na vitrine", value: input.availableInVitrine },
+    { label: "Vendidos", value: input.soldAllTime }
+  ];
+  // Mantem so se ao menos 1 estagio tiver valor; ordem decrescente
+  // garantida pelo proprio dominio (mais ou menos).
+  return all;
+}
+
+function buildRevenueByGroup(
+  sales: Array<{
+    totalPrice: { toNumber: () => number } | number | null;
+    listing: {
+      flockGroup: { title: string } | null;
+      sourceIncubatorBatch: { flockGroup: { title: string } | null } | null;
+    } | null;
+  }>
+): Array<{ label: string; value: number }> {
+  // Receita por grupo da vitrine. Resolve grupo do PAI quando o listing
+  // aponta pra Chocada (sourceIncubatorBatch.flockGroup.title), assim a
+  // receita de filhotes vai pra raca do pai e nao pra "Chocada XX".
+  const map = new Map<string, number>();
+  for (const sale of sales) {
+    const listingTitle = sale.listing?.flockGroup?.title ?? "Sem grupo";
+    const isChild = listingTitle.startsWith("Chocada ");
+    const parentTitle = sale.listing?.sourceIncubatorBatch?.flockGroup?.title;
+    const label = isChild && parentTitle ? parentTitle : listingTitle;
+    const amount = decimalToNumber(sale.totalPrice);
+    map.set(label, (map.get(label) ?? 0) + amount);
+  }
+  return Array.from(map.entries())
+    .map(([label, value]) => ({ label, value }))
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+}
+
+function buildExpensesByCategory(
+  rows: Array<{ category: string; _sum: { amount: { toNumber: () => number } | null } }>
+): Array<{ label: string; value: number }> {
+  const labels: Record<string, string> = {
+    FEED: "Ração",
+    MEDICATION: "Medicamento",
+    BIRD_PURCHASE: "Compra de aves",
+    EQUIPMENT: "Equipamento",
+    FACILITY: "Instalações",
+    LABOR: "Mão de obra",
+    UTILITIES: "Energia/Água",
+    OTHER: "Outros"
+  };
+  return rows
+    .map((r) => ({
+      label: labels[r.category] ?? r.category,
+      value: decimalToNumber(r._sum.amount)
+    }))
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value);
+}
+
+function decimalToNumber(v: { toNumber: () => number } | number | null | undefined): number {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === "number") return v;
+  return v.toNumber();
+}
+
 export async function getDashboardDataSafe(tenantId: string): Promise<DashboardData> {
   try {
     return await getDashboardData(tenantId);
@@ -614,7 +730,10 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
         topGroups: [],
         postureHeatmap: [],
         hatchGauge: { current: 0, previous: 0 },
-        batchResultsByMonth: []
+        batchResultsByMonth: [],
+        funnelStages: [],
+        revenueByGroup: [],
+        expensesByCategory: []
       },
       warning: "Não foi possível carregar dados do banco. Verifique a conexão com PostgreSQL."
     };
