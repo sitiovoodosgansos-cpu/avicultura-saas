@@ -19,6 +19,9 @@ import { LineChartCard } from "@/components/dashboard/line-chart-card";
 import { StackedBarsCard } from "@/components/dashboard/stacked-bars-card";
 import { DonutCard } from "@/components/dashboard/donut-card";
 import { BarCard } from "@/components/dashboard/bar-card";
+import { HeatmapCard } from "@/components/dashboard/heatmap-card";
+import { GaugeCard } from "@/components/dashboard/gauge-card";
+import { StackedResultsCard } from "@/components/dashboard/stacked-results-card";
 import { getCurrentSession } from "@/lib/auth/session";
 import { getTenantBilling } from "@/lib/billing/service";
 import { getDashboardDataSafe } from "@/lib/dashboard/queries";
@@ -146,6 +149,18 @@ export default async function DashboardPage() {
         />
       </section>
 
+      <section>
+        <HeatmapCard
+          title="Postura nos últimos 60 dias"
+          subtitle="Quanto mais escuro, mais ovos coletados naquele dia"
+          data={data.charts.postureHeatmap}
+          palette="amber"
+          icon={<Egg className="h-5 w-5" />}
+          days={60}
+          emptyMessage="Registre coletas no Coleta pra construir esse calendário."
+        />
+      </section>
+
       <section className="grid gap-4 xl:grid-cols-2">
         <DonutCard
           title="Composição do plantel"
@@ -198,6 +213,25 @@ export default async function DashboardPage() {
           palette="amber"
           icon={<Egg className="h-5 w-5" />}
           emptyMessage="Registre sua primeira coleta pra ver a curva nascer."
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <GaugeCard
+          title="Taxa de eclosão atual"
+          subtitle="Últimos 90 dias vs 90 dias anteriores"
+          value={data.charts.hatchGauge.current}
+          previousValue={data.charts.hatchGauge.previous}
+          palette="orange"
+          icon={<EggFried className="h-5 w-5" />}
+          hint="Quantos % dos ovos incubados eclodiram"
+          emptyMessage="Finalize lotes na chocadeira pra acompanhar a taxa."
+        />
+        <StackedResultsCard
+          title="Resultado dos lotes"
+          subtitle="Eclodidos / Inférteis / Perdidos por mês"
+          data={data.charts.batchResultsByMonth}
+          icon={<EggFried className="h-5 w-5" />}
         />
       </section>
 

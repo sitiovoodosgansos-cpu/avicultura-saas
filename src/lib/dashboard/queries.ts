@@ -55,6 +55,9 @@ export type DashboardData = {
     salesByMonth: Array<{ label: string; total: number }>;
     plantelComposition: Array<{ label: string; value: number }>;
     topGroups: Array<{ label: string; value: number }>;
+    postureHeatmap: Array<{ date: string; value: number }>;
+    hatchGauge: { current: number; previous: number };
+    batchResultsByMonth: Array<{ label: string; hatched: number; infertile: number; lost: number }>;
   };
   warning?: string;
 };
@@ -175,7 +178,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     healthOpenLast12,
     healthCuredLast12,
     birdsLast12Rows,
-    filhotesAlive
+    filhotesAlive,
+    eggsLast60
   ] = await Promise.all([
     prisma.flockGroup.findMany({
       where: { tenantId, ...visibleGroupFilter },
@@ -266,6 +270,15 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         status: { not: BirdStatus.DEAD },
         flockGroup: { title: { startsWith: "Chocada " } }
       }
+    }),
+    // Postura ultimos 60 dias pra heatmap calendar
+    prisma.eggCollection.findMany({
+      where: {
+        tenantId,
+        date: { gte: addDays(today, -59) },
+        flockGroup: visibleGroupFilter
+      },
+      select: { date: true, totalEggs: true }
     })
   ]);
 
@@ -461,7 +474,10 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       hatchByMonth,
       salesByMonth,
       plantelComposition: buildPlantelComposition(flockGroupsForTotal, filhotesAlive),
-      topGroups: buildTopGroups(flockGroupsForTotal)
+      topGroups: buildTopGroups(flockGroupsForTotal),
+      postureHeatmap: buildPostureHeatmap(eggsLast60),
+      hatchGauge: buildHatchGauge(batchEvents, now),
+      batchResultsByMonth: buildBatchResultsByMonth(batchEvents, monthBuckets)
     }
   };
 }
@@ -492,6 +508,66 @@ function buildTopGroups(
     .filter((g) => g.value > 0)
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
+}
+
+function buildPostureHeatmap(
+  eggs: Array<{ date: Date; totalEggs: number }>
+): Array<{ date: string; value: number }> {
+  // Agrupa por dia (YYYY-MM-DD) somando todas as coletas daquele dia.
+  const byDay = new Map<string, number>();
+  for (const row of eggs) {
+    const d = row.date;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    byDay.set(key, (byDay.get(key) ?? 0) + row.totalEggs);
+  }
+  return Array.from(byDay.entries()).map(([date, value]) => ({ date, value }));
+}
+
+function buildHatchGauge(
+  batchEvents: Array<{ type: string; quantity: number; eventDate: Date }>,
+  now: Date
+): { current: number; previous: number } {
+  // Janela de 90 dias, "atual" = ultimos 90 vs "anterior" = 91-180 dias atras.
+  const days90Ago = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const days180Ago = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+  const types = ["HATCHED", "INFERTILE", "EMBRYO_LOSS", "PIPPED_DIED"];
+
+  function rateInWindow(from: Date, to: Date) {
+    let hatched = 0;
+    let total = 0;
+    for (const e of batchEvents) {
+      if (e.eventDate < from || e.eventDate >= to) continue;
+      if (!types.includes(e.type)) continue;
+      total += e.quantity;
+      if (e.type === "HATCHED") hatched += e.quantity;
+    }
+    return total > 0 ? (hatched / total) * 100 : 0;
+  }
+
+  return {
+    current: rateInWindow(days90Ago, now),
+    previous: rateInWindow(days180Ago, days90Ago)
+  };
+}
+
+function buildBatchResultsByMonth(
+  batchEvents: Array<{ type: string; quantity: number; eventDate: Date }>,
+  monthBuckets: Array<{ key: string; label: string }>
+): Array<{ label: string; hatched: number; infertile: number; lost: number }> {
+  const map = new Map<string, { hatched: number; infertile: number; lost: number }>();
+  for (const e of batchEvents) {
+    const d = e.eventDate;
+    const key = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+    const cur = map.get(key) ?? { hatched: 0, infertile: 0, lost: 0 };
+    if (e.type === "HATCHED") cur.hatched += e.quantity;
+    else if (e.type === "INFERTILE") cur.infertile += e.quantity;
+    else if (e.type === "EMBRYO_LOSS" || e.type === "PIPPED_DIED") cur.lost += e.quantity;
+    map.set(key, cur);
+  }
+  return monthBuckets.map((b) => {
+    const v = map.get(b.key) ?? { hatched: 0, infertile: 0, lost: 0 };
+    return { label: b.label, ...v };
+  });
 }
 
 export async function getDashboardDataSafe(tenantId: string): Promise<DashboardData> {
@@ -535,7 +611,10 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
         hatchByMonth: [],
         salesByMonth: [],
         plantelComposition: [],
-        topGroups: []
+        topGroups: [],
+        postureHeatmap: [],
+        hatchGauge: { current: 0, previous: 0 },
+        batchResultsByMonth: []
       },
       warning: "Não foi possível carregar dados do banco. Verifique a conexão com PostgreSQL."
     };
