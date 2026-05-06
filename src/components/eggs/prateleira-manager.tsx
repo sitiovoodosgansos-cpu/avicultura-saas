@@ -151,6 +151,9 @@ export function PrateleiraManager() {
 
   const [saleCustomer, setSaleCustomer] = useState("");
   const [saleSoldAt, setSaleSoldAt] = useState(today);
+  const [salePaymentMethod, setSalePaymentMethod] = useState<"PIX" | "CARD" | "CASH">("PIX");
+  const [saleDeliveryType, setSaleDeliveryType] = useState<"PICKUP" | "DELIVERY">("PICKUP");
+  const [saleShippingFee, setSaleShippingFee] = useState(0);
   const [saleNotes, setSaleNotes] = useState("");
 
   const [transferIncubatorId, setTransferIncubatorId] = useState<string>("");
@@ -214,10 +217,11 @@ export function PrateleiraManager() {
 
   const selectedCount = selection.size;
   const selectedEggs = useMemo(() => Array.from(selection.values()).reduce((s, it) => s + it.quantity, 0), [selection]);
-  const saleTotal = useMemo(() => {
+  const saleSubtotal = useMemo(() => {
     if (selectionMode !== "sale") return 0;
     return Array.from(selection.values()).reduce((s, it) => s + (it.quantity || 0) * (it.unitPrice || 0), 0);
   }, [selection, selectionMode]);
+  const saleTotal = saleSubtotal + (saleDeliveryType === "DELIVERY" ? (saleShippingFee || 0) : 0);
 
   function clearSelection() {
     setSelection(new Map());
@@ -319,6 +323,9 @@ export function PrateleiraManager() {
     if (!selectionMode || selection.size === 0) return;
     setSaleCustomer("");
     setSaleSoldAt(today);
+    setSalePaymentMethod("PIX");
+    setSaleDeliveryType("PICKUP");
+    setSaleShippingFee(0);
     setSaleNotes("");
     setTransferIncubatorId(incubators.find((i) => i.status === "ACTIVE")?.id ?? "");
     setTransferNotes("");
@@ -348,6 +355,8 @@ export function PrateleiraManager() {
         body: JSON.stringify({
           customer: saleCustomer || undefined,
           soldAt: saleSoldAt,
+          paymentMethod: salePaymentMethod,
+          shippingFee: saleDeliveryType === "DELIVERY" && saleShippingFee > 0 ? saleShippingFee : undefined,
           items: items.map((it) => ({
             trayEntryId: it.entryId,
             quantity: it.quantity,
@@ -683,9 +692,64 @@ export function PrateleiraManager() {
       >
         <form className="grid gap-3" onSubmit={submitFinalize}>
           {selectionMode === "sale" ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Input placeholder="Cliente (opcional)" value={saleCustomer} onChange={(e) => setSaleCustomer(e.target.value)} />
-              <Input type="date" value={saleSoldAt} onChange={(e) => setSaleSoldAt(e.target.value)} />
+            <div className="grid gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <Input placeholder="Cliente (opcional)" value={saleCustomer} onChange={(e) => setSaleCustomer(e.target.value)} />
+                <Input type="date" value={saleSoldAt} onChange={(e) => setSaleSoldAt(e.target.value)} />
+              </div>
+
+              {/* Método de pagamento */}
+              <div className="grid gap-1.5">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-[0.12em]">Pagamento</p>
+                <div className="flex gap-2">
+                  {(["PIX", "CARD", "CASH"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setSalePaymentMethod(m)}
+                      className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition ${
+                        salePaymentMethod === m
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+                      }`}
+                    >
+                      {m === "PIX" ? "PIX" : m === "CARD" ? "Cartão" : "Dinheiro"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Entrega ou retirada */}
+              <div className="grid gap-1.5">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-[0.12em]">Entrega</p>
+                <div className="flex gap-2">
+                  {(["PICKUP", "DELIVERY"] as const).map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => { setSaleDeliveryType(d); if (d === "PICKUP") setSaleShippingFee(0); }}
+                      className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition ${
+                        saleDeliveryType === d
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
+                      }`}
+                    >
+                      {d === "PICKUP" ? "Retirada no sitio" : "Enviado"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {saleDeliveryType === "DELIVERY" ? (
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="Taxa de frete (R$)"
+                  value={saleShippingFee || ""}
+                  onChange={(e) => setSaleShippingFee(Math.max(0, Number(e.target.value)))}
+                />
+              ) : null}
             </div>
           ) : null}
 
@@ -764,11 +828,30 @@ export function PrateleiraManager() {
           </div>
 
           {selectionMode === "sale" ? (
-            <div className="rounded-xl bg-emerald-50 px-3 py-2 text-sm">
-              <span className="text-zinc-600">Total: </span>
-              <span className="font-semibold text-emerald-800">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}
-              </span>
+            <div className="rounded-xl bg-emerald-50 px-3 py-2.5 text-sm space-y-1">
+              {saleDeliveryType === "DELIVERY" && (saleShippingFee || 0) > 0 ? (
+                <>
+                  <div className="flex justify-between text-zinc-500">
+                    <span>Subtotal</span>
+                    <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleSubtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-500">
+                    <span>Frete</span>
+                    <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleShippingFee)}</span>
+                  </div>
+                  <div className="border-t border-emerald-200 pt-1 flex justify-between font-semibold text-emerald-800">
+                    <span>Total</span>
+                    <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-zinc-600">Total</span>
+                  <span className="font-semibold text-emerald-800">
+                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(saleTotal)}
+                  </span>
+                </div>
+              )}
             </div>
           ) : null}
 

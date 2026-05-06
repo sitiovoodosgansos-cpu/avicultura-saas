@@ -572,6 +572,8 @@ model EggSale {
   customer         String?
   totalAmount      Decimal         @db.Decimal(12, 2)
   soldAt           DateTime
+  paymentMethod    PaymentMethod?
+  shippingFee      Decimal?        @db.Decimal(10, 2)
   financialEntryId String?         @unique
   notes            String?
   createdAt        DateTime        @default(now())

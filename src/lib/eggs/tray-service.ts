@@ -467,13 +467,17 @@ export async function createEggSale(
   input: {
     customer?: string;
     soldAt: string;
+    paymentMethod?: "PIX" | "CARD" | "CASH";
+    shippingFee?: number;
     items: Array<{ trayEntryId: string; quantity: number; unitPrice: number }>;
     notes?: string;
   }
 ) {
   if (input.items.length === 0) return { ok: false as const, reason: "EMPTY" as const };
 
-  const totalAmount = input.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const itemsTotal = input.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const shipping = input.shippingFee ?? 0;
+  const totalAmount = itemsTotal + shipping;
   const soldAt = toDate(input.soldAt);
 
   // Resolve labels do flockGroup para usar como "item" no financeiro
@@ -498,6 +502,11 @@ export async function createEggSale(
 
   try {
     const sale = await prisma.$transaction(async (tx) => {
+      const descParts = [
+        input.items.map((i) => `${i.quantity}x R$${i.unitPrice.toFixed(2)}`).join(" + "),
+        shipping > 0 ? `frete R$${shipping.toFixed(2)}` : null
+      ].filter(Boolean).join(" + ");
+
       const financialEntry = await tx.financialEntry.create({
         data: {
           tenantId,
@@ -506,7 +515,8 @@ export async function createEggSale(
           item: itemLabel,
           amount: totalAmount,
           customer: input.customer || null,
-          description: input.items.map((i) => `${i.quantity}x R$${i.unitPrice.toFixed(2)}`).join(" + "),
+          paymentMethod: input.paymentMethod ?? null,
+          description: descParts,
           notes: input.notes
         }
       });
@@ -517,6 +527,8 @@ export async function createEggSale(
           customer: input.customer || null,
           totalAmount,
           soldAt,
+          paymentMethod: input.paymentMethod ?? null,
+          shippingFee: shipping > 0 ? shipping : null,
           financialEntryId: financialEntry.id,
           notes: input.notes
         }

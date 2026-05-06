@@ -79,6 +79,8 @@ export const eggSaleSchema = z
   .object({
     customer: z.string().trim().optional(),
     soldAt: z.string().min(1, "Informe a data."),
+    paymentMethod: z.enum(["PIX", "CARD", "CASH"]).optional(),
+    shippingFee: z.coerce.number().min(0).optional(),
     items: z
       .array(
         z.object({
