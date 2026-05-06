@@ -19,6 +19,7 @@ import {
   EmptyChart,
   type PaletteKey
 } from "./_chart-foundation";
+import { formatChartValue, type ChartFormat } from "./palette";
 
 type Datum = { label: string; value: number };
 
@@ -29,7 +30,7 @@ type LineChartCardProps = {
   palette?: PaletteKey;
   icon: ReactNode;
   emptyMessage?: string;
-  formatter?: (value: number) => string;
+  format?: ChartFormat;
 };
 
 export function LineChartCard({
@@ -39,8 +40,9 @@ export function LineChartCard({
   palette = "emerald",
   icon,
   emptyMessage = "Sem dados ainda — registre informações pra ver a curva nascer.",
-  formatter
+  format
 }: LineChartCardProps) {
+  const formatter = format ? (v: number) => formatChartValue(v, format) : undefined;
   const colors = CHART_PALETTE[palette];
   const isEmpty = data.length === 0 || data.every((d) => !d.value);
   const gid = `ln-${palette}-${Math.abs(hashString(title)).toString(36)}`;

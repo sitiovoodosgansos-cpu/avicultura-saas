@@ -8,6 +8,7 @@ import {
   EmptyChart,
   type PaletteKey
 } from "./_chart-foundation";
+import { formatChartValue, type ChartFormat } from "./palette";
 
 type Segment = { label: string; value: number; palette?: PaletteKey };
 
@@ -17,7 +18,7 @@ type StackedHorizontalCardProps = {
   segments: Segment[];
   palette: PaletteKey;
   icon: ReactNode;
-  formatter?: (v: number) => string;
+  format?: ChartFormat;
   emptyMessage?: string;
 };
 
@@ -27,9 +28,10 @@ export function StackedHorizontalCard({
   segments,
   palette,
   icon,
-  formatter,
+  format,
   emptyMessage = "Sem dados pra exibir ainda."
 }: StackedHorizontalCardProps) {
+  const formatter = format ? (v: number) => formatChartValue(v, format) : undefined;
   const total = segments.reduce((s, x) => s + x.value, 0);
   const isEmpty = total <= 0;
 

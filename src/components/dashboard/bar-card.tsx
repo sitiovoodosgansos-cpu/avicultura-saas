@@ -9,6 +9,7 @@ import {
   EmptyChart,
   type PaletteKey
 } from "./_chart-foundation";
+import { formatChartValue, type ChartFormat } from "./palette";
 
 type BarDatum = { label: string; value: number };
 
@@ -23,7 +24,7 @@ type BarCardProps = {
    * "vertical"   = barras sobem do chao (categorias no eixo X).
    */
   layout?: "horizontal" | "vertical";
-  formatter?: (v: number) => string;
+  format?: ChartFormat;
   emptyMessage?: string;
 };
 
@@ -34,9 +35,10 @@ export function BarCard({
   palette,
   icon,
   layout = "horizontal",
-  formatter,
+  format,
   emptyMessage = "Sem dados pra exibir ainda."
 }: BarCardProps) {
+  const formatter = format ? (v: number) => formatChartValue(v, format) : undefined;
   const isEmpty = data.length === 0 || data.every((d) => !d.value);
   const gid = `bar-${palette}-${layout}`;
   // No Recharts a convencao eh invertida: layout="vertical" no chart

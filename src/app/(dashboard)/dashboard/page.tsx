@@ -217,7 +217,7 @@ export default async function DashboardPage() {
             { label: "Receita", value: data.kpis.monthIncome, palette: "emerald" as const },
             { label: "Despesa", value: data.kpis.monthExpenses, palette: "rose" as const }
           ]}
-          formatter={(v) => formatCurrency(v)}
+          format="currency"
           emptyMessage="Registre entradas e saídas pra ver o saldo do mês."
         />
         <LineChartCard
@@ -265,7 +265,7 @@ export default async function DashboardPage() {
           palette="orange"
           icon={<EggFried className="h-5 w-5" />}
           emptyMessage="Finalize um lote na chocadeira pra acompanhar a eclosão."
-          formatter={(v) => `${v.toFixed(1)}%`}
+          format="percent"
         />
       </section>
 
@@ -288,7 +288,7 @@ export default async function DashboardPage() {
           palette="violet"
           icon={<Award className="h-5 w-5" />}
           layout="horizontal"
-          formatter={(v) => formatCurrency(v)}
+          format="currency"
           emptyMessage="As vendas da vitrine vão revelar quem rende mais."
         />
         <StackedHorizontalCard
@@ -297,7 +297,7 @@ export default async function DashboardPage() {
           segments={data.charts.expensesByCategory}
           palette="rose"
           icon={<Receipt className="h-5 w-5" />}
-          formatter={(v) => formatCurrency(v)}
+          format="currency"
           emptyMessage="Ainda não há despesas registradas neste mês."
         />
       </section>
@@ -318,7 +318,7 @@ export default async function DashboardPage() {
           palette="indigo"
           icon={<PiggyBank className="h-5 w-5" />}
           emptyMessage="Suas vendas vão construir esta curva ao longo dos meses."
-          formatter={(v) => formatCurrency(v)}
+          format="currency"
         />
       </section>
 

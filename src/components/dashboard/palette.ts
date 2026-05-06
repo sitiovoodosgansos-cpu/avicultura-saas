@@ -19,3 +19,20 @@ export type PaletteKey = keyof typeof CHART_PALETTE;
 export const CATEGORICAL_PALETTE: PaletteKey[] = [
   "emerald", "indigo", "amber", "violet", "sky", "rose", "teal", "orange", "pink", "slate"
 ];
+
+// Flags de formato passadas como string de Server pra Client Components
+// (functions nao podem cruzar a fronteira RSC).
+export type ChartFormat = "currency" | "percent" | "number";
+
+export function formatChartValue(value: number, format?: ChartFormat): string {
+  if (format === "currency") {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      maximumFractionDigits: 0
+    }).format(value);
+  }
+  if (format === "percent") return `${value.toFixed(1)}%`;
+  return String(Math.round(value));
+}
+

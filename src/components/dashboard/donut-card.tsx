@@ -11,6 +11,7 @@ import {
   EmptyChart,
   type PaletteKey
 } from "./_chart-foundation";
+import { formatChartValue, type ChartFormat } from "./palette";
 
 type DonutDatum = { label: string; value: number; palette?: PaletteKey };
 
@@ -23,7 +24,7 @@ type DonutCardProps = {
   centerHint?: string;
   palette: PaletteKey;
   icon: ReactNode;
-  formatter?: (v: number) => string;
+  format?: ChartFormat;
   emptyMessage?: string;
 };
 
@@ -36,9 +37,10 @@ export function DonutCard({
   centerHint,
   palette,
   icon,
-  formatter,
+  format,
   emptyMessage = "Sem dados pra exibir ainda."
 }: DonutCardProps) {
+  const formatter = format ? (v: number) => formatChartValue(v, format) : undefined;
   const isEmpty = data.length === 0 || data.every((d) => !d.value);
 
   // Resolve cor de cada fatia: usa a definida ou cai na sequencia categorica
