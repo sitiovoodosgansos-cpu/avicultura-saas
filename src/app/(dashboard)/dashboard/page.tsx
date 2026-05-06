@@ -1,20 +1,4 @@
 import { redirect } from "next/navigation";
-import {
-  Bird,
-  Egg,
-  Wallet,
-  CalendarDays,
-  TrendingUp,
-  Heart,
-  Sparkles,
-  EggFried,
-  PiggyBank,
-  Users,
-  Stethoscope,
-  Filter,
-  Award,
-  Receipt
-} from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { KpiCard } from "@/components/dashboard/kpi-card";
@@ -41,6 +25,14 @@ function formatCurrency(value: number) {
 function formatPercent(value: number) {
   return `${value.toFixed(2)}%`;
 }
+
+// Emoji wrapper pra usar como icon nos cards (Reactnode). Tamanho um
+// pouco maior que os icones lucide pra ficar bem dentro da bolinha gradient.
+const Emoji = ({ char, className = "" }: { char: string; className?: string }) => (
+  <span className={`text-lg leading-none ${className}`} aria-hidden>
+    {char}
+  </span>
+);
 
 export default async function DashboardPage() {
   const session = await getCurrentSession();
@@ -102,28 +94,28 @@ export default async function DashboardPage() {
         <KpiCard
           title="Aves totais"
           value={String(data.kpis.totalBirds)}
-          icon={<Bird className="h-5 w-5" />}
+          icon={<Emoji char="🐔" />}
           palette="emerald"
           hint={`Ativas: ${data.kpis.activeBirds} | Doentes: ${data.kpis.sickBirds} | Mortas: ${data.kpis.deadBirds}`}
         />
         <KpiCard
           title="Grupos de aves"
           value={String(data.kpis.flockGroups)}
-          icon={<Users className="h-5 w-5" />}
+          icon={<Emoji char="🦚" />}
           palette="indigo"
           hint={`Chocas: ${data.kpis.broodyBirds}`}
         />
         <KpiCard
           title="Ovos coletados hoje"
           value={String(data.kpis.eggsToday)}
-          icon={<Egg className="h-5 w-5" />}
+          icon={<Emoji char="🥚" />}
           palette="amber"
           hint={`Bons: ${data.kpis.goodEggsToday} | Trincados: ${data.kpis.crackedEggsToday} | Taxa bons: ${formatPercent(data.kpis.goodEggRateToday)}`}
         />
         <KpiCard
           title="Financeiro do mês"
           value={formatCurrency(data.kpis.monthNet)}
-          icon={<Wallet className="h-5 w-5" />}
+          icon={<Emoji char="💰" />}
           palette="emerald"
           hint={`Entradas: ${formatCurrency(data.kpis.monthIncome)} | Saídas: ${formatCurrency(data.kpis.monthExpenses)}`}
         />
@@ -133,28 +125,28 @@ export default async function DashboardPage() {
         <KpiCard
           title="Lotes ativos"
           value={String(data.kpis.activeBatches)}
-          icon={<EggFried className="h-5 w-5" />}
+          icon={<Emoji char="🐣" />}
           palette="orange"
           hint={`Taxa eclosão: ${formatPercent(data.kpis.hatchRate)} | Infertilidade: ${formatPercent(data.kpis.infertilityRate)}`}
         />
         <KpiCard
           title="Aves em enfermaria"
           value={String(data.kpis.birdsInInfirmary)}
-          icon={<Stethoscope className="h-5 w-5" />}
+          icon={<Emoji char="💊" />}
           palette="pink"
           hint={`Taxa recuperação: ${formatPercent(data.kpis.recoveryRate)}`}
         />
         <KpiCard
           title="Vendas 7 dias"
           value={`${data.periodSummary.days7.sales} vendas`}
-          icon={<CalendarDays className="h-5 w-5" />}
+          icon={<Emoji char="📅" />}
           palette="sky"
           hint={`${data.periodSummary.days7.itemsSold} itens vendidos | Receita: ${formatCurrency(data.periodSummary.days7.revenue)}`}
         />
         <KpiCard
           title="Vendas 30 / 365 dias"
           value={`${data.periodSummary.days30.sales} / ${data.periodSummary.days365.sales} vendas`}
-          icon={<TrendingUp className="h-5 w-5" />}
+          icon={<Emoji char="📈" />}
           palette="violet"
           hint={`Itens 30d: ${data.periodSummary.days30.itemsSold} | Receita 365d: ${formatCurrency(data.periodSummary.days365.revenue)}`}
         />
@@ -168,7 +160,7 @@ export default async function DashboardPage() {
           title="Composição do plantel"
           subtitle="Como suas aves estão distribuídas"
           palette="emerald"
-          icon={<Bird className="h-5 w-5" />}
+          icon={<Emoji char="🐔" />}
           centerLabel="Total no plantel"
           centerValue={String(
             data.charts.plantelComposition.reduce((s: number, d: { value: number }) => s + d.value, 0)
@@ -185,7 +177,7 @@ export default async function DashboardPage() {
           subtitle="Quanto mais escuro, mais ovos coletados naquele dia"
           data={data.charts.postureHeatmap}
           palette="amber"
-          icon={<Egg className="h-5 w-5" />}
+          icon={<Emoji char="🥚" />}
           days={60}
           emptyMessage="Registre coletas no Coleta pra construir esse calendário."
         />
@@ -197,7 +189,7 @@ export default async function DashboardPage() {
           subtitle="Top 8 grupos por quantidade"
           data={data.charts.topGroups}
           palette="indigo"
-          icon={<Users className="h-5 w-5" />}
+          icon={<Emoji char="🦚" />}
           layout="horizontal"
           emptyMessage="Adicione grupos no Plantel pra ver o ranking de raças."
         />
@@ -205,7 +197,7 @@ export default async function DashboardPage() {
           title="Receita vs Despesa do mês"
           subtitle="Comparativo financeiro mensal"
           palette="emerald"
-          icon={<Wallet className="h-5 w-5" />}
+          icon={<Emoji char="💰" />}
           centerLabel="Resultado"
           centerValue={formatCurrency(data.kpis.monthNet)}
           centerHint={data.kpis.monthNet >= 0 ? "no positivo este mês" : "no negativo este mês"}
@@ -224,7 +216,7 @@ export default async function DashboardPage() {
           subtitle="Produção diária nos últimos 30 dias"
           data={chartEggs}
           palette="amber"
-          icon={<Egg className="h-5 w-5" />}
+          icon={<Emoji char="🥚" />}
           emptyMessage="Registre sua primeira coleta pra ver a curva nascer."
         />
         <LineChartCard
@@ -232,7 +224,7 @@ export default async function DashboardPage() {
           subtitle="Novas aves por mês (últimos 12 meses)"
           data={chartAviaryGrowth}
           palette="emerald"
-          icon={<Bird className="h-5 w-5" />}
+          icon={<Emoji char="🐔" />}
           emptyMessage="As novas aves do plantel vão aparecer aqui mês a mês."
         />
       </section>
@@ -244,7 +236,7 @@ export default async function DashboardPage() {
           value={data.charts.hatchGauge.current}
           previousValue={data.charts.hatchGauge.previous}
           palette="orange"
-          icon={<EggFried className="h-5 w-5" />}
+          icon={<Emoji char="🐣" />}
           hint="Quantos % dos ovos incubados eclodiram"
           emptyMessage="Finalize lotes na chocadeira pra acompanhar a taxa."
         />
@@ -252,7 +244,7 @@ export default async function DashboardPage() {
           title="Resultado dos lotes"
           subtitle="Eclodidos / Inférteis / Perdidos por mês"
           data={data.charts.batchResultsByMonth}
-          icon={<EggFried className="h-5 w-5" />}
+          icon={<Emoji char="🐣" />}
         />
       </section>
 
@@ -262,7 +254,7 @@ export default async function DashboardPage() {
           subtitle="Do ovo eclodido até a venda"
           stages={data.charts.funnelStages}
           palette="indigo"
-          icon={<Filter className="h-5 w-5" />}
+          icon={<Emoji char="🔻" />}
           emptyMessage="Quando houver eclosões e vendas, o funil vai mostrar a conversão."
         />
       </section>
@@ -273,7 +265,7 @@ export default async function DashboardPage() {
           subtitle="Top grupos por valor vendido na vitrine"
           data={data.charts.revenueByGroup}
           palette="violet"
-          icon={<Award className="h-5 w-5" />}
+          icon={<Emoji char="🏆" />}
           layout="horizontal"
           format="currency"
           emptyMessage="As vendas da vitrine vão revelar quem rende mais."
@@ -283,7 +275,7 @@ export default async function DashboardPage() {
           subtitle="Onde o dinheiro está saindo"
           segments={data.charts.expensesByCategory}
           palette="rose"
-          icon={<Receipt className="h-5 w-5" />}
+          icon={<Emoji char="🧾" />}
           format="currency"
           emptyMessage="Ainda não há despesas registradas neste mês."
         />
@@ -295,7 +287,7 @@ export default async function DashboardPage() {
           subtitle="Eclosão por mês (últimos 12 meses)"
           data={chartHatchByMonth}
           palette="orange"
-          icon={<Sparkles className="h-5 w-5" />}
+          icon={<Emoji char="✨" />}
           emptyMessage="Os filhotes que eclodirem vão aparecer aqui."
         />
         <LineChartCard
@@ -303,7 +295,7 @@ export default async function DashboardPage() {
           subtitle="Receita registrada como entrada (últimos 12 meses)"
           data={chartSalesByMonth}
           palette="indigo"
-          icon={<PiggyBank className="h-5 w-5" />}
+          icon={<Emoji char="🛍️" />}
           emptyMessage="Suas vendas vão construir esta curva ao longo dos meses."
           format="currency"
         />
@@ -314,14 +306,14 @@ export default async function DashboardPage() {
           title="Evolução financeira"
           subtitle="Entradas e saídas dos últimos 12 meses"
           data={data.charts.financialEvolution}
-          icon={<Wallet className="h-5 w-5" />}
+          icon={<Emoji char="💰" />}
         />
         <LineChartCard
           title="Evolução da sanidade"
           subtitle="Casos abertos por mês"
           data={chartHealthOpen}
           palette="pink"
-          icon={<Heart className="h-5 w-5" />}
+          icon={<Emoji char="💗" />}
           emptyMessage="Casos da enfermaria vão aparecer aqui — torço pra continuar zerado."
         />
       </section>

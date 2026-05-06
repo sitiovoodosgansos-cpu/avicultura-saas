@@ -557,7 +557,7 @@ export function EggCollectionManager() {
 
       {showDayModal ? (
         <div className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-slate-950/45 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-6 backdrop-blur-sm md:items-center md:p-4">
-          <div className="mt-2 max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-[color:var(--line)] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.25)] md:mt-0">
+          <div className="mt-2 flex max-h-[92vh] w-full max-w-3xl flex-col rounded-[32px] border border-[color:var(--line)] bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.25)] md:mt-0">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Dia selecionado</p>
@@ -574,7 +574,7 @@ export function EggCollectionManager() {
               </Button>
             </div>
 
-            <div className="mt-6 grid gap-4">
+            <div className="mt-6 flex min-h-0 flex-1 flex-col gap-4">
               {error ? (
                 <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
                   <p className="text-sm font-medium text-rose-700">{error}</p>
@@ -598,13 +598,13 @@ export function EggCollectionManager() {
               ) : groups.length === 0 ? (
                 <p className="text-sm text-[color:var(--ink-soft)]">Nenhum grupo cadastrado no plantel.</p>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-[color:var(--line)] bg-white">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[color:var(--line)] bg-white">
                   <div className="grid grid-cols-[minmax(0,1fr)_96px_96px] gap-2 border-b border-[color:var(--line)] bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 sm:grid-cols-[minmax(0,1fr)_120px_120px]">
                     <p>Grupo</p>
                     <p className="text-center">Ovos</p>
                     <p className="text-center">Trincados</p>
                   </div>
-                  <div className="max-h-[52vh] overflow-y-auto">
+                  <div className="min-h-0 flex-1 overflow-y-auto">
                     {groups.map((group) => {
                       const draft = dayDraftByGroup[group.groupId] ?? { totalEggs: 0, crackedEggs: 0 };
                       const totalEggs = Math.max(0, Number(draft.totalEggs) || 0);
