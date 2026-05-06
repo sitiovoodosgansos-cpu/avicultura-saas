@@ -100,27 +100,6 @@ export default async function DashboardPage() {
           palette="emerald"
           hint={`Ativas: ${data.kpis.activeBirds} | Doentes: ${data.kpis.sickBirds} | Mortas: ${data.kpis.deadBirds}`}
         />
-        <KpiCard
-          title="Grupos de aves"
-          value={String(data.kpis.flockGroups)}
-          icon={<Users className="h-5 w-5" />}
-          palette="indigo"
-          hint={`Chocas: ${data.kpis.broodyBirds}`}
-        />
-        <KpiCard
-          title="Ovos coletados hoje"
-          value={String(data.kpis.eggsToday)}
-          icon={<Egg className="h-5 w-5" />}
-          palette="amber"
-          hint={`Bons: ${data.kpis.goodEggsToday} | Trincados: ${data.kpis.crackedEggsToday} | Taxa bons: ${formatPercent(data.kpis.goodEggRateToday)}`}
-        />
-        <KpiCard
-          title="Financeiro do mês"
-          value={formatCurrency(data.kpis.monthNet)}
-          icon={<Wallet className="h-5 w-5" />}
-          palette="emerald"
-          hint={`Entradas: ${formatCurrency(data.kpis.monthIncome)} | Saídas: ${formatCurrency(data.kpis.monthExpenses)}`}
-        />
       </section>
 
       {false && (<>
