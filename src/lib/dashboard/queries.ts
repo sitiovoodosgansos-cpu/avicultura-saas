@@ -190,20 +190,20 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     prisma.bird.count({ where: { tenantId, sex: "FEMALE", status: BirdStatus.ACTIVE, ...birdInVisibleGroupFilter } }),
     prisma.bird.count({ where: { tenantId, sex: "MALE", status: BirdStatus.ACTIVE, ...birdInVisibleGroupFilter } }),
     prisma.eggCollection.aggregate({
-      where: { tenantId, date: { gte: today, lt: tomorrow } },
+      where: { tenantId, date: { gte: today, lt: tomorrow }, flockGroup: visibleGroupFilter },
       _sum: { totalEggs: true, goodEggs: true, crackedEggs: true }
     }),
-    prisma.incubatorBatch.count({ where: { tenantId, status: "ACTIVE" } }),
+    prisma.incubatorBatch.count({ where: { tenantId, status: "ACTIVE", flockGroup: visibleGroupFilter } }),
     prisma.incubatorBatchEvent.findMany({
-      where: { tenantId },
+      where: { tenantId, batch: { flockGroup: visibleGroupFilter } },
       select: { type: true, quantity: true, eventDate: true }
     }),
     prisma.infirmaryCase.count({
-      where: { tenantId, status: InfirmaryCaseStatus.TREATING }
+      where: { tenantId, status: InfirmaryCaseStatus.TREATING, bird: birdInVisibleGroupFilter }
     }),
     prisma.infirmaryCase.groupBy({
       by: ["status"],
-      where: { tenantId },
+      where: { tenantId, bird: birdInVisibleGroupFilter },
       _count: { _all: true }
     }),
     prisma.financialEntry.aggregate({
@@ -215,7 +215,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       _sum: { amount: true }
     }),
     prisma.eggCollection.findMany({
-      where: { tenantId, date: { gte: days30 } },
+      where: { tenantId, date: { gte: days30 }, flockGroup: visibleGroupFilter },
       select: { date: true, totalEggs: true, goodEggs: true }
     }),
     prisma.financialEntry.findMany({
@@ -227,14 +227,19 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       select: { date: true, amount: true }
     }),
     prisma.infirmaryCase.findMany({
-      where: { tenantId, openedAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) } },
+      where: {
+        tenantId,
+        openedAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) },
+        bird: birdInVisibleGroupFilter
+      },
       select: { openedAt: true }
     }),
     prisma.infirmaryCase.findMany({
       where: {
         tenantId,
         status: InfirmaryCaseStatus.CURED,
-        closedAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) }
+        closedAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) },
+        bird: birdInVisibleGroupFilter
       },
       select: { closedAt: true }
     }),
@@ -244,7 +249,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         OR: [
           { acquisitionDate: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) } },
           { createdAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) } }
-        ]
+        ],
+        ...birdInVisibleGroupFilter
       },
       select: { acquisitionDate: true, createdAt: true }
     })

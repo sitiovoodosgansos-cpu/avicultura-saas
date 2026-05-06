@@ -508,6 +508,28 @@ async function cascadeDeleteSingleGroup(
   await tx.flockGroup.delete({ where: { id: groupId } });
 }
 
+// Limpa Chocadas orfas (sem source IncubatorBatch). Chamavel quando o
+// usuario nao tem mais grupo "real" pra deletar e quer apagar dados de
+// chocadas que sobraram de cascades antigos. Retorna o nº deletado.
+export async function cleanupOrphanGroups(tenantId: string): Promise<number> {
+  let deleted = 0;
+  await prisma.$transaction(async (tx) => {
+    const orphans = await tx.flockGroup.findMany({
+      where: {
+        tenantId,
+        title: { startsWith: "Chocada " },
+        vitrineListings: { every: { sourceIncubatorBatchId: null } }
+      },
+      select: { id: true }
+    });
+    for (const orphan of orphans) {
+      await cascadeDeleteSingleGroup(tx, tenantId, orphan.id);
+      deleted++;
+    }
+  });
+  return deleted;
+}
+
 export async function deleteFlockGroup(tenantId: string, id: string) {
   const exists = await prisma.flockGroup.findFirst({ where: { id, tenantId }, select: { id: true } });
   if (!exists) return false;

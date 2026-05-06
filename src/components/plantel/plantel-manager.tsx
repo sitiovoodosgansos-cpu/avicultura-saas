@@ -520,6 +520,29 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             >
               🔍 Filtros
             </Button>
+            <Button
+              type="button"
+              variant="subtle"
+              className="col-span-3 w-full sm:col-span-1 sm:w-auto"
+              onClick={async () => {
+                const ok = window.confirm("Apagar dados de chocadas antigas (filhotes orfaos sem grupo pai)? Nao mexe nos seus grupos atuais.");
+                if (!ok) return;
+                const res = await fetch("/api/plantel/cleanup", { method: "POST" });
+                if (!res.ok) {
+                  setError("Falha ao limpar dados.");
+                  return;
+                }
+                const { deleted } = (await res.json()) as { deleted: number };
+                if (deleted === 0) {
+                  setError("Nenhum dado orfao encontrado.");
+                } else {
+                  setError(null);
+                  await loadData();
+                }
+              }}
+            >
+              🧹 Limpar dados antigos
+            </Button>
           </div>
         </div>
       </Card>
