@@ -394,7 +394,15 @@ export async function getReportData(
     prisma.bird.findMany({
       where: {
         tenantId,
-        acquisitionDate: { gte: period.from, lt: period.to }
+        acquisitionDate: { gte: period.from, lt: period.to },
+        flockGroup: {
+          NOT: {
+            OR: [
+              { title: { startsWith: "Chocada " } },
+              { title: { startsWith: "Recria " } }
+            ]
+          }
+        }
       },
       select: {
         ringNumber: true,

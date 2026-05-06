@@ -478,38 +478,72 @@ export async function updateFlockGroup(
   });
 }
 
+// Cascade manual de UM FlockGroup respeitando todos os Restrict da hierarquia:
+// VitrineSale → VitrineListing → IncubatorBatch → InfirmaryCase/QuarantineCase
+// → FlockGroup (birds, egg collections, price tiers, bird vaccinations cascadeam).
+async function cascadeDeleteSingleGroup(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  groupId: string
+) {
+  const listingIds = (await tx.vitrineListing.findMany({
+    where: { flockGroupId: groupId, tenantId },
+    select: { id: true },
+  })).map(l => l.id);
+  if (listingIds.length > 0) {
+    await tx.vitrineSale.deleteMany({ where: { listingId: { in: listingIds }, tenantId } });
+  }
+  await tx.vitrineListing.deleteMany({ where: { flockGroupId: groupId, tenantId } });
+  await tx.incubatorBatch.deleteMany({ where: { flockGroupId: groupId, tenantId } });
+
+  const birdIds = (await tx.bird.findMany({
+    where: { flockGroupId: groupId, tenantId },
+    select: { id: true },
+  })).map(b => b.id);
+  if (birdIds.length > 0) {
+    await tx.infirmaryCase.deleteMany({ where: { birdId: { in: birdIds }, tenantId } });
+    await tx.quarantineCase.deleteMany({ where: { birdId: { in: birdIds }, tenantId } });
+  }
+
+  await tx.flockGroup.delete({ where: { id: groupId } });
+}
+
 export async function deleteFlockGroup(tenantId: string, id: string) {
   const exists = await prisma.flockGroup.findFirst({ where: { id, tenantId }, select: { id: true } });
   if (!exists) return false;
 
   await prisma.$transaction(async (tx) => {
-    // VitrineSale → Restrict on VitrineListing; delete before listings
-    const listingIds = (await tx.vitrineListing.findMany({
-      where: { flockGroupId: id, tenantId },
-      select: { id: true },
-    })).map(l => l.id);
-    if (listingIds.length > 0) {
-      await tx.vitrineSale.deleteMany({ where: { listingId: { in: listingIds }, tenantId } });
+    // Filhos = grupos Chocada criados a partir de IncubatorBatches deste pai.
+    // Link: VitrineListing.flockGroupId (filho) → sourceIncubatorBatch.flockGroupId (pai).
+    const childListings = await tx.vitrineListing.findMany({
+      where: { tenantId, sourceIncubatorBatch: { flockGroupId: id } },
+      select: { flockGroupId: true }
+    });
+    const childGroupIds = Array.from(new Set(
+      childListings.map(l => l.flockGroupId).filter(gid => gid !== id)
+    ));
+
+    // Filhos primeiro (a IncubatorBatch do pai ainda existe e segura o link).
+    for (const childId of childGroupIds) {
+      await cascadeDeleteSingleGroup(tx, tenantId, childId);
     }
 
-    // VitrineListing → Restrict on FlockGroup (photos + death records cascade)
-    await tx.vitrineListing.deleteMany({ where: { flockGroupId: id, tenantId } });
+    // Pai depois.
+    await cascadeDeleteSingleGroup(tx, tenantId, id);
 
-    // IncubatorBatch → Restrict on FlockGroup (events + sources cascade)
-    await tx.incubatorBatch.deleteMany({ where: { flockGroupId: id, tenantId } });
-
-    // InfirmaryCase + QuarantineCase → Restrict on Bird (which cascades from FlockGroup)
-    const birdIds = (await tx.bird.findMany({
-      where: { flockGroupId: id, tenantId },
-      select: { id: true },
-    })).map(b => b.id);
-    if (birdIds.length > 0) {
-      await tx.infirmaryCase.deleteMany({ where: { birdId: { in: birdIds }, tenantId } });
-      await tx.quarantineCase.deleteMany({ where: { birdId: { in: birdIds }, tenantId } });
+    // Limpa Chocadas orfas (sourceIncubatorBatchId nulo em todas as listings)
+    // que sobraram de deletes anteriores feitos antes deste cascade ser aplicado.
+    const orphanChocadas = await tx.flockGroup.findMany({
+      where: {
+        tenantId,
+        title: { startsWith: "Chocada " },
+        vitrineListings: { every: { sourceIncubatorBatchId: null } }
+      },
+      select: { id: true }
+    });
+    for (const orphan of orphanChocadas) {
+      await cascadeDeleteSingleGroup(tx, tenantId, orphan.id);
     }
-
-    // FlockGroup (birds, egg collections, price tiers, bird vaccinations cascade)
-    await tx.flockGroup.delete({ where: { id } });
   });
 
   return true;

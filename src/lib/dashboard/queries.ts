@@ -1,6 +1,22 @@
 ﻿import { BirdStatus, InfirmaryCaseStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
+// Aplicado em todas as contagens do dashboard pra alinhar com a Plantel:
+// grupos auto-criados de chocada (filhotes) e recria (compra revenda) ficam
+// invisiveis na Plantel e portanto nao devem entrar nos KPIs aqui.
+const visibleGroupFilter = {
+  NOT: {
+    OR: [
+      { title: { startsWith: "Chocada " } },
+      { title: { startsWith: "Recria " } }
+    ]
+  }
+} satisfies Prisma.FlockGroupWhereInput;
+
+const birdInVisibleGroupFilter = {
+  flockGroup: visibleGroupFilter
+} satisfies Prisma.BirdWhereInput;
+
 export type DashboardData = {
   kpis: {
     totalBirds: number;
@@ -159,20 +175,20 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     birdsLast12Rows
   ] = await Promise.all([
     prisma.flockGroup.findMany({
-      where: { tenantId },
+      where: { tenantId, ...visibleGroupFilter },
       select: {
         matrixCount: true,
         reproducerCount: true,
         _count: { select: { birds: true } }
       }
     }),
-    prisma.bird.count({ where: { tenantId, status: BirdStatus.ACTIVE } }),
-    prisma.flockGroup.count({ where: { tenantId } }),
-    prisma.bird.count({ where: { tenantId, status: BirdStatus.SICK } }),
-    prisma.bird.count({ where: { tenantId, status: BirdStatus.DEAD } }),
-    prisma.bird.count({ where: { tenantId, status: BirdStatus.BROODY } }),
-    prisma.bird.count({ where: { tenantId, sex: "FEMALE", status: BirdStatus.ACTIVE } }),
-    prisma.bird.count({ where: { tenantId, sex: "MALE", status: BirdStatus.ACTIVE } }),
+    prisma.bird.count({ where: { tenantId, status: BirdStatus.ACTIVE, ...birdInVisibleGroupFilter } }),
+    prisma.flockGroup.count({ where: { tenantId, ...visibleGroupFilter } }),
+    prisma.bird.count({ where: { tenantId, status: BirdStatus.SICK, ...birdInVisibleGroupFilter } }),
+    prisma.bird.count({ where: { tenantId, status: BirdStatus.DEAD, ...birdInVisibleGroupFilter } }),
+    prisma.bird.count({ where: { tenantId, status: BirdStatus.BROODY, ...birdInVisibleGroupFilter } }),
+    prisma.bird.count({ where: { tenantId, sex: "FEMALE", status: BirdStatus.ACTIVE, ...birdInVisibleGroupFilter } }),
+    prisma.bird.count({ where: { tenantId, sex: "MALE", status: BirdStatus.ACTIVE, ...birdInVisibleGroupFilter } }),
     prisma.eggCollection.aggregate({
       where: { tenantId, date: { gte: today, lt: tomorrow } },
       _sum: { totalEggs: true, goodEggs: true, crackedEggs: true }
