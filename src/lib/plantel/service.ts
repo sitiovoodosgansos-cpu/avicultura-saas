@@ -482,7 +482,36 @@ export async function deleteFlockGroup(tenantId: string, id: string) {
   const exists = await prisma.flockGroup.findFirst({ where: { id, tenantId }, select: { id: true } });
   if (!exists) return false;
 
-  await prisma.flockGroup.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    // VitrineSale → Restrict on VitrineListing; delete before listings
+    const listingIds = (await tx.vitrineListing.findMany({
+      where: { flockGroupId: id, tenantId },
+      select: { id: true },
+    })).map(l => l.id);
+    if (listingIds.length > 0) {
+      await tx.vitrineSale.deleteMany({ where: { listingId: { in: listingIds }, tenantId } });
+    }
+
+    // VitrineListing → Restrict on FlockGroup (photos + death records cascade)
+    await tx.vitrineListing.deleteMany({ where: { flockGroupId: id, tenantId } });
+
+    // IncubatorBatch → Restrict on FlockGroup (events + sources cascade)
+    await tx.incubatorBatch.deleteMany({ where: { flockGroupId: id, tenantId } });
+
+    // InfirmaryCase + QuarantineCase → Restrict on Bird (which cascades from FlockGroup)
+    const birdIds = (await tx.bird.findMany({
+      where: { flockGroupId: id, tenantId },
+      select: { id: true },
+    })).map(b => b.id);
+    if (birdIds.length > 0) {
+      await tx.infirmaryCase.deleteMany({ where: { birdId: { in: birdIds }, tenantId } });
+      await tx.quarantineCase.deleteMany({ where: { birdId: { in: birdIds }, tenantId } });
+    }
+
+    // FlockGroup (birds, egg collections, price tiers, bird vaccinations cascade)
+    await tx.flockGroup.delete({ where: { id } });
+  });
+
   return true;
 }
 

@@ -36,12 +36,15 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const deleted = await deleteFlockGroup(auth.session.user.tenantId, id);
-  if (!deleted) {
-    return NextResponse.json({ error: "Grupo não encontrado." }, { status: 404 });
+  try {
+    const deleted = await deleteFlockGroup(auth.session.user.tenantId, id);
+    if (!deleted) {
+      return NextResponse.json({ error: "Grupo não encontrado." }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Nao foi possivel excluir o grupo." }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true });
 }
 
 
