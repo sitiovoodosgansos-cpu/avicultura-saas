@@ -43,10 +43,14 @@ export function FunnelCard({
   icon,
   emptyMessage = "Sem dados pra montar o funil ainda."
 }: FunnelCardProps) {
-  const isEmpty = stages.length === 0 || stages.every((s) => !s.value);
+  // Recharts FunnelChart pode comportar mal com stages de valor 0.
+  // Filtra antes de renderizar o chart (mas mantem na lista lateral
+  // pra o usuario ver "0 vivos" / "0 vendidos" e contextualizar).
+  const visibleStages = stages.filter((s) => s.value > 0);
+  const isEmpty = visibleStages.length === 0;
 
   // Cada stage recebe cor: usa a definida ou a cor da posicao na sequencia
-  const sliced = stages.map((s, i) => {
+  const sliced = visibleStages.map((s, i) => {
     const p = s.palette ?? DEFAULT_FUNNEL_PALETTES[i % DEFAULT_FUNNEL_PALETTES.length];
     return {
       ...s,

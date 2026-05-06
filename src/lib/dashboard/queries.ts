@@ -689,7 +689,8 @@ function decimalToNumber(v: { toNumber: () => number } | number | null | undefin
 export async function getDashboardDataSafe(tenantId: string): Promise<DashboardData> {
   try {
     return await getDashboardData(tenantId);
-  } catch {
+  } catch (err) {
+    console.error("[dashboard.queries.getDashboardData] failed:", err);
     return {
       kpis: {
         totalBirds: 0,

@@ -66,7 +66,13 @@ export default async function DashboardPage() {
     redirect("/perfil?billing=required");
   }
 
-  const data = await getDashboardDataSafe(tenantId);
+  let data;
+  try {
+    data = await getDashboardDataSafe(tenantId);
+  } catch (err) {
+    console.error("[dashboard] getDashboardDataSafe threw:", err);
+    throw err;
+  }
 
   const chartEggs = data.charts.eggCollection.map((row) => ({ label: row.label, value: row.total }));
   const chartAviaryGrowth = data.charts.aviaryGrowth.map((row) => ({
