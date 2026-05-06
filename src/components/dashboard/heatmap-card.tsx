@@ -80,20 +80,19 @@ export function HeatmapCard({
         {isEmpty ? (
           <EmptyChart icon={icon} message={emptyMessage} />
         ) : (
-          <div className="flex h-full flex-col">
+          <div className="ornabird-heatmap flex h-full flex-col">
             <style>{`
-              :root {
-                --heatmap-c1: ${c.from};
-                --heatmap-c2: ${c.to};
-              }
-              .react-calendar-heatmap text { font-size: 8px; fill: #94a3b8; }
-              .react-calendar-heatmap rect { rx: 2; ry: 2; }
-              .react-calendar-heatmap .heatmap-l1 { fill: ${hexAlpha(c.accent, 0.18)}; }
-              .react-calendar-heatmap .heatmap-l2 { fill: ${hexAlpha(c.accent, 0.36)}; }
-              .react-calendar-heatmap .heatmap-l3 { fill: ${hexAlpha(c.accent, 0.55)}; }
-              .react-calendar-heatmap .heatmap-l4 { fill: ${hexAlpha(c.accent, 0.78)}; }
-              .react-calendar-heatmap .heatmap-l5 { fill: ${c.accent}; }
-              .react-calendar-heatmap .fill-slate-100 { fill: #f1f5f9; }
+              .ornabird-heatmap .react-calendar-heatmap { font-family: inherit; }
+              .ornabird-heatmap .react-calendar-heatmap text { font-size: 6px !important; fill: #94a3b8 !important; }
+              .ornabird-heatmap .react-calendar-heatmap .react-calendar-heatmap-month-label { font-size: 7px !important; fill: #64748b !important; font-weight: 600 !important; }
+              .ornabird-heatmap .react-calendar-heatmap .react-calendar-heatmap-weekday-label { font-size: 6px !important; fill: #94a3b8 !important; }
+              .ornabird-heatmap .react-calendar-heatmap rect { rx: 2; ry: 2; stroke: #ffffff; stroke-width: 1; }
+              .ornabird-heatmap .react-calendar-heatmap .heatmap-l1 { fill: ${hexAlpha(c.accent, 0.18)} !important; }
+              .ornabird-heatmap .react-calendar-heatmap .heatmap-l2 { fill: ${hexAlpha(c.accent, 0.36)} !important; }
+              .ornabird-heatmap .react-calendar-heatmap .heatmap-l3 { fill: ${hexAlpha(c.accent, 0.55)} !important; }
+              .ornabird-heatmap .react-calendar-heatmap .heatmap-l4 { fill: ${hexAlpha(c.accent, 0.78)} !important; }
+              .ornabird-heatmap .react-calendar-heatmap .heatmap-l5 { fill: ${c.accent} !important; }
+              .ornabird-heatmap .react-calendar-heatmap .fill-slate-100 { fill: #f1f5f9 !important; }
             `}</style>
             <div className="flex-1">
               <CalendarHeatmap
