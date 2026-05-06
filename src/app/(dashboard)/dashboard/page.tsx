@@ -92,6 +92,11 @@ export default async function DashboardPage() {
         icon="🏠"
       />
 
+      <Card>
+        <p className="text-sm">DEBUG: dashboard renderizando OK ate aqui. data.kpis.totalBirds = {data.kpis.totalBirds}</p>
+      </Card>
+
+      {false && (<>
       {data.warning ? (
         <Card>
           <p className="text-sm text-amber-700">{data.warning}</p>
@@ -159,6 +164,7 @@ export default async function DashboardPage() {
           hint={`Resultado 30d: ${formatCurrency(data.periodSummary.days30.net)} | 365d: ${formatCurrency(data.periodSummary.days365.net)}`}
         />
       </section>
+      </>)}
 
       {/* === DEBUG BISECT: false esconde tudo abaixo (charts novos) === */}
       {false && (<>
