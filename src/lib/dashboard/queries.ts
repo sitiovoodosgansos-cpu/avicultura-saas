@@ -53,6 +53,8 @@ export type DashboardData = {
     healthEvolution: Array<{ label: string; openCases: number; curedCases: number }>;
     hatchByMonth: Array<{ label: string; born: number }>;
     salesByMonth: Array<{ label: string; total: number }>;
+    plantelComposition: Array<{ label: string; value: number }>;
+    topGroups: Array<{ label: string; value: number }>;
   };
   warning?: string;
 };
@@ -172,11 +174,14 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     expensesLast12,
     healthOpenLast12,
     healthCuredLast12,
-    birdsLast12Rows
+    birdsLast12Rows,
+    filhotesAlive
   ] = await Promise.all([
     prisma.flockGroup.findMany({
       where: { tenantId, ...visibleGroupFilter },
       select: {
+        id: true,
+        title: true,
         matrixCount: true,
         reproducerCount: true,
         _count: { select: { birds: true } }
@@ -253,6 +258,14 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         ...birdInVisibleGroupFilter
       },
       select: { acquisitionDate: true, createdAt: true }
+    }),
+    // Filhotes vivos: aves em grupos Chocada (auto-criados de eclosao)
+    prisma.bird.count({
+      where: {
+        tenantId,
+        status: { not: BirdStatus.DEAD },
+        flockGroup: { title: { startsWith: "Chocada " } }
+      }
     })
   ]);
 
@@ -446,9 +459,39 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       financialEvolution,
       healthEvolution,
       hatchByMonth,
-      salesByMonth
+      salesByMonth,
+      plantelComposition: buildPlantelComposition(flockGroupsForTotal, filhotesAlive),
+      topGroups: buildTopGroups(flockGroupsForTotal)
     }
   };
+}
+
+function buildPlantelComposition(
+  groups: Array<{ matrixCount: number; reproducerCount: number; _count: { birds: number } }>,
+  filhotesAlive: number
+): Array<{ label: string; value: number }> {
+  const matrizes = groups.reduce((s, g) => s + g.matrixCount, 0);
+  const reprodutores = groups.reduce((s, g) => s + g.reproducerCount, 0);
+  const totalBirdsInGroups = groups.reduce((s, g) => s + g._count.birds, 0);
+  const outrosNoGrupo = Math.max(0, totalBirdsInGroups - matrizes - reprodutores);
+  return [
+    { label: "Matrizes", value: matrizes },
+    { label: "Reprodutores", value: reprodutores },
+    { label: "Filhotes", value: filhotesAlive + outrosNoGrupo }
+  ];
+}
+
+function buildTopGroups(
+  groups: Array<{ id: string; title: string; matrixCount: number; reproducerCount: number; _count: { birds: number } }>
+): Array<{ label: string; value: number }> {
+  return groups
+    .map((g) => ({
+      label: g.title,
+      value: Math.max(g._count.birds, g.matrixCount + g.reproducerCount)
+    }))
+    .filter((g) => g.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
 }
 
 export async function getDashboardDataSafe(tenantId: string): Promise<DashboardData> {
@@ -490,7 +533,9 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
         financialEvolution: [],
         healthEvolution: [],
         hatchByMonth: [],
-        salesByMonth: []
+        salesByMonth: [],
+        plantelComposition: [],
+        topGroups: []
       },
       warning: "Não foi possível carregar dados do banco. Verifique a conexão com PostgreSQL."
     };

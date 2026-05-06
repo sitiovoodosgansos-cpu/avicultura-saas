@@ -17,6 +17,8 @@ import { Card } from "@/components/ui/card";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { LineChartCard } from "@/components/dashboard/line-chart-card";
 import { StackedBarsCard } from "@/components/dashboard/stacked-bars-card";
+import { DonutCard } from "@/components/dashboard/donut-card";
+import { BarCard } from "@/components/dashboard/bar-card";
 import { getCurrentSession } from "@/lib/auth/session";
 import { getTenantBilling } from "@/lib/billing/service";
 import { getDashboardDataSafe } from "@/lib/dashboard/queries";
@@ -145,6 +147,50 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
+        <DonutCard
+          title="Composição do plantel"
+          subtitle="Como suas aves estão distribuídas"
+          palette="emerald"
+          icon={<Bird className="h-5 w-5" />}
+          centerLabel="Total no plantel"
+          centerValue={String(
+            data.charts.plantelComposition.reduce((s, d) => s + d.value, 0)
+          )}
+          centerHint="aves vivas"
+          data={[
+            { ...data.charts.plantelComposition[0], palette: "emerald" as const },
+            { ...data.charts.plantelComposition[1], palette: "indigo" as const },
+            { ...data.charts.plantelComposition[2], palette: "amber" as const }
+          ].filter((d) => d && typeof d.value === "number")}
+          emptyMessage="Cadastre matrizes e reprodutores no Plantel pra ver a composição."
+        />
+        <BarCard
+          title="Aves por raça"
+          subtitle="Top 8 grupos por quantidade"
+          data={data.charts.topGroups}
+          palette="indigo"
+          icon={<Users className="h-5 w-5" />}
+          layout="horizontal"
+          emptyMessage="Adicione grupos no Plantel pra ver o ranking de raças."
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <DonutCard
+          title="Receita vs Despesa do mês"
+          subtitle="Comparativo financeiro mensal"
+          palette="emerald"
+          icon={<Wallet className="h-5 w-5" />}
+          centerLabel="Resultado"
+          centerValue={formatCurrency(data.kpis.monthNet)}
+          centerHint={data.kpis.monthNet >= 0 ? "no positivo este mês" : "no negativo este mês"}
+          data={[
+            { label: "Receita", value: data.kpis.monthIncome, palette: "emerald" as const },
+            { label: "Despesa", value: data.kpis.monthExpenses, palette: "rose" as const }
+          ]}
+          formatter={(v) => formatCurrency(v)}
+          emptyMessage="Registre entradas e saídas pra ver o saldo do mês."
+        />
         <LineChartCard
           title="Evolução da coleta de ovos"
           subtitle="Produção diária nos últimos 30 dias"
@@ -153,6 +199,9 @@ export default async function DashboardPage() {
           icon={<Egg className="h-5 w-5" />}
           emptyMessage="Registre sua primeira coleta pra ver a curva nascer."
         />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
         <LineChartCard
           title="Evolução do criatório"
           subtitle="Novas aves por mês (últimos 12 meses)"
@@ -161,9 +210,6 @@ export default async function DashboardPage() {
           icon={<Bird className="h-5 w-5" />}
           emptyMessage="As novas aves do plantel vão aparecer aqui mês a mês."
         />
-      </section>
-
-      <section className="grid gap-4 xl:grid-cols-2">
         <LineChartCard
           title="Desempenho das chocadeiras"
           subtitle="Taxa de eclosão no período"
@@ -172,12 +218,6 @@ export default async function DashboardPage() {
           icon={<EggFried className="h-5 w-5" />}
           emptyMessage="Finalize um lote na chocadeira pra acompanhar a eclosão."
           formatter={(v) => `${v.toFixed(1)}%`}
-        />
-        <StackedBarsCard
-          title="Evolução financeira"
-          subtitle="Entradas e saídas dos últimos 12 meses"
-          data={data.charts.financialEvolution}
-          icon={<Wallet className="h-5 w-5" />}
         />
       </section>
 
@@ -202,6 +242,12 @@ export default async function DashboardPage() {
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">
+        <StackedBarsCard
+          title="Evolução financeira"
+          subtitle="Entradas e saídas dos últimos 12 meses"
+          data={data.charts.financialEvolution}
+          icon={<Wallet className="h-5 w-5" />}
+        />
         <LineChartCard
           title="Evolução da sanidade"
           subtitle="Casos abertos por mês"
@@ -210,10 +256,13 @@ export default async function DashboardPage() {
           icon={<Heart className="h-5 w-5" />}
           emptyMessage="Casos da enfermaria vão aparecer aqui — torço pra continuar zerado."
         />
+      </section>
+
+      <section>
         <Card>
           <h3 className="text-base font-semibold tracking-tight text-slate-900">Resumo operacional</h3>
           <p className="mt-1 text-xs text-slate-500">Visão rápida para tomada de decisão.</p>
-          <div className="mt-4 grid gap-3 text-sm text-slate-700">
+          <div className="mt-4 grid gap-3 text-sm text-slate-700 md:grid-cols-3">
             <p>Últimos 7 dias: <span className="font-semibold tabular-nums">{data.periodSummary.days7.eggs}</span> ovos coletados.</p>
             <p>Últimos 30 dias: <span className="font-semibold tabular-nums">{data.periodSummary.days30.healthCases}</span> casos de sanidade registrados.</p>
             <p>Últimos 365 dias: resultado financeiro de <span className="font-semibold tabular-nums">{formatCurrency(data.periodSummary.days365.net)}</span>.</p>
