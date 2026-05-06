@@ -92,17 +92,6 @@ export default async function DashboardPage() {
         icon="🏠"
       />
 
-      <Card>
-        <p className="text-sm">DEBUG: dashboard renderizando OK ate aqui. data.kpis.totalBirds = {data.kpis.totalBirds}</p>
-      </Card>
-
-      {false && (<>
-      {data.warning ? (
-        <Card>
-          <p className="text-sm text-amber-700">{data.warning}</p>
-        </Card>
-      ) : null}
-
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <KpiCard
           title="Aves totais"
@@ -134,6 +123,7 @@ export default async function DashboardPage() {
         />
       </section>
 
+      {false && (<>
       <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
         <KpiCard
           title="Lotes ativos"
