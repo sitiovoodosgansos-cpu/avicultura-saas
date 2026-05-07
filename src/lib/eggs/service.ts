@@ -245,7 +245,7 @@ export async function getEggMetrics(tenantId: string) {
   const days30 = addDays(today, -29);
   const days365 = addDays(today, -364);
 
-  const [groups, rows365, rows30] = await Promise.all([
+  const [groups, rows365, rows30, matrixCounts] = await Promise.all([
     prisma.flockGroup.findMany({
       where: {
         tenantId,
@@ -259,7 +259,6 @@ export async function getEggMetrics(tenantId: string) {
       select: {
         id: true,
         title: true,
-        matrixCount: true,
         expectedLayCapacity: true,
         species: { select: { name: true } },
         breed: { select: { name: true } },
@@ -280,8 +279,21 @@ export async function getEggMetrics(tenantId: string) {
     prisma.eggCollection.findMany({
       where: { tenantId, date: { gte: days30 } },
       select: { date: true, flockGroupId: true, totalEggs: true }
+    }),
+    // Conta as fêmeas ativas reais por grupo (FEMALE + ACTIVE) — antes
+    // estavamos usando flockGroup.matrixCount (campo de config) que ficava
+    // em 0 e travava a barra de progresso da meta.
+    prisma.bird.groupBy({
+      by: ["flockGroupId"],
+      where: { tenantId, sex: "FEMALE", status: "ACTIVE" },
+      _count: { _all: true }
     })
   ]);
+
+  const matrixCountByGroup = new Map<string, number>();
+  for (const row of matrixCounts) {
+    matrixCountByGroup.set(row.flockGroupId, row._count._all);
+  }
 
   const calendarMap = new Map<string, { total: number; good: number; cracked: number }>();
   for (const row of rows365) {
@@ -358,8 +370,9 @@ export async function getEggMetrics(tenantId: string) {
     const averageWeekly = Number((averageDaily * 7).toFixed(2));
     const averageMonthly = Number((averageDaily * 30).toFixed(2));
 
+    const matrixCount = matrixCountByGroup.get(group.id) ?? 0;
     const expectedPerMatrixAnnual = group.expectedLayCapacity ? Number(group.expectedLayCapacity) : 0;
-    const expectedGroupAnnual = Number((expectedPerMatrixAnnual * group.matrixCount).toFixed(2));
+    const expectedGroupAnnual = Number((expectedPerMatrixAnnual * matrixCount).toFixed(2));
     const progress = expectedGroupAnnual > 0 ? Number(((bucket.eggs365 / expectedGroupAnnual) * 100).toFixed(2)) : 0;
 
     let performance: "below" | "on_track" | "above" = "on_track";
@@ -372,7 +385,7 @@ export async function getEggMetrics(tenantId: string) {
       species: group.species.name,
       breed: group.breed.name,
       variety: group.variety?.name ?? null,
-      matrixCount: group.matrixCount,
+      matrixCount,
       expectedLayCapacity: expectedPerMatrixAnnual,
       expectedGroupAnnual,
       eggs7: bucket.eggs7,
