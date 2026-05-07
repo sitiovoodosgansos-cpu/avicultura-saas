@@ -591,14 +591,26 @@ function buildTopGroups(
     .slice(0, 8);
 }
 
+// YYYY-MM-DD em America/Sao_Paulo (independente do TZ do servidor).
+// Usado pra agrupar coletas/eventos por dia respeitando o fuso do Brasil.
+const brasilDateFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+});
+function brasilDateKey(d: Date): string {
+  return brasilDateFmt.format(d);
+}
+
 function buildPostureHeatmap(
   eggs: Array<{ date: Date; totalEggs: number }>
 ): Array<{ date: string; value: number }> {
-  // Agrupa por dia (YYYY-MM-DD) somando todas as coletas daquele dia.
+  // Agrupa por dia em horario de Brasilia (evita off-by-one quando
+  // a coleta foi salva perto da meia-noite e o servidor estava em UTC).
   const byDay = new Map<string, number>();
   for (const row of eggs) {
-    const d = row.date;
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const key = brasilDateKey(row.date);
     byDay.set(key, (byDay.get(key) ?? 0) + row.totalEggs);
   }
   return Array.from(byDay.entries()).map(([date, value]) => ({ date, value }));

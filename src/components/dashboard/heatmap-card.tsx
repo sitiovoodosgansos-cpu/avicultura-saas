@@ -24,6 +24,18 @@ type HeatmapCardProps = {
 const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
+// YYYY-MM-DD em horario de Brasilia. Mantem chaves de data
+// consistentes entre server (queries.ts) e client.
+const brasilDateFmt = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit"
+});
+function brasilDateKey(d: Date): string {
+  return brasilDateFmt.format(d);
+}
+
 export function HeatmapCard({
   title,
   subtitle,
@@ -230,7 +242,7 @@ function HeatmapGrid({
               />
             );
           }
-          const key = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+          const key = brasilDateKey(day);
           const value = byDay.get(key) ?? 0;
           const dateLabel = day.toLocaleDateString("pt-BR");
           return (
