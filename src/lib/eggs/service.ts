@@ -137,6 +137,33 @@ export async function updateEggCollection(
     }
   });
 
+  // Sincroniza a bandeja correspondente: se o usuario corrigiu o numero
+  // de ovos coletados, o initialCount na prateleira tambem precisa
+  // refletir. So mexe se nao tiver consumido nada (vendido/transferido/
+  // descartado) — nesse caso assume que ainda da pra reescrever.
+  const trayEntry = await prisma.eggTrayEntry.findFirst({
+    where: { eggCollectionId: id, tenantId }
+  });
+  if (trayEntry) {
+    const consumed = trayEntry.soldCount + trayEntry.transferredCount + trayEntry.discardedCount;
+    if (consumed === 0) {
+      if (goodEggs === 0) {
+        // Coleta sem ovos bons agora -> bandeja vazia, deleta
+        await prisma.eggTrayEntry.delete({ where: { id: trayEntry.id } });
+      } else {
+        await prisma.eggTrayEntry.update({
+          where: { id: trayEntry.id },
+          data: { initialCount: goodEggs, entryDate: new Date(`${input.date}T12:00:00`) }
+        });
+      }
+    }
+    // Se consumed > 0, mantem a bandeja como esta — o usuario teria
+    // que reverter as acoes na prateleira pra mexer na quantidade.
+  } else if (goodEggs > 0) {
+    // Coleta nao tinha bandeja (talvez goodEggs era 0 antes) e agora tem.
+    await createTrayEntryFromCollection(tenantId, id, input.flockGroupId, updated.date, goodEggs);
+  }
+
   await prisma.auditLog.create({
     data: {
       tenantId,
@@ -161,10 +188,31 @@ export async function updateEggCollection(
 }
 
 export async function deleteEggCollection(tenantId: string, userId: string | null, id: string) {
-  const existing = await prisma.eggCollection.findFirst({ where: { id, tenantId } });
+  const existing = await prisma.eggCollection.findFirst({
+    where: { id, tenantId },
+    include: { trayEntry: true }
+  });
   if (!existing) return false;
 
-  await prisma.eggCollection.delete({ where: { id } });
+  // Se ja teve venda/transferencia/descarte na bandeja gerada por essa
+  // coleta, nao da pra deletar a entry sem corromper EggSaleItem (Restrict)
+  // ou perder historico. Nesse caso bloqueia a delecao da coleta e pede
+  // pro usuario lidar com a bandeja antes.
+  const entry = existing.trayEntry;
+  if (entry && (entry.soldCount > 0 || entry.transferredCount > 0 || entry.discardedCount > 0)) {
+    return {
+      ok: false as const,
+      reason: "BLOCKED_BY_TRAY_ACTIVITY" as const,
+      message: "Esta coleta ja tem ovos vendidos/enviados/descartados na prateleira. Reverta as acoes na prateleira antes de excluir a coleta."
+    };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (entry) {
+      await tx.eggTrayEntry.delete({ where: { id: entry.id } });
+    }
+    await tx.eggCollection.delete({ where: { id } });
+  });
 
   await prisma.auditLog.create({
     data: {
@@ -172,7 +220,8 @@ export async function deleteEggCollection(tenantId: string, userId: string | nul
       userId: userId ?? undefined,
       action: "EGG_COLLECTION_DELETE",
       entity: "EggCollection",
-      entityId: id
+      entityId: id,
+      after: { trayEntryDeleted: Boolean(entry) }
     }
   });
 

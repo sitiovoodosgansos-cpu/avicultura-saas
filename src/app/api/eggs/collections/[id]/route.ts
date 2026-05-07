@@ -42,9 +42,12 @@ export async function DELETE(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const deleted = await deleteEggCollection(auth.session.user.tenantId, auth.session.user.id, id);
-  if (!deleted) {
+  const result = await deleteEggCollection(auth.session.user.tenantId, auth.session.user.id, id);
+  if (result === false) {
     return NextResponse.json({ error: "Registro não encontrado." }, { status: 404 });
+  }
+  if (typeof result === "object" && result.ok === false) {
+    return NextResponse.json({ error: result.message }, { status: 409 });
   }
 
   return NextResponse.json({ ok: true });

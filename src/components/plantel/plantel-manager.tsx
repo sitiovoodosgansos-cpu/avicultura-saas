@@ -851,6 +851,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           return `${expandedFilterLabel[expandedFilter]} — ${g.title}`;
         })()}
         onClose={() => setExpandedGroupId(null)}
+        zIndex={80}
       >
         {(() => {
           const g = groups.find((x) => x.id === expandedGroupId);
