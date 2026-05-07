@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { FlockGroupCard } from "@/components/vitrine/flock-group-card";
 import {
   ListingFormModal,
@@ -40,6 +41,10 @@ export function VitrineManager() {
   const [deathError, setDeathError] = useState<string | null>(null);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+
+  // Filtros: busca livre + dropdown de grupo (mesmo padrao da Prateleira).
+  const [searchQuery, setSearchQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -261,6 +266,37 @@ export function VitrineManager() {
     return [...map.values()].sort((a, b) => a.group.title.localeCompare(b.group.title));
   }, [data]);
 
+  // Aplica busca + filtro de grupo nos cards visiveis. Mantem `summary` e
+  // contadores no panorama (todos os anuncios) e so filtra a grade.
+  const visibleGrouped = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return grouped.filter(({ group }) => {
+      if (groupFilter && group.id !== groupFilter) return false;
+      if (!q) return true;
+      const haystack = [
+        group.title,
+        group.species?.name,
+        group.breed?.name,
+        group.variety?.name
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [grouped, searchQuery, groupFilter]);
+
+  // Lista do dropdown: prefere grupos que ja tem anuncio (vem do `grouped`),
+  // depois completa com o catalogo do plantel pra possibilitar pre-filtro.
+  const dropdownGroups = useMemo(() => {
+    const merged = new Map<string, string>();
+    for (const g of grouped) merged.set(g.group.id, g.group.title);
+    for (const g of data?.flockGroups ?? []) if (!merged.has(g.id)) merged.set(g.id, g.title);
+    return Array.from(merged, ([id, title]) => ({ id, title })).sort((a, b) =>
+      a.title.localeCompare(b.title, "pt-BR")
+    );
+  }, [grouped, data]);
+
   return (
     <div className="grid gap-4">
       <PageTitle
@@ -339,8 +375,62 @@ export function VitrineManager() {
         </Card>
       ) : null}
 
+      {!loading && data && grouped.length > 0 ? (
+        <Card className="bg-white/90">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="flex-1">
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="🔎 Buscar por raça, espécie ou variedade..."
+              />
+            </div>
+            <div className="md:w-72">
+              <select
+                value={groupFilter}
+                onChange={(event) => setGroupFilter(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-[color:var(--line)] bg-white px-3 text-sm text-zinc-700 shadow-sm focus:border-[color:var(--brand)] focus:outline-none"
+              >
+                <option value="">Todos os grupos</option>
+                {dropdownGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {searchQuery || groupFilter ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setGroupFilter("");
+                }}
+                className="rounded-2xl border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-50"
+              >
+                Limpar
+              </button>
+            ) : null}
+          </div>
+          {searchQuery || groupFilter ? (
+            <p className="mt-3 text-xs text-zinc-500">
+              Mostrando <span className="font-semibold text-zinc-800">{visibleGrouped.length}</span> de{" "}
+              {grouped.length} grupos.
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {!loading && grouped.length > 0 && visibleGrouped.length === 0 ? (
+        <Card>
+          <p className="text-sm text-slate-600">
+            Nenhum grupo casa com esse filtro. Ajuste a busca ou escolha outro grupo no dropdown.
+          </p>
+        </Card>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {grouped.map(({ group, listings }) => (
+        {visibleGrouped.map(({ group, listings }) => (
           <FlockGroupCard
             key={group.id}
             group={group}
