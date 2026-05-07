@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateEmployee, createEmployeeSession, getEmployeeRedirectPath } from "@/lib/employees/auth";
+import {
+  authenticateEmployee,
+  buildEmployeeSessionCookieOptions,
+  createEmployeeSession,
+  EMPLOYEE_SESSION_COOKIE,
+  getEmployeeRedirectPath
+} from "@/lib/employees/auth";
 import { getTenantBilling } from "@/lib/billing/service";
 import { getClientIp, rateLimit } from "@/lib/security/rate-limit";
 import { employeeLoginSchema } from "@/lib/validators/employees";
@@ -57,7 +63,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await createEmployeeSession(employee.id, employee.tenantId);
+  const { token } = await createEmployeeSession(employee.id, employee.tenantId);
 
-  return NextResponse.json({ ok: true, redirectTo: getEmployeeRedirectPath(employee) });
+  // Anexa o cookie diretamente na resposta — modo mais confiavel em
+  // todos runtimes do Next 16; cookies().set() em route handler era
+  // intermitente em prod e o usuario era deslogado no refresh.
+  const response = NextResponse.json({
+    ok: true,
+    redirectTo: getEmployeeRedirectPath(employee)
+  });
+  response.cookies.set(EMPLOYEE_SESSION_COOKIE, token, buildEmployeeSessionCookieOptions());
+  return response;
 }
