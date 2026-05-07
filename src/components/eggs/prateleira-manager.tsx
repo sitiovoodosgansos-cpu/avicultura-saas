@@ -154,6 +154,11 @@ export function PrateleiraManager() {
 
   const [discardNotes, setDiscardNotes] = useState("");
 
+  // Filtros: busca livre por nome do grupo/raca + dropdown com grupo especifico.
+  // groupFilter "" = todos.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
+
   const [externalForm, setExternalForm] = useState({
     flockGroupId: "",
     speciesLabel: "",
@@ -207,6 +212,42 @@ export function PrateleiraManager() {
       expired
     };
   }, [trays]);
+
+  // Aplica busca + filtro de grupo nas bandejas. Mantemos summary nos numeros
+  // totais (panorama da prateleira) e so filtramos a grade visivel.
+  const visibleTrays = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return trays.filter((tray) => {
+      if (groupFilter && tray.flockGroupId !== groupFilter) return false;
+      if (!q) return true;
+      const haystack = [
+        tray.flockGroupTitle,
+        tray.speciesLabel,
+        tray.breedLabel,
+        tray.varietyLabel
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [trays, searchQuery, groupFilter]);
+
+  // Lista de grupos pro dropdown: prefere os que ja tem bandeja na prateleira
+  // (ordenado), com fallback pros demais cadastrados pra possibilitar pre-filtro
+  // mesmo sem bandeja ainda.
+  const dropdownGroups = useMemo(() => {
+    const fromTrays = new Map<string, string>();
+    for (const t of trays) {
+      if (t.flockGroupId && t.flockGroupTitle) fromTrays.set(t.flockGroupId, t.flockGroupTitle);
+    }
+    const fromCatalog = flockGroups.map((g) => ({ id: g.id, title: g.title }));
+    const merged = new Map<string, string>(fromTrays);
+    for (const g of fromCatalog) if (!merged.has(g.id)) merged.set(g.id, g.title);
+    return Array.from(merged, ([id, title]) => ({ id, title })).sort((a, b) =>
+      a.title.localeCompare(b.title, "pt-BR")
+    );
+  }, [trays, flockGroups]);
 
   const saleSubtotal = useMemo(() => {
     if (selectionMode !== "sale") return 0;
@@ -503,8 +544,62 @@ export function PrateleiraManager() {
         </Card>
       ) : null}
 
+      {!loading && trays.length > 0 ? (
+        <Card className="bg-white/90">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
+            <div className="flex-1">
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="🔎 Buscar por raça, espécie ou variedade..."
+              />
+            </div>
+            <div className="md:w-72">
+              <select
+                value={groupFilter}
+                onChange={(event) => setGroupFilter(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-[color:var(--line)] bg-white px-3 text-sm text-zinc-700 shadow-sm focus:border-[color:var(--brand)] focus:outline-none"
+              >
+                <option value="">Todos os grupos</option>
+                {dropdownGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {searchQuery || groupFilter ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setGroupFilter("");
+                }}
+                className="rounded-2xl border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-50"
+              >
+                Limpar
+              </button>
+            ) : null}
+          </div>
+          {searchQuery || groupFilter ? (
+            <p className="mt-3 text-xs text-zinc-500">
+              Mostrando <span className="font-semibold text-zinc-800">{visibleTrays.length}</span> de {trays.length}{" "}
+              bandejas.
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
+
+      {!loading && trays.length > 0 && visibleTrays.length === 0 ? (
+        <Card>
+          <p className="text-sm text-zinc-500">
+            Nenhuma bandeja casa com esse filtro. Ajuste a busca ou escolha outro grupo.
+          </p>
+        </Card>
+      ) : null}
+
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {trays.map((tray) => {
+        {visibleTrays.map((tray) => {
           const tone = urgencyTone(tray.oldestRemaining);
           const palette = tonePalette(tone);
           const expanded = expandedTrayId === tray.id;
