@@ -6,17 +6,27 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const baseItems = [
+  { href: "/equipe/dashboard", label: "Dashboard", emoji: "🏠", key: "allowDashboard" },
   { href: "/equipe/plantel", label: "Plantel", emoji: "🧚", key: "allowPlantel" },
   { href: "/equipe/coleta-ovos", label: "Coleta", emoji: "🥚", key: "allowEggs" },
+  { href: "/equipe/prateleira", label: "Prateleira", emoji: "📦", key: "allowPrateleira" },
   { href: "/equipe/chocadeiras", label: "Chocadeiras", emoji: "🐣", key: "allowIncubators" },
-  { href: "/equipe/sanidade", label: "Sanidade", emoji: "💊", key: "allowHealth" }
+  { href: "/equipe/vitrine", label: "Vitrine", emoji: "🛍️", key: "allowVitrine" },
+  { href: "/equipe/sanidade", label: "Sanidade", emoji: "💊", key: "allowHealth" },
+  { href: "/equipe/financeiro", label: "Financeiro", emoji: "💰", key: "allowFinanceiro" },
+  { href: "/equipe/relatorios", label: "Relatórios", emoji: "📊", key: "allowRelatorios" }
 ] as const;
 
 type Permissions = {
+  allowDashboard: boolean;
   allowPlantel: boolean;
   allowEggs: boolean;
+  allowPrateleira: boolean;
   allowIncubators: boolean;
+  allowVitrine: boolean;
   allowHealth: boolean;
+  allowFinanceiro: boolean;
+  allowRelatorios: boolean;
 };
 
 export function EmployeeNav({ permissions }: { permissions: Permissions }) {
@@ -77,7 +87,8 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
         </div>
       </aside>
 
-      <nav className="mobile-bottom-nav fixed left-3 right-3 z-50 grid grid-cols-4 rounded-[22px] border border-[color:var(--line)] bg-white/95 p-1.5 shadow-[0_20px_45px_rgba(15,23,42,0.15)] backdrop-blur md:hidden">
+      {/* Mobile bottom nav: scroll horizontal porque agora pode ter ate 9 modulos */}
+      <nav className="mobile-bottom-nav fixed left-3 right-3 z-50 flex gap-1 overflow-x-auto rounded-[22px] border border-[color:var(--line)] bg-white/95 p-1.5 shadow-[0_20px_45px_rgba(15,23,42,0.15)] backdrop-blur md:hidden">
         {items.map(({ href, label, emoji }) => {
           const active = pathname === href;
           return (
@@ -85,7 +96,7 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
               key={href}
               href={href}
               className={cn(
-                "flex min-h-[4rem] flex-col items-center justify-center rounded-xl px-1 py-1.5 text-[11px] font-semibold leading-tight",
+                "flex min-h-[4rem] min-w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 py-1.5 text-[11px] font-semibold leading-tight",
                 active ? "bg-[color:var(--surface-soft)] text-[color:var(--brand-strong)]" : "text-slate-500"
               )}
             >

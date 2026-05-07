@@ -166,10 +166,50 @@ export async function updateEntry(
 }
 
 export async function deleteEntry(tenantId: string, userId: string, id: string) {
-  const existing = await prisma.financialEntry.findFirst({ where: { id, tenantId } });
+  const existing = await prisma.financialEntry.findFirst({
+    where: { id, tenantId },
+    include: {
+      eggSale: { include: { items: true } },
+      vitrineSale: true
+    }
+  });
   if (!existing) return false;
 
-  await prisma.financialEntry.delete({ where: { id } });
+  // Quando a entry foi criada por uma venda (Prateleira/Vitrine), apagar
+  // a entry sem apagar a venda deixava o registro fantasma no dashboard
+  // (contagem de vendas continuava aparecendo). Cascateia.
+  await prisma.$transaction(async (tx) => {
+    if (existing.eggSale) {
+      const sale = existing.eggSale;
+      // Devolve unidades vendidas pra prateleira: decrementa soldCount
+      // de cada EggTrayEntry referenciado pelos itens.
+      for (const item of sale.items) {
+        await tx.eggTrayEntry.update({
+          where: { id: item.trayEntryId },
+          data: { soldCount: { decrement: item.quantity } }
+        });
+      }
+      // EggSaleItem tem onDelete:Cascade na FK saleId, entao some junto.
+      await tx.eggSale.delete({ where: { id: sale.id } });
+    }
+
+    if (existing.vitrineSale) {
+      const sale = existing.vitrineSale;
+      const listing = await tx.vitrineListing.findUnique({ where: { id: sale.listingId } });
+      // Devolve estoque pra Vitrine. Se ficou SOLD_OUT por causa da venda,
+      // reabre como AVAILABLE; preserva REMOVED se o usuario tinha tirado.
+      await tx.vitrineListing.update({
+        where: { id: sale.listingId },
+        data: {
+          availableQuantity: { increment: sale.quantitySold },
+          ...(listing?.status === "SOLD_OUT" ? { status: "AVAILABLE" as const } : {})
+        }
+      });
+      await tx.vitrineSale.delete({ where: { id: sale.id } });
+    }
+
+    await tx.financialEntry.delete({ where: { id } });
+  });
 
   await prisma.auditLog.create({
     data: {

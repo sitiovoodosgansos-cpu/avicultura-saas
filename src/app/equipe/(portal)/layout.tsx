@@ -26,10 +26,15 @@ export default async function EmployeePortalLayout({
     <div className="min-h-screen md:flex">
       <EmployeeNav
         permissions={{
+          allowDashboard: session.employee.allowDashboard,
           allowPlantel: session.employee.allowPlantel,
           allowEggs: session.employee.allowEggs,
+          allowPrateleira: session.employee.allowPrateleira,
           allowIncubators: session.employee.allowIncubators,
-          allowHealth: session.employee.allowHealth
+          allowVitrine: session.employee.allowVitrine,
+          allowHealth: session.employee.allowHealth,
+          allowFinanceiro: session.employee.allowFinanceiro,
+          allowRelatorios: session.employee.allowRelatorios
         }}
       />
       <div className="mobile-page-with-nav flex-1 md:pb-0">

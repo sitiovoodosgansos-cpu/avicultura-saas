@@ -55,18 +55,39 @@ const emptyForm: EmployeeForm = {
   allowRelatorios: true
 };
 
-// Lista declarativa pra renderizar checkboxes em grid sem repetir codigo
-const PERMISSION_PAGES: Array<{ key: keyof EmployeeForm; label: string }> = [
-  { key: "allowDashboard", label: "Dashboard" },
-  { key: "allowPlantel", label: "Plantel" },
-  { key: "allowEggs", label: "Coleta de ovos" },
-  { key: "allowPrateleira", label: "Prateleira" },
-  { key: "allowIncubators", label: "Chocadeiras" },
-  { key: "allowVitrine", label: "Vitrine" },
-  { key: "allowHealth", label: "Sanidade" },
-  { key: "allowFinanceiro", label: "Financeiro" },
-  { key: "allowRelatorios", label: "Relatórios" }
+// Lista declarativa pra renderizar checkboxes em grid sem repetir codigo.
+// `badge` e o label curto que aparece no card do funcionario; `color` da
+// classe de cor (familia tailwind) usada quando a permissao esta ligada.
+const PERMISSION_PAGES: Array<{
+  key: keyof EmployeeForm;
+  label: string;
+  badge: string;
+  color: string;
+}> = [
+  { key: "allowDashboard", label: "Dashboard", badge: "Dashboard", color: "indigo" },
+  { key: "allowPlantel", label: "Plantel", badge: "Plantel", color: "sky" },
+  { key: "allowEggs", label: "Coleta de ovos", badge: "Coleta", color: "amber" },
+  { key: "allowPrateleira", label: "Prateleira", badge: "Prateleira", color: "orange" },
+  { key: "allowIncubators", label: "Chocadeiras", badge: "Chocadeiras", color: "emerald" },
+  { key: "allowVitrine", label: "Vitrine", badge: "Vitrine", color: "violet" },
+  { key: "allowHealth", label: "Sanidade", badge: "Sanidade", color: "rose" },
+  { key: "allowFinanceiro", label: "Financeiro", badge: "Financeiro", color: "teal" },
+  { key: "allowRelatorios", label: "Relatórios", badge: "Relatórios", color: "fuchsia" }
 ];
+
+// Tailwind nao gera classes dinamicas (`bg-${color}-100`), entao mapeia
+// o nome da cor pras classes ja escritas literalmente (purgador feliz).
+const PERMISSION_COLOR_CLASSES: Record<string, string> = {
+  indigo: "bg-indigo-100 text-indigo-700",
+  sky: "bg-sky-100 text-sky-700",
+  amber: "bg-amber-100 text-amber-700",
+  orange: "bg-orange-100 text-orange-700",
+  emerald: "bg-emerald-100 text-emerald-700",
+  violet: "bg-violet-100 text-violet-700",
+  rose: "bg-rose-100 text-rose-700",
+  teal: "bg-teal-100 text-teal-700",
+  fuchsia: "bg-fuchsia-100 text-fuchsia-700"
+};
 
 function Toggle({
   label,
@@ -268,10 +289,18 @@ export function EmployeesManager() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
-                  <span className={`rounded-full px-3 py-1 ${employee.allowPlantel ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-400"}`}>Plantel</span>
-                  <span className={`rounded-full px-3 py-1 ${employee.allowEggs ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-400"}`}>Coleta</span>
-                  <span className={`rounded-full px-3 py-1 ${employee.allowIncubators ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>Chocadeiras</span>
-                  <span className={`rounded-full px-3 py-1 ${employee.allowHealth ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-400"}`}>Sanidade</span>
+                  {PERMISSION_PAGES.map((p) => (
+                    <span
+                      key={p.key}
+                      className={`rounded-full px-3 py-1 ${
+                        employee[p.key as keyof Employee]
+                          ? PERMISSION_COLOR_CLASSES[p.color]
+                          : "bg-slate-100 text-slate-400"
+                      }`}
+                    >
+                      {p.badge}
+                    </span>
+                  ))}
                 </div>
               </div>
             ))}
