@@ -162,6 +162,7 @@ model Tenant {
   quarantineTemplates  QuarantineChecklistTemplate[]
   quarantineCases      QuarantineCase[]
   quarantineTreatments QuarantineTreatment[]
+  infirmaryCaseTreatments InfirmaryCaseTreatment[]
   entries              FinancialEntry[]
   expenses             FinancialExpense[]
   employeeAccounts     EmployeeAccount[]
@@ -441,13 +442,14 @@ model InfirmaryCase {
   deathReasonId        String?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
-  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bird          Bird                 @relation(fields: [birdId], references: [id], onDelete: Restrict)
-  infirmary     Infirmary            @relation(fields: [infirmaryId], references: [id], onDelete: Restrict)
-  disease       Disease?             @relation(fields: [diseaseId], references: [id], onDelete: SetNull)
-  medicationRef Medication?          @relation(fields: [medicationId], references: [id], onDelete: SetNull)
-  deathReason   DeathReason?         @relation(fields: [deathReasonId], references: [id], onDelete: SetNull)
+  tenant        Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bird          Bird                     @relation(fields: [birdId], references: [id], onDelete: Restrict)
+  infirmary     Infirmary                @relation(fields: [infirmaryId], references: [id], onDelete: Restrict)
+  disease       Disease?                 @relation(fields: [diseaseId], references: [id], onDelete: SetNull)
+  medicationRef Medication?              @relation(fields: [medicationId], references: [id], onDelete: SetNull)
+  deathReason   DeathReason?             @relation(fields: [deathReasonId], references: [id], onDelete: SetNull)
   events        InfirmaryCaseEvent[]
+  treatments    InfirmaryCaseTreatment[]
 }
 
 model InfirmaryCaseEvent {
@@ -464,15 +466,34 @@ model InfirmaryCaseEvent {
 }
 
 model QuarantineChecklistTemplate {
-  id         String                @id @default(cuid())
-  tenantId   String
-  name       String
-  createdAt  DateTime              @default(now())
-  updatedAt  DateTime              @updatedAt
-  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  treatments QuarantineTreatment[]
+  id                      String                   @id @default(cuid())
+  tenantId                String
+  name                    String
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  tenant                  Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  treatments              QuarantineTreatment[]
+  infirmaryCaseTreatments InfirmaryCaseTreatment[]
 
   @@unique([tenantId, name])
+}
+
+// Itens de checklist (vacinas/medicamentos/protocolos) aplicados num caso
+// clinico especifico. Reaproveita os mesmos QuarantineChecklistTemplate
+// (sao "itens reutilizaveis" do sitio, independente do contexto).
+model InfirmaryCaseTreatment {
+  id              String                       @id @default(cuid())
+  tenantId        String
+  infirmaryCaseId String
+  templateId      String?
+  label           String
+  startDate       DateTime
+  notes           String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  tenant          Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  infirmaryCase   InfirmaryCase                @relation(fields: [infirmaryCaseId], references: [id], onDelete: Cascade)
+  template        QuarantineChecklistTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 }
 
 model QuarantineCase {

@@ -81,6 +81,10 @@ type Metrics = {
   };
   topDiagnoses: Array<{ diagnosis: string; count: number }>;
   evolution: Array<{ month: string; opened: number; cured: number; dead: number }>;
+  perInfirmary?: Record<
+    string,
+    { cureRate: number; mortalityRate: number; total: number; cured: number; dead: number }
+  >;
 };
 
 type QuarantineTemplate = {
@@ -152,6 +156,64 @@ type OptionalTreatmentState = {
   enabled: boolean;
   startDate: string;
   notes: string;
+};
+
+// === Tipos do modal de obitos (espelham o retorno da API /health/deaths) ===
+type DeathBird = {
+  id: string;
+  ringNumber: string;
+  nickname: string | null;
+  sex: "FEMALE" | "MALE" | "UNKNOWN";
+  acquisitionDate: string | null;
+  purchaseValue: number | null;
+  origin: string | null;
+  updatedAt: string;
+  flockGroup: { id: string; title: string };
+  statusHistory: Array<{
+    id: string;
+    fromStatus: string | null;
+    toStatus: string;
+    reason: string | null;
+    createdAt: string;
+  }>;
+  infirmaryCases: Array<{
+    id: string;
+    openedAt: string;
+    closedAt: string | null;
+    status: string;
+    diagnosis: string | null;
+    symptoms: string | null;
+    medication: string | null;
+    dosage: string | null;
+    responsible: string | null;
+    notes: string | null;
+    infirmary: { id: string; name: string };
+    events: Array<{ id: string; type: string; notes: string | null; createdAt: string }>;
+  }>;
+  vaccinations: Array<{
+    id: string;
+    appliedAt: string;
+    notes: string | null;
+    vaccine: { id: string; name: string };
+  }>;
+};
+
+type DeathVitrineLot = {
+  id: string;
+  quantity: number;
+  cause: string | null;
+  occurredAt: string;
+  listing: {
+    id: string;
+    title: string | null;
+    flockGroup: { id: string; title: string };
+  };
+};
+
+type DeathsResponse = {
+  total: number;
+  birdDeaths: DeathBird[];
+  vitrineDeaths: DeathVitrineLot[];
 };
 
 const today = (() => {
@@ -251,10 +313,44 @@ export function HealthManager() {
   const [timelineByCase, setTimelineByCase] = useState<Record<string, TimelineEvent[]>>({});
   const [eventByCase, setEventByCase] = useState<Record<string, EventDraft>>({});
 
+  // === Modal de obitos com historico ===
+  const [showDeathsModal, setShowDeathsModal] = useState(false);
+  const [deathsLoading, setDeathsLoading] = useState(false);
+  const [deathsData, setDeathsData] = useState<DeathsResponse | null>(null);
+  const [expandedBirdId, setExpandedBirdId] = useState<string | null>(null);
+  // Default: ultimos 90 dias
+  const [deathsFrom, setDeathsFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 90);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  const [deathsTo, setDeathsTo] = useState(today);
+
+  async function loadDeaths() {
+    setDeathsLoading(true);
+    const params = new URLSearchParams();
+    if (deathsFrom) params.set("from", deathsFrom);
+    if (deathsTo) params.set("to", deathsTo);
+    const res = await fetch(`/api/health/deaths?${params.toString()}`, { cache: "no-store" });
+    if (!res.ok) {
+      setError("Não foi possível carregar os óbitos.");
+      setDeathsLoading(false);
+      return;
+    }
+    const data = (await res.json()) as DeathsResponse;
+    setDeathsData(data);
+    setDeathsLoading(false);
+  }
+
   const [quarantineForm, setQuarantineForm] = useState<QuarantineForm>(emptyQuarantine);
   const [optionalTreatments, setOptionalTreatments] = useState<Record<string, OptionalTreatmentState>>({});
   const [newTemplateName, setNewTemplateName] = useState("");
   const [creatingTemplate, setCreatingTemplate] = useState(false);
+
+  // Checklist do caso clinico (mesmo modelo de QuarantineChecklistTemplate)
+  const [caseTreatments, setCaseTreatments] = useState<Record<string, OptionalTreatmentState>>({});
+  const [newCaseTemplateName, setNewCaseTemplateName] = useState("");
+  const [creatingCaseTemplate, setCreatingCaseTemplate] = useState(false);
 
   const inTreatmentCases = useMemo(() => cases.filter((c) => c.status === "TREATING"), [cases]);
   const activeQuarantines = useMemo(
@@ -262,13 +358,17 @@ export function HealthManager() {
     [quarantineCases]
   );
 
-  function ensureOptionalTreatmentMap(templates: QuarantineTemplate[], preserve?: Record<string, OptionalTreatmentState>) {
+  function ensureOptionalTreatmentMap(
+    templates: QuarantineTemplate[],
+    preserve?: Record<string, OptionalTreatmentState>,
+    defaultDate?: string
+  ) {
     const next: Record<string, OptionalTreatmentState> = {};
     templates.forEach((template) => {
       const prev = preserve?.[template.id];
       next[template.id] = {
         enabled: prev?.enabled ?? false,
-        startDate: prev?.startDate ?? quarantineForm.entryDate,
+        startDate: prev?.startDate ?? defaultDate ?? quarantineForm.entryDate,
         notes: prev?.notes ?? ""
       };
     });
@@ -334,6 +434,7 @@ export function HealthManager() {
     }));
 
     setOptionalTreatments((prev) => ensureOptionalTreatmentMap(templatesPayload.templates, prev));
+    setCaseTreatments((prev) => ensureOptionalTreatmentMap(templatesPayload.templates, prev, caseForm.openedAt));
     setLoading(false);
   }
 
@@ -399,10 +500,27 @@ export function HealthManager() {
     const endpoint = editingCaseId ? `/api/health/cases/${editingCaseId}` : "/api/health/cases";
     const method = editingCaseId ? "PUT" : "POST";
 
+    // Monta os tratamentos selecionados no checklist
+    const checklistPayload = quarantineTemplates
+      .map((tpl) => ({ tpl, state: caseTreatments[tpl.id] }))
+      .filter((item) => item.state?.enabled)
+      .map((item) => ({
+        label: item.tpl.name,
+        startDate: item.state?.startDate || caseForm.openedAt,
+        notes: item.state?.notes || "",
+        templateId: item.tpl.id
+      }));
+
+    const payload = {
+      ...caseForm,
+      // PUT (edicao) nao aceita treatments — so envia no POST
+      ...(editingCaseId ? {} : { treatments: checklistPayload })
+    };
+
     const res = await fetch(endpoint, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(caseForm)
+      body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
@@ -413,10 +531,38 @@ export function HealthManager() {
     }
 
     setCaseForm((p) => ({ ...emptyCase, birdId: p.birdId, infirmaryId: p.infirmaryId }));
+    setCaseTreatments(ensureOptionalTreatmentMap(quarantineTemplates, undefined, today));
     setEditingCaseId(null);
     setShowCaseModal(false);
     setSaving(false);
     await loadData();
+  }
+
+  async function createCaseChecklistTemplate() {
+    if (!newCaseTemplateName.trim()) return;
+    setCreatingCaseTemplate(true);
+    setError(null);
+    const res = await fetch("/api/health/quarantine/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newCaseTemplateName.trim() })
+    });
+    if (!res.ok) {
+      const payload = (await res.json()) as { error?: string };
+      setError(payload.error ?? "Falha ao criar item de checklist.");
+      setCreatingCaseTemplate(false);
+      return;
+    }
+    const created = (await res.json()) as QuarantineTemplate;
+    const nextTemplates = [...quarantineTemplates, created].sort((a, b) => a.name.localeCompare(b.name));
+    setQuarantineTemplates(nextTemplates);
+    setCaseTreatments((prev) => {
+      const next = ensureOptionalTreatmentMap(nextTemplates, prev, caseForm.openedAt);
+      next[created.id] = { enabled: true, startDate: caseForm.openedAt, notes: "" };
+      return next;
+    });
+    setNewCaseTemplateName("");
+    setCreatingCaseTemplate(false);
   }
 
   async function removeCase(id: string) {
@@ -686,6 +832,16 @@ export function HealthManager() {
           >
             Quarentena nova ave
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setShowDeathsModal(true);
+              void loadDeaths();
+            }}
+          >
+            🪦 Óbitos
+          </Button>
         </div>
       </Card>
 
@@ -779,6 +935,33 @@ export function HealthManager() {
                       {inf.notes}
                     </p>
                   ) : null}
+
+                  {(() => {
+                    // Taxa de cura desta enfermaria (similar ao gauge das chocadeiras)
+                    const stats = metrics?.perInfirmary?.[inf.id];
+                    if (!stats || stats.cured + stats.dead === 0) return null;
+                    const rate = stats.cureRate;
+                    const finalized = stats.cured + stats.dead;
+                    const barColor =
+                      rate >= 80 ? "bg-emerald-500" : rate >= 50 ? "bg-amber-400" : "bg-rose-500";
+                    return (
+                      <div className="mt-3 rounded-xl border border-zinc-200 bg-white px-3 py-2">
+                        <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                          <span>✅ Taxa de cura</span>
+                          <span className="tabular-nums text-zinc-800">{formatPercent(rate)}</span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+                          <div
+                            className={`h-full transition-all ${barColor}`}
+                            style={{ width: `${Math.min(100, rate)}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-[10px] text-zinc-400">
+                          {stats.cured} curadas / {stats.dead} óbitos · {finalized} casos finalizados
+                        </p>
+                      </div>
+                    );
+                  })()}
 
                   {(() => {
                     const treating = cases.filter(
@@ -1065,6 +1248,181 @@ export function HealthManager() {
       </AppModal>
 
       <AppModal
+        open={showDeathsModal}
+        title="🪦 Óbitos no período"
+        onClose={() => {
+          setShowDeathsModal(false);
+          setExpandedBirdId(null);
+        }}
+      >
+        <div className="grid gap-3">
+          <div className="grid gap-3 md:grid-cols-3">
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">De</span>
+              <Input type="date" value={deathsFrom} onChange={(e) => setDeathsFrom(e.target.value)} />
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Até</span>
+              <Input type="date" value={deathsTo} onChange={(e) => setDeathsTo(e.target.value)} />
+            </label>
+            <div className="flex items-end">
+              <Button type="button" onClick={() => void loadDeaths()} disabled={deathsLoading}>
+                {deathsLoading ? "Carregando..." : "Filtrar"}
+              </Button>
+            </div>
+          </div>
+
+          {deathsData ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/40 px-3 py-2 text-sm text-rose-800">
+              <strong className="tabular-nums">{deathsData.total}</strong> óbitos no período —{" "}
+              {deathsData.birdDeaths.length} aves do plantel + {deathsData.vitrineDeaths.reduce((s, x) => s + x.quantity, 0)} aves da Vitrine (lotes).
+            </div>
+          ) : null}
+
+          {deathsLoading ? (
+            <p className="text-sm text-zinc-500">Carregando óbitos...</p>
+          ) : null}
+
+          {deathsData && deathsData.birdDeaths.length === 0 && deathsData.vitrineDeaths.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-zinc-200 bg-white px-3 py-6 text-center text-sm text-zinc-500">
+              Nenhum óbito no período. 🙌
+            </p>
+          ) : null}
+
+          {deathsData && deathsData.birdDeaths.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Aves do plantel</p>
+              <ul className="mt-2 grid gap-2">
+                {deathsData.birdDeaths.map((bird) => {
+                  const expanded = expandedBirdId === bird.id;
+                  return (
+                    <li key={bird.id} className="rounded-xl border border-zinc-200 bg-white">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedBirdId(expanded ? null : bird.id)}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-zinc-900">
+                            {bird.nickname?.trim() || bird.flockGroup.title}{" "}
+                            <span className="text-xs font-mono font-normal text-zinc-500">
+                              {bird.ringNumber}
+                            </span>
+                          </p>
+                          <p className="text-[11px] text-zinc-500">
+                            {bird.flockGroup.title} · óbito em {new Date(bird.updatedAt).toLocaleDateString("pt-BR")}
+                          </p>
+                        </div>
+                        <span className="text-zinc-400">{expanded ? "▲" : "▼"}</span>
+                      </button>
+                      {expanded ? (
+                        <div className="border-t border-zinc-100 px-3 py-3 text-xs text-zinc-700 space-y-3">
+                          {bird.acquisitionDate ? (
+                            <p>
+                              <strong>Aquisição:</strong> {new Date(bird.acquisitionDate).toLocaleDateString("pt-BR")}
+                              {bird.origin ? ` · ${bird.origin}` : ""}
+                              {bird.purchaseValue ? ` · R$ ${bird.purchaseValue.toFixed(2)}` : ""}
+                            </p>
+                          ) : null}
+
+                          {bird.infirmaryCases.length > 0 ? (
+                            <div>
+                              <p className="font-semibold text-zinc-800">🏥 Casos clínicos ({bird.infirmaryCases.length})</p>
+                              <ul className="mt-1 grid gap-2">
+                                {bird.infirmaryCases.map((c) => (
+                                  <li key={c.id} className="rounded-lg bg-zinc-50 p-2">
+                                    <p className="text-[11px]">
+                                      <strong>{new Date(c.openedAt).toLocaleDateString("pt-BR")}</strong>{" "}
+                                      → {c.closedAt ? new Date(c.closedAt).toLocaleDateString("pt-BR") : "em aberto"}{" "}
+                                      · {c.infirmary.name} · {statusLabel(c.status as CaseItem["status"])}
+                                    </p>
+                                    {c.diagnosis ? <p>📋 {c.diagnosis}</p> : null}
+                                    {c.symptoms ? <p>🤒 {c.symptoms}</p> : null}
+                                    {c.medication ? (
+                                      <p>
+                                        💊 {c.medication}
+                                        {c.dosage ? ` · ${c.dosage}` : ""}
+                                      </p>
+                                    ) : null}
+                                    {c.notes ? <p className="text-zinc-500">📝 {c.notes}</p> : null}
+                                    {c.events.length > 0 ? (
+                                      <ul className="mt-1 space-y-0.5 text-[10px] text-zinc-500">
+                                        {c.events.map((ev) => (
+                                          <li key={ev.id}>
+                                            {new Date(ev.createdAt).toLocaleDateString("pt-BR")} ·{" "}
+                                            {timelineTypeLabel(ev.type)}
+                                            {ev.notes ? ` — ${ev.notes}` : ""}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : null}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : (
+                            <p className="text-zinc-500">Sem casos clínicos registrados.</p>
+                          )}
+
+                          {bird.vaccinations.length > 0 ? (
+                            <div>
+                              <p className="font-semibold text-zinc-800">💉 Vacinas ({bird.vaccinations.length})</p>
+                              <ul className="mt-1 space-y-0.5 text-[11px]">
+                                {bird.vaccinations.map((v) => (
+                                  <li key={v.id}>
+                                    {new Date(v.appliedAt).toLocaleDateString("pt-BR")} · {v.vaccine.name}
+                                    {v.notes ? ` — ${v.notes}` : ""}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+
+                          {bird.statusHistory.length > 0 ? (
+                            <div>
+                              <p className="font-semibold text-zinc-800">📅 Histórico de status</p>
+                              <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-600">
+                                {bird.statusHistory.map((h) => (
+                                  <li key={h.id}>
+                                    {new Date(h.createdAt).toLocaleDateString("pt-BR")} · {h.fromStatus ?? "—"} → {h.toStatus}
+                                    {h.reason ? ` (${h.reason})` : ""}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
+          {deathsData && deathsData.vitrineDeaths.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Lotes da Vitrine</p>
+              <ul className="mt-2 grid gap-2">
+                {deathsData.vitrineDeaths.map((d) => (
+                  <li key={d.id} className="rounded-xl border border-zinc-200 bg-white px-3 py-2">
+                    <p className="text-sm font-semibold text-zinc-900">
+                      {d.quantity} ave(s) · {d.listing.flockGroup.title}
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      {new Date(d.occurredAt).toLocaleDateString("pt-BR")}
+                      {d.cause ? ` · ${d.cause}` : ""}
+                      {d.listing.title ? ` · "${d.listing.title}"` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      </AppModal>
+
+      <AppModal
         open={Boolean(quickActionDialog)}
         title={
           quickActionDialog?.action === "CURE"
@@ -1215,6 +1573,76 @@ export function HealthManager() {
           <Input placeholder="Dosagem" value={caseForm.dosage} onChange={(e) => setCaseForm((p) => ({ ...p, dosage: e.target.value }))} />
           <Input placeholder="Responsavel" value={caseForm.responsible} onChange={(e) => setCaseForm((p) => ({ ...p, responsible: e.target.value }))} />
           <Input placeholder="Observacoes" value={caseForm.notes} onChange={(e) => setCaseForm((p) => ({ ...p, notes: e.target.value }))} />
+
+          {/* Checklist do caso clinico — mesmo modelo do checklist da quarentena */}
+          {editingCaseId ? null : (
+            <div className="rounded-lg border border-zinc-200 p-3">
+              <p className="text-sm font-semibold text-zinc-900">Checklist do tratamento</p>
+              <p className="text-xs text-zinc-500">Reuse os itens cadastrados (vacinas, protocolos, medicamentos) marcando os que vão ser aplicados nesse caso.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Input
+                  className="min-w-[220px] flex-1"
+                  placeholder="Exemplo: Antibiótico Enrofloxacina"
+                  value={newCaseTemplateName}
+                  onChange={(e) => setNewCaseTemplateName(e.target.value)}
+                />
+                <Button type="button" variant="outline" disabled={creatingCaseTemplate} onClick={createCaseChecklistTemplate}>
+                  {creatingCaseTemplate ? "Salvando..." : "Cadastrar item"}
+                </Button>
+              </div>
+              {quarantineTemplates.length === 0 ? (
+                <p className="mt-3 text-xs text-zinc-500">Ainda não há itens cadastrados.</p>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  {quarantineTemplates.map((template) => {
+                    const state = caseTreatments[template.id] ?? { enabled: false, startDate: caseForm.openedAt, notes: "" };
+                    return (
+                      <div key={template.id} className="rounded-md border border-zinc-200 p-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-zinc-900">
+                          <input
+                            type="checkbox"
+                            checked={state.enabled}
+                            onChange={(e) =>
+                              setCaseTreatments((prev) => ({
+                                ...prev,
+                                [template.id]: { ...state, enabled: e.target.checked }
+                              }))
+                            }
+                          />
+                          {template.name}
+                        </label>
+                        {state.enabled ? (
+                          <div className="mt-2 grid gap-2 md:grid-cols-2">
+                            <Input
+                              type="date"
+                              value={state.startDate}
+                              onChange={(e) =>
+                                setCaseTreatments((prev) => ({
+                                  ...prev,
+                                  [template.id]: { ...state, startDate: e.target.value }
+                                }))
+                              }
+                            />
+                            <Input
+                              placeholder={`Observações de ${template.name}`}
+                              value={state.notes}
+                              onChange={(e) =>
+                                setCaseTreatments((prev) => ({
+                                  ...prev,
+                                  [template.id]: { ...state, notes: e.target.value }
+                                }))
+                              }
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingCaseId ? "Atualizar" : "Cadastrar"}</Button>
             <Button type="button" variant="outline" onClick={() => { setShowCaseModal(false); setEditingCaseId(null); }}>

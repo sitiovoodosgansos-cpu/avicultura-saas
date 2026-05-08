@@ -15,7 +15,14 @@ export const caseSchema = z.object({
   medication: z.string().trim().optional(),
   dosage: z.string().trim().optional(),
   responsible: z.string().trim().optional(),
-  notes: z.string().trim().optional()
+  notes: z.string().trim().optional(),
+  // Checklist (vacinas/protocolos do sitio) — reusa QuarantineChecklistTemplate
+  treatments: z.array(z.object({
+    label: z.string().trim().min(2, "Nome do tratamento inválido."),
+    startDate: z.string().min(1, "Informe a data do tratamento."),
+    notes: z.string().trim().optional(),
+    templateId: z.string().cuid().optional()
+  })).optional()
 });
 
 export const caseEventSchema = z.object({

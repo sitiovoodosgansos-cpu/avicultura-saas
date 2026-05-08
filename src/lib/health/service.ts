@@ -29,7 +29,11 @@ export async function listHealthContext(tenantId: string) {
           }
         },
         infirmary: { select: { id: true, name: true, status: true } },
-        events: { orderBy: { createdAt: "desc" } }
+        events: { orderBy: { createdAt: "desc" } },
+        treatments: {
+          include: { template: { select: { id: true, name: true } } },
+          orderBy: { startDate: "asc" }
+        }
       },
       orderBy: [{ openedAt: "desc" }, { createdAt: "desc" }]
     }),
@@ -253,6 +257,7 @@ export async function createInfirmaryCase(
     dosage?: string;
     responsible?: string;
     notes?: string;
+    treatments?: Array<{ label: string; startDate: string; notes?: string; templateId?: string }>;
   }
 ) {
   const [bird, infirmary] = await Promise.all([
@@ -275,7 +280,18 @@ export async function createInfirmaryCase(
         dosage: input.dosage,
         responsible: input.responsible,
         notes: input.notes,
-        status: "TREATING"
+        status: "TREATING",
+        treatments: input.treatments && input.treatments.length > 0
+          ? {
+              create: input.treatments.map((item) => ({
+                tenantId,
+                label: item.label.trim(),
+                startDate: toDate(item.startDate),
+                notes: item.notes,
+                templateId: item.templateId
+              }))
+            }
+          : undefined
       }
     });
 
@@ -561,7 +577,7 @@ export async function getHealthMetrics(tenantId: string) {
   const now = new Date();
   const yearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
 
-  const [allCases, openCases, diagnosisRows, monthlyRows] = await Promise.all([
+  const [allCases, openCases, diagnosisRows, monthlyRows, perInfirmaryRows] = await Promise.all([
     prisma.infirmaryCase.findMany({
       where: { tenantId },
       select: { openedAt: true, closedAt: true, status: true }
@@ -576,6 +592,11 @@ export async function getHealthMetrics(tenantId: string) {
     prisma.infirmaryCase.findMany({
       where: { tenantId, openedAt: { gte: yearAgo } },
       select: { openedAt: true, status: true, closedAt: true }
+    }),
+    // Casos por enfermaria pra calcular taxa de cura individual
+    prisma.infirmaryCase.findMany({
+      where: { tenantId },
+      select: { infirmaryId: true, status: true }
     })
   ]);
 
@@ -620,6 +641,27 @@ export async function getHealthMetrics(tenantId: string) {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([month, values]) => ({ month, ...values }));
 
+  // Taxa de cura por enfermaria (apenas casos finalizados — curados ou mortos)
+  const perInfirmaryMap = new Map<string, { cured: number; dead: number; total: number }>();
+  for (const row of perInfirmaryRows) {
+    const prev = perInfirmaryMap.get(row.infirmaryId) ?? { cured: 0, dead: 0, total: 0 };
+    prev.total += 1;
+    if (row.status === InfirmaryCaseStatus.CURED) prev.cured += 1;
+    if (row.status === InfirmaryCaseStatus.DEAD) prev.dead += 1;
+    perInfirmaryMap.set(row.infirmaryId, prev);
+  }
+  const perInfirmary: Record<string, { cureRate: number; mortalityRate: number; total: number; cured: number; dead: number }> = {};
+  for (const [infirmaryId, vals] of perInfirmaryMap) {
+    const finalizedCases = vals.cured + vals.dead;
+    perInfirmary[infirmaryId] = {
+      cureRate: ratio(vals.cured, finalizedCases),
+      mortalityRate: ratio(vals.dead, finalizedCases),
+      total: vals.total,
+      cured: vals.cured,
+      dead: vals.dead
+    };
+  }
+
   return {
     summary: {
       inTreatment: openCases,
@@ -628,7 +670,8 @@ export async function getHealthMetrics(tenantId: string) {
       avgRecoveryDays
     },
     topDiagnoses,
-    evolution
+    evolution,
+    perInfirmary
   };
 }
 
