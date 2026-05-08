@@ -55,6 +55,14 @@ export type DashboardData = {
     salesByMonth: Array<{ label: string; total: number }>;
     plantelComposition: Array<{ label: string; value: number }>;
     topGroups: Array<{ label: string; value: number }>;
+    /** Filhotes vivos agrupados por raca-pai (substituiu top groups por raca) */
+    filhotesByGroup: Array<{ label: string; value: number }>;
+    /** Vendas Ovos vs Aves nos ultimos 30 dias (count diario) */
+    salesComparisonDaily: Array<{ label: string; eggs: number; birds: number }>;
+    /** Vendas Ovos vs Aves nos ultimos 12 meses (count mensal) */
+    salesComparisonMonthly: Array<{ label: string; eggs: number; birds: number }>;
+    /** Obitos diarios nos ultimos 30 dias (Bird DEAD + VitrineDeathRecord lots) */
+    deathsDaily: Array<{ label: string; value: number }>;
     postureHeatmap: Array<{ date: string; value: number }>;
     hatchGauge: { current: number; previous: number };
     batchResultsByMonth: Array<{ label: string; hatched: number; infertile: number; lost: number }>;
@@ -216,7 +224,14 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     eggsLast60,
     vitrineSalesAll,
     vitrineAvailableAgg,
-    expensesThisMonth
+    expensesThisMonth,
+    chocadaBirdsForChart,
+    eggSalesLast30,
+    vitrineSalesLast30,
+    eggSalesLast12Months,
+    vitrineSalesLast12Months,
+    deadBirdsLast30,
+    vitrineDeathsLast30
   ] = await Promise.all([
     prisma.flockGroup.findMany({
       where: { tenantId, ...visibleGroupFilter },
@@ -343,6 +358,56 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       by: ["category"],
       where: { tenantId, date: { gte: monthStart } },
       _sum: { amount: true }
+    }),
+    // Filhotes vivos por grupo Chocada (titulo do grupo expansivel pra raca-pai)
+    prisma.bird.findMany({
+      where: {
+        tenantId,
+        status: { not: BirdStatus.DEAD },
+        flockGroup: { title: { startsWith: "Chocada " } }
+      },
+      select: { flockGroup: { select: { title: true } } }
+    }),
+    // Vendas Ovos (Prateleira) ultimos 30 dias agrupadas por dia
+    prisma.eggSale.findMany({
+      where: { tenantId, soldAt: { gte: days30 } },
+      select: { soldAt: true }
+    }),
+    // Vendas Aves (Vitrine) ultimos 30 dias agrupadas por dia
+    prisma.vitrineSale.findMany({
+      where: { tenantId, soldAt: { gte: days30 } },
+      select: { soldAt: true, quantitySold: true }
+    }),
+    // Vendas Ovos ultimos 12 meses
+    prisma.eggSale.findMany({
+      where: {
+        tenantId,
+        soldAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) }
+      },
+      select: { soldAt: true }
+    }),
+    // Vendas Aves ultimos 12 meses
+    prisma.vitrineSale.findMany({
+      where: {
+        tenantId,
+        soldAt: { gte: new Date(now.getFullYear(), now.getMonth() - 11, 1) }
+      },
+      select: { soldAt: true, quantitySold: true }
+    }),
+    // Obitos: aves do plantel marcadas como DEAD nos ultimos 30 dias
+    // (proxy: updatedAt da Bird quando status virou DEAD).
+    prisma.bird.findMany({
+      where: { tenantId, status: BirdStatus.DEAD, updatedAt: { gte: days30 } },
+      select: { updatedAt: true }
+    }),
+    // Obitos: lotes da Vitrine (sem sourceBird) nos ultimos 30 dias
+    prisma.vitrineDeathRecord.findMany({
+      where: {
+        tenantId,
+        occurredAt: { gte: days30 },
+        listing: { sourceBirdId: null }
+      },
+      select: { occurredAt: true, quantity: true }
     })
   ]);
 
@@ -491,6 +556,72 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     total: Number((salesMap.get(bucket.key) ?? 0).toFixed(2))
   }));
 
+  // === Filhotes por raça-pai (substitui Aves por raça) ===
+  // Cada Bird vive num grupo "Chocada {mes}/{ano} · {pai.title}".
+  // A raca-pai vem do final do titulo apos " · ".
+  const filhotesByGroupMap = new Map<string, number>();
+  for (const bird of chocadaBirdsForChart) {
+    const title = bird.flockGroup.title;
+    const parentName = title.includes(" · ") ? title.split(" · ").slice(-1)[0] : title;
+    filhotesByGroupMap.set(parentName, (filhotesByGroupMap.get(parentName) ?? 0) + 1);
+  }
+  const filhotesByGroup = Array.from(filhotesByGroupMap, ([label, value]) => ({ label, value }))
+    .filter((d) => d.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+
+  // === Vendas Ovos vs Aves diario (30d) ===
+  const dayBuckets30 = dateBucketLastDays(30);
+  const eggSalesByDay = new Map<string, number>();
+  for (const sale of eggSalesLast30) {
+    const key = startOfDay(sale.soldAt).toISOString();
+    eggSalesByDay.set(key, (eggSalesByDay.get(key) ?? 0) + 1);
+  }
+  const vitrineSalesByDay = new Map<string, number>();
+  for (const sale of vitrineSalesLast30) {
+    const key = startOfDay(sale.soldAt).toISOString();
+    vitrineSalesByDay.set(key, (vitrineSalesByDay.get(key) ?? 0) + sale.quantitySold);
+  }
+  const salesComparisonDaily = dayBuckets30.map((bucket) => ({
+    label: bucket.label,
+    eggs: eggSalesByDay.get(bucket.key) ?? 0,
+    birds: vitrineSalesByDay.get(bucket.key) ?? 0
+  }));
+
+  // === Vendas Ovos vs Aves mensal (12m) ===
+  const eggSalesByMonth = new Map<string, number>();
+  for (const sale of eggSalesLast12Months) {
+    const d = sale.soldAt;
+    const key = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+    eggSalesByMonth.set(key, (eggSalesByMonth.get(key) ?? 0) + 1);
+  }
+  const vitrineSalesByMonth = new Map<string, number>();
+  for (const sale of vitrineSalesLast12Months) {
+    const d = sale.soldAt;
+    const key = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+    vitrineSalesByMonth.set(key, (vitrineSalesByMonth.get(key) ?? 0) + sale.quantitySold);
+  }
+  const salesComparisonMonthly = monthBuckets.map((bucket) => ({
+    label: bucket.label,
+    eggs: eggSalesByMonth.get(bucket.key) ?? 0,
+    birds: vitrineSalesByMonth.get(bucket.key) ?? 0
+  }));
+
+  // === Obitos diarios (30d) — Bird DEAD + lotes da Vitrine ===
+  const deathsByDay = new Map<string, number>();
+  for (const bird of deadBirdsLast30) {
+    const key = startOfDay(bird.updatedAt).toISOString();
+    deathsByDay.set(key, (deathsByDay.get(key) ?? 0) + 1);
+  }
+  for (const death of vitrineDeathsLast30) {
+    const key = startOfDay(death.occurredAt).toISOString();
+    deathsByDay.set(key, (deathsByDay.get(key) ?? 0) + (death.quantity ?? 0));
+  }
+  const deathsDaily = dayBuckets30.map((bucket) => ({
+    label: bucket.label,
+    value: deathsByDay.get(bucket.key) ?? 0
+  }));
+
   const eggsRange7 = await sumEggsForRange(tenantId, days7);
   const eggsRange30 = await sumEggsForRange(tenantId, days30);
   const eggsRange365 = await sumEggsForRange(tenantId, days365);
@@ -548,6 +679,10 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         filhotesAlive
       }),
       topGroups: buildTopGroups(flockGroupsForTotal),
+      filhotesByGroup,
+      salesComparisonDaily,
+      salesComparisonMonthly,
+      deathsDaily,
       postureHeatmap: buildPostureHeatmap(eggsLast60),
       hatchGauge: buildHatchGauge(batchEvents, now),
       batchResultsByMonth: buildBatchResultsByMonth(batchEvents, monthBuckets),
@@ -781,6 +916,10 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
         salesByMonth: [],
         plantelComposition: [],
         topGroups: [],
+        filhotesByGroup: [],
+        salesComparisonDaily: [],
+        salesComparisonMonthly: [],
+        deathsDaily: [],
         postureHeatmap: [],
         hatchGauge: { current: 0, previous: 0 },
         batchResultsByMonth: [],

@@ -10,6 +10,7 @@ import { GaugeCard } from "@/components/dashboard/gauge-card";
 import { StackedResultsCard } from "@/components/dashboard/stacked-results-card";
 import { FunnelCard } from "@/components/dashboard/funnel-card";
 import { StackedHorizontalCard } from "@/components/dashboard/stacked-horizontal-card";
+import { SalesComparisonCard } from "@/components/dashboard/sales-comparison-card";
 import { getDashboardDataSafe } from "@/lib/dashboard/queries";
 
 function formatCurrency(value: number) {
@@ -158,13 +159,13 @@ export async function DashboardContent({ tenantId }: { tenantId: string }) {
 
       <section className="grid gap-4 xl:grid-cols-2">
         <BarCard
-          title="Aves por raça"
-          subtitle="Top 8 grupos por quantidade"
-          data={data.charts.topGroups}
-          palette="indigo"
-          icon={<Emoji char="🦚" />}
+          title="Filhotes por raça"
+          subtitle="Top 8 raças com mais filhotes vivos"
+          data={data.charts.filhotesByGroup}
+          palette="orange"
+          icon={<Emoji char="🐥" />}
           layout="horizontal"
-          emptyMessage="Adicione grupos no Plantel pra ver o ranking de raças."
+          emptyMessage="Quando nascerem filhotes na chocadeira, vão aparecer aqui agrupados por raça."
         />
         <DonutCard
           title="Receita vs Despesa do mês"
@@ -180,6 +181,23 @@ export async function DashboardContent({ tenantId }: { tenantId: string }) {
           ]}
           format="currency"
           emptyMessage="Registre entradas e saídas pra ver o saldo do mês."
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <SalesComparisonCard
+          title="Vendas Ovos vs Aves (30 dias)"
+          subtitle="Quantidade vendida por dia: Prateleira vs Vitrine"
+          data={data.charts.salesComparisonDaily}
+          icon={<Emoji char="🛒" />}
+          emptyMessage="Quando houver vendas nesse período, o comparativo aparece aqui."
+        />
+        <SalesComparisonCard
+          title="Vendas Ovos vs Aves (12 meses)"
+          subtitle="Evolução mensal: Prateleira vs Vitrine"
+          data={data.charts.salesComparisonMonthly}
+          icon={<Emoji char="📊" />}
+          emptyMessage="As vendas vão construir essa comparação mês a mês."
         />
       </section>
 
@@ -288,6 +306,17 @@ export async function DashboardContent({ tenantId }: { tenantId: string }) {
           palette="pink"
           icon={<Emoji char="💗" />}
           emptyMessage="Casos da enfermaria vão aparecer aqui — torço pra continuar zerado."
+        />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <LineChartCard
+          title="Óbitos diários"
+          subtitle="Mortes por dia nos últimos 30 dias"
+          data={data.charts.deathsDaily}
+          palette="rose"
+          icon={<Emoji char="🪦" />}
+          emptyMessage="Nenhum óbito nesse período — ótima notícia!"
         />
       </section>
 
