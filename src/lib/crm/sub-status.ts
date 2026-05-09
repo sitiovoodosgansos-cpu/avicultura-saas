@@ -22,6 +22,12 @@ export const SUB_STATUS_BY_STAGE: Record<LeadStage, SubStatusOption[]> = {
     { value: "negociando_condicoes", label: "Negociando condições", emoji: "🤝" },
     { value: "aguardando_decisao", label: "Aguardando decisão", emoji: "⏳" }
   ],
+  EM_ESPERA: [
+    { value: "esperando_botar", label: "Esperando galinha começar a botar", emoji: "🥚" },
+    { value: "esperando_nascer", label: "Esperando pintinho nascer", emoji: "🐣" },
+    { value: "esperando_temporada", label: "Esperando temporada", emoji: "📅" },
+    { value: "outro_motivo_espera", label: "Outro motivo de espera", emoji: "⏰" }
+  ],
   COMPROU: [
     { value: "separar_pedido", label: "Separar pedido", emoji: "📦" },
     { value: "enviado", label: "Enviado", emoji: "🚚" },
@@ -57,6 +63,12 @@ export const STAGE_META: Record<LeadStage, { label: string; emoji: string; colum
     columnAccent: "border-amber-300 bg-amber-50/40",
     chip: "bg-amber-100 text-amber-700"
   },
+  EM_ESPERA: {
+    label: "Em espera",
+    emoji: "⏸️",
+    columnAccent: "border-violet-300 bg-violet-50/30",
+    chip: "bg-violet-100 text-violet-700"
+  },
   COMPROU: {
     label: "Comprou",
     emoji: "✅",
@@ -71,7 +83,21 @@ export const STAGE_META: Record<LeadStage, { label: string; emoji: string; colum
   }
 };
 
-export const STAGES_ORDER: LeadStage[] = ["NOVO_CONTATO", "EM_NEGOCIACAO", "COMPROU", "DESISTIU"];
+// Ordem visual no Kanban. Em Espera entre Negociação e Comprou:
+// fluxo natural quando o cliente fechou interesse mas precisa esperar
+// produção (botar / chocar / temporada).
+export const STAGES_ORDER: LeadStage[] = [
+  "NOVO_CONTATO",
+  "EM_NEGOCIACAO",
+  "EM_ESPERA",
+  "COMPROU",
+  "DESISTIU"
+];
+
+// Stages que NÃO esquentam/esfriam nem são arquivados automaticamente.
+// COMPROU já tem fluxo próprio de pós-venda; EM_ESPERA é parking
+// intencional (esperando produção do criador).
+export const STAGES_WITHOUT_TEMPERATURE: LeadStage[] = ["COMPROU", "EM_ESPERA"];
 
 // Canais
 export const CHANNEL_META: Record<string, { label: string; emoji: string }> = {

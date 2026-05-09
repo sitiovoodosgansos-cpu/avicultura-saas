@@ -10,7 +10,7 @@ function formatBRL(v: number) {
 export function KpiStrip({ metrics }: { metrics: CrmMetrics | null }) {
   const m = metrics;
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
       <Kpi label="Total ativos" value={m ? String(m.totalActive) : "—"} accent="bg-zinc-100 text-zinc-800" />
       <Kpi
         label={`${STAGE_META.NOVO_CONTATO.emoji} Novo`}
@@ -21,6 +21,11 @@ export function KpiStrip({ metrics }: { metrics: CrmMetrics | null }) {
         label={`${STAGE_META.EM_NEGOCIACAO.emoji} Negoc.`}
         value={m ? String(m.byStage.EM_NEGOCIACAO) : "—"}
         accent={STAGE_META.EM_NEGOCIACAO.chip}
+      />
+      <Kpi
+        label={`${STAGE_META.EM_ESPERA.emoji} Espera`}
+        value={m ? String(m.byStage.EM_ESPERA) : "—"}
+        accent={STAGE_META.EM_ESPERA.chip}
       />
       <Kpi
         label={`${STAGE_META.COMPROU.emoji} Comprou`}

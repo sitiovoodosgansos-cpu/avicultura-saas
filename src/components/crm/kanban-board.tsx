@@ -43,6 +43,7 @@ export function KanbanBoard({
     const map: Record<LeadStage, Lead[]> = {
       NOVO_CONTATO: [],
       EM_NEGOCIACAO: [],
+      EM_ESPERA: [],
       COMPROU: [],
       DESISTIU: []
     };

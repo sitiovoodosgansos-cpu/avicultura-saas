@@ -335,6 +335,7 @@ export async function getCrmMetrics(tenantId: string) {
     byStage: {
       NOVO_CONTATO: Number(byStageMap.NOVO_CONTATO ?? 0),
       EM_NEGOCIACAO: Number(byStageMap.EM_NEGOCIACAO ?? 0),
+      EM_ESPERA: Number(byStageMap.EM_ESPERA ?? 0),
       COMPROU: Number(byStageMap.COMPROU ?? 0),
       DESISTIU: Number(byStageMap.DESISTIU ?? 0)
     },

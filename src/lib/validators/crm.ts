@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const stageEnum = z.enum(["NOVO_CONTATO", "EM_NEGOCIACAO", "COMPROU", "DESISTIU"]);
+const stageEnum = z.enum(["NOVO_CONTATO", "EM_NEGOCIACAO", "EM_ESPERA", "COMPROU", "DESISTIU"]);
 const channelEnum = z.enum([
   "WHATSAPP",
   "OLX",

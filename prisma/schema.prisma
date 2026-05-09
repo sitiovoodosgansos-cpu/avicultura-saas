@@ -925,6 +925,7 @@ model BirdVaccination {
 enum LeadStage {
   NOVO_CONTATO
   EM_NEGOCIACAO
+  EM_ESPERA
   COMPROU
   DESISTIU
 }

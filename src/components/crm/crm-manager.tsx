@@ -103,7 +103,8 @@ export function CrmManager() {
       if (filters.interest && l.interestType !== filters.interest) return false;
       if (filters.tag && !l.tags.includes(filters.tag)) return false;
       if (filters.temperature) {
-        if (l.stage === "COMPROU") return false;
+        // Comprou + Em Espera nao tem temperatura (parking intencional)
+        if (l.stage === "COMPROU" || l.stage === "EM_ESPERA") return false;
         const t = temperatureFor(l.lastInteractionAt);
         if (t === "frozen" || t !== filters.temperature) return false;
       }

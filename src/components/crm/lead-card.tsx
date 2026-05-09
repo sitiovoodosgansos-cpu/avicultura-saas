@@ -7,7 +7,7 @@ import { Archive, MessageCircle } from "lucide-react";
 import type { LeadStage } from "@prisma/client";
 import { ChannelIcon } from "@/components/crm/channel-icon";
 import { TemperatureBar } from "@/components/crm/temperature-bar";
-import { findSubStatus, INTEREST_META, STAGE_META, STAGES_ORDER } from "@/lib/crm/sub-status";
+import { findSubStatus, INTEREST_META, STAGE_META, STAGES_ORDER, STAGES_WITHOUT_TEMPERATURE } from "@/lib/crm/sub-status";
 import { TEMPERATURE_EMOJI, TEMPERATURE_STYLES, temperatureFor } from "@/lib/crm/temperature";
 import { whatsappLink, type Lead } from "@/components/crm/types";
 
@@ -37,10 +37,20 @@ export function LeadCard({
   };
 
   const isCompro = lead.stage === "COMPROU";
+  const isEspera = lead.stage === "EM_ESPERA";
+  const noTemperature = STAGES_WITHOUT_TEMPERATURE.includes(lead.stage);
   const temp = temperatureFor(lead.lastInteractionAt);
   const tempStyles = TEMPERATURE_STYLES[temp];
-  const cardBorder = isCompro ? "border-yellow-300" : tempStyles.cardBorder;
-  const cardBg = isCompro ? "bg-gradient-to-br from-amber-50 to-yellow-100/40" : tempStyles.cardBg;
+  const cardBorder = isCompro
+    ? "border-yellow-300"
+    : isEspera
+      ? "border-violet-300"
+      : tempStyles.cardBorder;
+  const cardBg = isCompro
+    ? "bg-gradient-to-br from-amber-50 to-yellow-100/40"
+    : isEspera
+      ? "bg-violet-50/40"
+      : tempStyles.cardBg;
 
   const subStatus = findSubStatus(lead.stage, lead.subStatus);
   const interestMeta = lead.interestType ? INTEREST_META[lead.interestType] : null;
@@ -59,13 +69,13 @@ export function LeadCard({
         className="cursor-grab active:cursor-grabbing touch-none select-none"
       >
         <div className="flex items-start gap-2">
-          {/* Avatar virou indicador de temperatura — visual + scan rapido.
-              Pra COMPROU usa estrela dourada em vez de emoji de cor. */}
+          {/* Avatar = indicador visual: emoji de temperatura na maioria,
+              ✨ se Comprou, ⏸️ se Em Espera (parking intencional). */}
           <div
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-base shadow-sm"
-            title={isCompro ? "Comprou" : tempStyles.label}
+            title={isCompro ? "Comprou" : isEspera ? "Em espera" : tempStyles.label}
           >
-            <span aria-hidden>{isCompro ? "✨" : TEMPERATURE_EMOJI[temp]}</span>
+            <span aria-hidden>{isCompro ? "✨" : isEspera ? "⏸️" : TEMPERATURE_EMOJI[temp]}</span>
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-zinc-900">{lead.name}</p>
@@ -117,7 +127,7 @@ export function LeadCard({
           </div>
         ) : null}
 
-        <TemperatureBar lastInteractionAt={lead.lastInteractionAt} hidden={isCompro} />
+        <TemperatureBar lastInteractionAt={lead.lastInteractionAt} hidden={noTemperature} />
       </div>
 
       {/* Acoes — fora do drag handle */}

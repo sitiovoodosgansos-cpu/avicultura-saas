@@ -2,9 +2,9 @@ import { LeadStage } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 // Arquiva todos os leads ativos com lastInteractionAt > 7 dias.
-// Cards na coluna COMPROU sao isentos (seguem fluxo proprio de pos-venda).
+// Cards em COMPROU (fluxo proprio pos-venda) e EM_ESPERA (pause
+// intencional aguardando producao do criador) NÃO arquivam.
 // Roda 1x por dia via Vercel Cron — endpoint POST /api/cron/archive-cold-leads.
-// Retorna stats pra log.
 export async function archiveColdLeads(opts?: { dryRun?: boolean }) {
   const eightDaysAgo = new Date();
   eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
@@ -12,7 +12,7 @@ export async function archiveColdLeads(opts?: { dryRun?: boolean }) {
   const candidates = await prisma.lead.findMany({
     where: {
       archivedAt: null,
-      stage: { not: LeadStage.COMPROU },
+      stage: { notIn: [LeadStage.COMPROU, LeadStage.EM_ESPERA] },
       lastInteractionAt: { lt: eightDaysAgo }
     },
     select: { id: true, tenantId: true, name: true, stage: true }
