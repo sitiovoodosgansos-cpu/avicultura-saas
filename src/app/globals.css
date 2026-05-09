@@ -67,6 +67,20 @@ button {
   padding-bottom: var(--mobile-nav-total-space);
 }
 
+/* Barra flutuante de carrinho (Prateleira / Vitrine).
+   No desktop fica colada no rodape; no mobile sobe pra cima do
+   menu fixo (mobile-bottom-nav usa z-50 + min-height 10.5rem) e
+   ganha z-index acima do nav pra nao ficar atras. */
+.cart-floating-bar {
+  bottom: 1rem;
+  z-index: 55;
+}
+@media (max-width: 767px) {
+  .cart-floating-bar {
+    bottom: calc(var(--mobile-nav-bottom-gap) + var(--mobile-nav-height) + 0.5rem);
+  }
+}
+
 body.native-android {
   --mobile-nav-bottom-gap: max(1rem, calc(var(--mobile-safe-bottom) + 2.5rem));
   --mobile-nav-content-gap: 1.25rem;

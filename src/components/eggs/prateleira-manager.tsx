@@ -1043,7 +1043,7 @@ export function PrateleiraManager() {
           Substitui o comportamento antigo de abrir modal por clique e
           permite acumular varias datas/bandejas numa unica venda. */}
       {selection.size > 0 && selectionMode ? (
-        <div className="fixed inset-x-3 bottom-3 z-40 mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.18)] sm:bottom-4">
+        <div className="cart-floating-bar fixed inset-x-3 mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.18)]">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="text-xl" aria-hidden>
               {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🐣" : "🗑️"}
