@@ -92,9 +92,8 @@ export function LeadCard({
         </div>
 
         {interestMeta || lead.interestText ? (
-          <p className="mt-1.5 truncate text-[11px] text-zinc-700">
+          <p className="mt-1.5 truncate text-[11px] font-medium text-zinc-800">
             <span aria-hidden>{interestMeta?.emoji ?? "🎯"}</span>{" "}
-            <span className="font-medium">Interesse:</span>{" "}
             {lead.interestText || interestMeta?.label || "—"}
           </p>
         ) : null}
@@ -115,9 +114,11 @@ export function LeadCard({
           </div>
         ) : null}
 
-        {subStatus ? (
+        {/* Sub-status: usa label da lista predefinida quando bater,
+            ou exibe o texto cru (custom) com emoji generico de chip. */}
+        {lead.subStatus ? (
           <div className={`mt-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${stageMeta.chip}`}>
-            {subStatus.emoji} {subStatus.label}
+            {subStatus ? `${subStatus.emoji} ${subStatus.label}` : `🏷 ${lead.subStatus}`}
           </div>
         ) : null}
 

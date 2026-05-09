@@ -10,9 +10,6 @@ import { findSubStatus, INTEREST_META, STAGE_META, SUB_STATUS_BY_STAGE } from "@
 import type { Lead, LeadHistoryItem } from "@/components/crm/types";
 import { whatsappLink } from "@/components/crm/types";
 
-const inputClass =
-  "h-10 w-full rounded-xl border border-[color:var(--line)] bg-white px-3 text-sm text-slate-800";
-
 export function LeadDetailModal({
   lead,
   open,
@@ -37,11 +34,16 @@ export function LeadDetailModal({
   const [obs, setObs] = useState("");
   const [savingObs, setSavingObs] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
+  // Custom sub-status (texto livre digitado pelo usuario na hora)
+  const [customStatusInput, setCustomStatusInput] = useState("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
 
   useEffect(() => {
     if (!open || !lead) return;
     setObs(lead.observation ?? "");
     setNoteDraft("");
+    setCustomStatusInput("");
+    setShowCustomInput(false);
     setLoadingHistory(true);
     fetch(`/api/crm/leads/${lead.id}/history`)
       .then((r) => r.json())
@@ -126,17 +128,87 @@ export function LeadDetailModal({
           </div>
         ) : null}
 
-        <label className="grid gap-1">
-          <span className="text-xs font-semibold text-slate-700">Sub-status</span>
-          <select className={inputClass} value={lead.subStatus ?? ""} onChange={(e) => changeSubStatus(e.target.value)}>
-            <option value="">— sem sub-status —</option>
-            {SUB_STATUS_BY_STAGE[lead.stage].map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.emoji} {s.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="grid gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-700">Status</span>
+            {lead.subStatus ? (
+              <button
+                type="button"
+                onClick={() => changeSubStatus("")}
+                className="text-[10px] font-semibold text-rose-600 hover:underline"
+              >
+                × Limpar status
+              </button>
+            ) : null}
+          </div>
+
+          {/* Chips das sugestões pre-definidas pra coluna atual */}
+          <div className="flex flex-wrap gap-1.5">
+            {SUB_STATUS_BY_STAGE[lead.stage].map((s) => {
+              const active = lead.subStatus === s.value;
+              return (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => changeSubStatus(s.value)}
+                  className={`rounded-full border px-2 py-1 text-xs font-medium transition ${
+                    active
+                      ? "border-emerald-400 bg-emerald-100 text-emerald-800"
+                      : "border-zinc-200 bg-white text-zinc-700 hover:border-emerald-200 hover:bg-emerald-50"
+                  }`}
+                >
+                  {s.emoji} {s.label}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setShowCustomInput((v) => !v)}
+              className="rounded-full border border-dashed border-indigo-300 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+            >
+              + Personalizado
+            </button>
+          </div>
+
+          {/* Status custom: se o atual nao bate com a lista, mostra como chip */}
+          {lead.subStatus && !findSubStatus(lead.stage, lead.subStatus) ? (
+            <p className="text-[11px] text-zinc-600">
+              Atual: <span className="rounded-full bg-violet-100 px-2 py-0.5 font-semibold text-violet-800">🏷 {lead.subStatus}</span>
+            </p>
+          ) : null}
+
+          {/* Input pra digitar status custom */}
+          {showCustomInput ? (
+            <div className="flex gap-2">
+              <Input
+                value={customStatusInput}
+                onChange={(e) => setCustomStatusInput(e.target.value)}
+                placeholder="Digite o status novo (ex: Visitará no sábado)"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (customStatusInput.trim()) {
+                      void changeSubStatus(customStatusInput.trim());
+                      setCustomStatusInput("");
+                      setShowCustomInput(false);
+                    }
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!customStatusInput.trim()) return;
+                  void changeSubStatus(customStatusInput.trim());
+                  setCustomStatusInput("");
+                  setShowCustomInput(false);
+                }}
+              >
+                Aplicar
+              </Button>
+            </div>
+          ) : null}
+        </div>
 
         <label className="grid gap-1">
           <span className="text-xs font-semibold text-slate-700">Observação</span>
