@@ -3,7 +3,7 @@ import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { getFinancialMetrics } from "@/lib/finance/service";
 
 export async function GET() {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "financeiro" });
   if (!auth.ok) return auth.response;
 
   const data = await getFinancialMetrics(auth.session.user.tenantId);

@@ -35,7 +35,7 @@ function parsePreset(value: string | null): ReportPreset {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "relatorios" });
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);

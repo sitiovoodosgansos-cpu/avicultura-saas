@@ -13,7 +13,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "vitrine" });
   if (!auth.ok) return auth.response;
 
   const { id } = await params;

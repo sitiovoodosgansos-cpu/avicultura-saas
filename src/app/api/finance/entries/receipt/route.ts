@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateReceiptPdf } from "@/lib/finance/receipt-pdf";
 
 export async function GET(request: NextRequest) {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "financeiro" });
   if (!auth.ok) return auth.response;
 
   const url = new URL(request.url);

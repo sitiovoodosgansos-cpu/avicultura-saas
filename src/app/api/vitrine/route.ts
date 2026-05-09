@@ -4,7 +4,7 @@ import { listingCreateSchema } from "@/lib/validators/vitrine";
 import { createListing, listVitrine } from "@/lib/vitrine/service";
 
 export async function GET() {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "vitrine" });
   if (!auth.ok) return auth.response;
 
   const data = await listVitrine(auth.session.user.tenantId);
@@ -12,7 +12,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "vitrine" });
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

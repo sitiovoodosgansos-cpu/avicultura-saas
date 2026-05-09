@@ -15,12 +15,19 @@ export default async function EmployeePortalLayout({
     redirect("/equipe/login");
   }
 
-  const billing = await getTenantBilling(session.tenant.id);
-  if (!billing) {
-    redirect("/equipe/login");
+  // Tenta carregar billing — se falhar (problema transitorio de DB,
+  // tenant não achado, etc.) NAO redireciona pra login. Antes essa
+  // falha derrubava o funcionario falsamente; agora mantem ele dentro
+  // e usa estado bloqueado conservador (true) so se billing realmente
+  // diz que esta bloqueado, false caso contrario.
+  let billing: Awaited<ReturnType<typeof getTenantBilling>> = null;
+  try {
+    billing = await getTenantBilling(session.tenant.id);
+  } catch (err) {
+    console.error("[equipe.layout] getTenantBilling failed", err);
   }
-
-  const isBlocked = !billing.isAccessAllowed;
+  const isBlocked = billing ? !billing.isAccessAllowed : false;
+  const farmName = billing?.farmName ?? session.tenant.name;
 
   return (
     <div className="min-h-screen md:flex">
@@ -59,7 +66,7 @@ export default async function EmployeePortalLayout({
           </div>
         </header>
         <div className="mx-auto max-w-7xl p-4 md:p-8">
-          {isBlocked ? <EmployeeBillingBlockedCard farmName={billing.farmName} /> : children}
+          {isBlocked ? <EmployeeBillingBlockedCard farmName={farmName} /> : children}
         </div>
       </div>
     </div>

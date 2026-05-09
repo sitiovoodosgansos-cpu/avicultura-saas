@@ -4,7 +4,7 @@ import { purchasedListingSchema } from "@/lib/validators/vitrine";
 import { createPurchasedListing } from "@/lib/vitrine/service";
 
 export async function POST(request: NextRequest) {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "vitrine" });
   if (!auth.ok) return auth.response;
 
   const body = await request.json();

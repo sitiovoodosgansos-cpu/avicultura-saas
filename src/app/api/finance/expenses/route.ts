@@ -4,7 +4,7 @@ import { financialExpenseSchema } from "@/lib/validators/finance";
 import { createExpense, listFinancialExpenses } from "@/lib/finance/service";
 
 export async function GET(request: NextRequest) {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "financeiro" });
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getApiSessionOr401({ ownerOnly: true });
+  const auth = await getApiSessionOr401({ employeePermission: "financeiro" });
   if (!auth.ok) return auth.response;
 
   const body = await request.json();
