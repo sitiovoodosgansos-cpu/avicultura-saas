@@ -1,23 +1,30 @@
 "use client";
 
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Archive, MessageCircle } from "lucide-react";
+import type { LeadStage } from "@prisma/client";
 import { ChannelIcon } from "@/components/crm/channel-icon";
 import { TemperatureBar } from "@/components/crm/temperature-bar";
-import { findSubStatus, INTEREST_META, STAGE_META } from "@/lib/crm/sub-status";
+import { findSubStatus, INTEREST_META, STAGE_META, STAGES_ORDER } from "@/lib/crm/sub-status";
 import { TEMPERATURE_EMOJI, TEMPERATURE_STYLES, temperatureFor } from "@/lib/crm/temperature";
 import { whatsappLink, type Lead } from "@/components/crm/types";
 
 export function LeadCard({
   lead,
   onOpen,
-  onArchive
+  onArchive,
+  onMoveToStage
 }: {
   lead: Lead;
   onOpen: (lead: Lead) => void;
   onArchive: (lead: Lead) => void;
+  /** Tap-to-move: usuario abre o popup e escolhe a coluna (mais
+   *  amigavel que arrastar no celular). Opcional pra retrocompatibilidade. */
+  onMoveToStage?: (lead: Lead, stage: LeadStage) => void;
 }) {
+  const [showMoveMenu, setShowMoveMenu] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
     data: { type: "lead", lead }
@@ -122,6 +129,16 @@ export function LeadCard({
         >
           Detalhes
         </button>
+        {onMoveToStage ? (
+          <button
+            type="button"
+            onClick={() => setShowMoveMenu((v) => !v)}
+            className="inline-flex items-center justify-center rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100"
+            title="Mover para outra fase"
+          >
+            ➜
+          </button>
+        ) : null}
         {wapp ? (
           <a
             href={wapp}
@@ -142,6 +159,40 @@ export function LeadCard({
           <Archive className="h-3 w-3" />
         </button>
       </div>
+
+      {/* Menu de mover (alternativa ao drag, otima pra mobile).
+          Aparece inline abaixo do card com as outras 3 colunas. */}
+      {showMoveMenu && onMoveToStage ? (
+        <div className="mt-1.5 grid gap-1 rounded-xl border border-indigo-200 bg-indigo-50/60 p-1.5">
+          <p className="px-1 text-[10px] font-semibold uppercase tracking-wider text-indigo-700">
+            Mover para:
+          </p>
+          {STAGES_ORDER.filter((s) => s !== lead.stage).map((s) => {
+            const meta = STAGE_META[s];
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  onMoveToStage(lead, s);
+                  setShowMoveMenu(false);
+                }}
+                className="flex items-center gap-1.5 rounded-lg bg-white px-2 py-1.5 text-left text-xs font-medium text-slate-800 shadow-sm hover:bg-indigo-100"
+              >
+                <span aria-hidden>{meta.emoji}</span>
+                <span>{meta.label}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setShowMoveMenu(false)}
+            className="rounded-lg px-2 py-1 text-[10px] font-semibold text-zinc-500 hover:bg-zinc-100"
+          >
+            Cancelar
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

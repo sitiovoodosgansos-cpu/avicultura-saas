@@ -11,12 +11,14 @@ export function KanbanColumn({
   stage,
   leads,
   onOpenLead,
-  onArchiveLead
+  onArchiveLead,
+  onMoveToStage
 }: {
   stage: LeadStage;
   leads: Lead[];
   onOpenLead: (lead: Lead) => void;
   onArchiveLead: (lead: Lead) => void;
+  onMoveToStage?: (lead: Lead, stage: LeadStage) => void;
 }) {
   const meta = STAGE_META[stage];
   const { setNodeRef, isOver } = useDroppable({ id: `column-${stage}`, data: { type: "column", stage } });
@@ -47,6 +49,7 @@ export function KanbanColumn({
                 lead={lead}
                 onOpen={onOpenLead}
                 onArchive={onArchiveLead}
+                onMoveToStage={onMoveToStage}
               />
             ))
           )}

@@ -24,7 +24,8 @@ export function KanbanBoard({
   onArchiveLead
 }: {
   leads: Lead[];
-  /** chamado quando o usuario solta um card numa coluna diferente */
+  /** chamado quando o usuario solta um card numa coluna diferente
+   *  OU quando escolhe "Mover" no menu do card (alternativa mobile-friendly) */
   onMove: (leadId: string, toStage: LeadStage, position: number) => Promise<void> | void;
   onOpenLead: (lead: Lead) => void;
   onArchiveLead: (lead: Lead) => void;
@@ -104,6 +105,13 @@ export function KanbanBoard({
             leads={grouped[stage]}
             onOpenLead={onOpenLead}
             onArchiveLead={onArchiveLead}
+            onMoveToStage={(lead, toStage) => {
+              // Posicao = final da coluna alvo
+              const list = grouped[toStage];
+              const last = list[list.length - 1];
+              const position = (last?.position ?? 0) + 1024;
+              void onMove(lead.id, toStage, position);
+            }}
           />
         ))}
       </div>
