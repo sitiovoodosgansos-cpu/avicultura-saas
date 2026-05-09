@@ -273,12 +273,12 @@ export function CrmManager() {
       {tab === "active" ? (
         <>
           <div className="flex flex-wrap items-stretch gap-2">
-            <div className="flex-1 min-w-[200px]">
-              <FiltersBar filters={filters} setFilters={setFilters} allTags={allTags} />
-            </div>
             <Button type="button" onClick={openCreate} className="shrink-0">
               <Plus className="mr-1 inline h-4 w-4" /> Novo cliente
             </Button>
+            <div className="flex-1 min-w-[200px]">
+              <FiltersBar filters={filters} setFilters={setFilters} allTags={allTags} />
+            </div>
           </div>
           {loading ? (
             <p className="text-sm text-zinc-500">Carregando clientes...</p>

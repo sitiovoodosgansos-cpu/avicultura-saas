@@ -32,12 +32,18 @@ export function KanbanBoard({
 }) {
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
-  // Sensors: PointerSensor com threshold pra desktop, TouchSensor com
-  // delay de 200ms pra nao conflitar com scroll vertical no mobile.
+  // Sensors mais snappy: ativa o drag em 4px no mouse / 150ms no touch.
+  // O comportamento de "swipe direcional" abaixo (handleDragEnd) joga
+  // o card pra coluna vizinha mesmo se o usuario nao soltar exatamente
+  // sobre ela, basta arrastar uns 50px na direcao certa.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
   );
+
+  // Distancia minima de drag horizontal pra disparar swipe direcional
+  // (em px). Bem curta — meio movimento e ja move pra coluna vizinha.
+  const SWIPE_THRESHOLD = 50;
 
   const grouped = useMemo(() => {
     const map: Record<LeadStage, Lead[]> = {
@@ -59,20 +65,17 @@ export function KanbanBoard({
 
   async function handleDragEnd(event: DragEndEvent) {
     setActiveLead(null);
-    const { active, over } = event;
-    if (!over) return;
+    const { active, over, delta } = event;
 
     const activeData = active.data.current as { type?: string; lead?: Lead } | undefined;
-    const overData = over.data.current as { type?: string; stage?: LeadStage; lead?: Lead } | undefined;
     if (!activeData?.lead) return;
-
     const lead = activeData.lead;
 
-    // Determinar coluna alvo: se solta sobre coluna usa stage, se solta
-    // sobre outro card usa o stage do card.
     let toStage: LeadStage | null = null;
     let toPosition: number | null = null;
 
+    // 1) Drop direto sobre coluna ou card: usa o alvo
+    const overData = over?.data.current as { type?: string; stage?: LeadStage; lead?: Lead } | undefined;
     if (overData?.type === "column" && overData.stage) {
       toStage = overData.stage;
       const list = grouped[toStage];
@@ -88,9 +91,28 @@ export function KanbanBoard({
       else toPosition = (target.position ?? 0) - 1024;
     }
 
-    if (toStage === null || toPosition === null) return;
+    // 2) Swipe direcional: se nao caiu em alvo OU caiu na mesma coluna,
+    //    usa o delta horizontal pra mandar pra coluna vizinha. Pega
+    //    quantas colunas atravessou em multiplos do threshold pra que
+    //    arrastos longos pulem mais de uma coluna.
+    const noUsefulDrop = toStage === null || toStage === lead.stage;
+    if (noUsefulDrop && Math.abs(delta.x) > SWIPE_THRESHOLD) {
+      const dir = delta.x > 0 ? 1 : -1;
+      const steps = Math.max(1, Math.floor(Math.abs(delta.x) / 200)); // a cada 200px pula +1 coluna
+      const currentIdx = STAGES_ORDER.indexOf(lead.stage);
+      const targetIdx = Math.min(
+        STAGES_ORDER.length - 1,
+        Math.max(0, currentIdx + dir * steps)
+      );
+      if (targetIdx !== currentIdx) {
+        toStage = STAGES_ORDER[targetIdx];
+        const list = grouped[toStage];
+        const last = list[list.length - 1];
+        toPosition = (last?.position ?? 0) + 1024;
+      }
+    }
 
-    // Sem mudancas se mesmo stage e mesma posicao
+    if (toStage === null || toPosition === null) return;
     if (lead.stage === toStage && Math.abs(lead.position - toPosition) < 0.001) return;
 
     await onMove(lead.id, toStage, toPosition);

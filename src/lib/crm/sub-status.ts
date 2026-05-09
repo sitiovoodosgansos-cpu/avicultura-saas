@@ -83,15 +83,16 @@ export const STAGE_META: Record<LeadStage, { label: string; emoji: string; colum
   }
 };
 
-// Ordem visual no Kanban. Em Espera entre Negociação e Comprou:
-// fluxo natural quando o cliente fechou interesse mas precisa esperar
-// produção (botar / chocar / temporada).
+// Ordem visual no Kanban. Em Espera fica POR ULTIMO (depois de
+// Desistiu) pra nao atrapalhar o fluxo natural Novo → Negociação →
+// Comprou. Funciona como uma "gaveta lateral" pra clientes que
+// fecharam interesse mas precisam aguardar produção.
 export const STAGES_ORDER: LeadStage[] = [
   "NOVO_CONTATO",
   "EM_NEGOCIACAO",
-  "EM_ESPERA",
   "COMPROU",
-  "DESISTIU"
+  "DESISTIU",
+  "EM_ESPERA"
 ];
 
 // Stages que NÃO esquentam/esfriam nem são arquivados automaticamente.
