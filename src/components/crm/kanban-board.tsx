@@ -32,7 +32,7 @@ export function KanbanBoard({
 }) {
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
-  // Sensors mais snappy: ativa o drag em 4px no mouse / 150ms no touch.
+  // Sensors snappy: ativa o drag em 4px no mouse / 150ms no touch.
   // O comportamento de "swipe direcional" abaixo (handleDragEnd) joga
   // o card pra coluna vizinha mesmo se o usuario nao soltar exatamente
   // sobre ela, basta arrastar uns 50px na direcao certa.
@@ -43,6 +43,9 @@ export function KanbanBoard({
 
   // Distancia minima de drag horizontal pra disparar swipe direcional
   // (em px). Bem curta — meio movimento e ja move pra coluna vizinha.
+  // CAP: drag SEMPRE move 1 coluna no maximo por vez. Distancias
+  // maiores nao pulam multiplas colunas (evita "cair" longe demais
+  // sem perceber). Quer mover mais? Arrasta de novo.
   const SWIPE_THRESHOLD = 50;
 
   const grouped = useMemo(() => {
@@ -92,18 +95,14 @@ export function KanbanBoard({
     }
 
     // 2) Swipe direcional: se nao caiu em alvo OU caiu na mesma coluna,
-    //    usa o delta horizontal pra mandar pra coluna vizinha. Pega
-    //    quantas colunas atravessou em multiplos do threshold pra que
-    //    arrastos longos pulem mais de uma coluna.
+    //    usa o delta horizontal pra mandar pra coluna VIZINHA (1 unica).
+    //    Drags longos NAO pulam multiplas colunas — evita cair longe
+    //    demais sem perceber. Pra mover varias colunas, repita o swipe.
     const noUsefulDrop = toStage === null || toStage === lead.stage;
     if (noUsefulDrop && Math.abs(delta.x) > SWIPE_THRESHOLD) {
       const dir = delta.x > 0 ? 1 : -1;
-      const steps = Math.max(1, Math.floor(Math.abs(delta.x) / 200)); // a cada 200px pula +1 coluna
       const currentIdx = STAGES_ORDER.indexOf(lead.stage);
-      const targetIdx = Math.min(
-        STAGES_ORDER.length - 1,
-        Math.max(0, currentIdx + dir * steps)
-      );
+      const targetIdx = Math.min(STAGES_ORDER.length - 1, Math.max(0, currentIdx + dir));
       if (targetIdx !== currentIdx) {
         toStage = STAGES_ORDER[targetIdx];
         const list = grouped[toStage];
@@ -119,7 +118,19 @@ export function KanbanBoard({
   }
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      // autoScroll mais lento — antes "passava pelas colunas" rapido
+      // demais quando o usuario chegava perto da borda no mobile.
+      // acceleration baixo + threshold maior = scroll suave e controlado.
+      autoScroll={{
+        threshold: { x: 0.15, y: 0.1 },
+        acceleration: 4,
+        interval: 16
+      }}
+    >
       <div className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory md:snap-none">
         {STAGES_ORDER.map((stage) => (
           <KanbanColumn
