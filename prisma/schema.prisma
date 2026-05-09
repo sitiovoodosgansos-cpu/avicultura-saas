@@ -543,7 +543,7 @@ model FinancialEntry {
   updatedAt     DateTime       @updatedAt
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   eggSale       EggSale?
-  vitrineSale   VitrineSale?
+  vitrineSales  VitrineSale[]
 }
 
 model EggTray {
@@ -798,7 +798,10 @@ model VitrineSale {
   customer         String?
   notes            String?
   soldAt           DateTime      @default(now())
-  financialEntryId String?       @unique
+  // Antes era @unique (1:1 com FinancialEntry). Removido pra permitir
+  // 1 venda agregada (FinancialEntry unico) com varias VitrineSale —
+  // mesmo padrao do EggSale com items, suporta o carrinho da Vitrine.
+  financialEntryId String?
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   listing        VitrineListing  @relation(fields: [listingId], references: [id], onDelete: Restrict)
@@ -806,6 +809,7 @@ model VitrineSale {
 
   @@index([tenantId, listingId])
   @@index([tenantId, soldAt])
+  @@index([financialEntryId])
 }
 
 model VitrineDeathRecord {

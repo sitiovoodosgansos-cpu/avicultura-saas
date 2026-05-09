@@ -6,6 +6,7 @@ import {
   getCurrentPrice
 } from "@/lib/vitrine/pricing";
 import type {
+  BulkSaleInput,
   DeathInput,
   ListingCreateInput,
   ListingUpdateInput,
@@ -658,6 +659,117 @@ export async function sellListing(tenantId: string, id: string, input: SaleInput
     });
 
     return { sale, financialEntry };
+  });
+}
+
+// Venda agregada (carrinho da Vitrine): cria 1 FinancialEntry com a soma
+// total + N VitrineSale (uma por listing). Mesma logica de devolucao de
+// estoque que sellListing, mas em lote. Categoria do FinancialEntry:
+// CHICK_SALE se TODOS os itens sao filhotes (<6 meses), ADULT_BIRD_SALE
+// se TODOS sao adultos, MIXED_BIRD_SALE caso contrario.
+export async function sellListingsBulk(tenantId: string, input: BulkSaleInput) {
+  const listingIds = input.items.map((i) => i.listingId);
+  const listings = await prisma.vitrineListing.findMany({
+    where: { id: { in: listingIds }, tenantId },
+    include: { flockGroup: { select: { title: true } } }
+  });
+
+  const byId = new Map(listings.map((l) => [l.id, l]));
+  // Valida tudo antes de gravar — pra nao deixar a venda parcial.
+  for (const item of input.items) {
+    const listing = byId.get(item.listingId);
+    if (!listing) {
+      throw new Error(`Listing inválido (${item.listingId}).`);
+    }
+    if (item.quantity > listing.availableQuantity) {
+      const label = listing.title?.trim() || listing.flockGroup.title;
+      throw new Error(
+        `Quantidade indisponível para "${label}". Restam ${listing.availableQuantity}.`
+      );
+    }
+  }
+
+  const totalPrice = input.items.reduce(
+    (sum, it) => sum + Number((it.unitPrice * it.quantity).toFixed(2)),
+    0
+  );
+
+  // Decide categoria pelo perfil do carrinho
+  let hasChick = false;
+  let hasAdult = false;
+  for (const item of input.items) {
+    const listing = byId.get(item.listingId)!;
+    const ageInMonths = calculateAgeInMonths(listing.birthDate);
+    if (ageInMonths < 6) hasChick = true;
+    else hasAdult = true;
+  }
+  const category =
+    hasChick && hasAdult ? "MIXED_BIRD_SALE" : hasChick ? "CHICK_SALE" : "ADULT_BIRD_SALE";
+
+  // Item descritivo: "Venda Vitrine: 3 itens (Cayuga, Brahma, ...)"
+  const labels = input.items
+    .map((i) => byId.get(i.listingId)!.flockGroup.title)
+    .filter((v, i, arr) => arr.indexOf(v) === i);
+  const itemLabel =
+    input.items.length === 1
+      ? `Venda Vitrine: ${labels[0]}`
+      : `Venda Vitrine: ${input.items.length} itens (${labels.slice(0, 3).join(", ")}${labels.length > 3 ? "..." : ""})`;
+
+  const description = input.items
+    .map((i) => `${i.quantity}x ${byId.get(i.listingId)!.flockGroup.title}`)
+    .join(" + ");
+
+  return prisma.$transaction(async (tx) => {
+    const financialEntry = await tx.financialEntry.create({
+      data: {
+        tenantId,
+        date: new Date(),
+        category,
+        item: itemLabel,
+        amount: totalPrice,
+        customer: input.customer?.trim() || null,
+        description,
+        paymentMethod: input.paymentMethod,
+        notes: input.notes?.trim() || null
+      }
+    });
+
+    const sales: Array<{ id: string; listingId: string; quantitySold: number; totalPrice: number }> = [];
+    for (const item of input.items) {
+      const listing = byId.get(item.listingId)!;
+      const itemTotal = Number((item.unitPrice * item.quantity).toFixed(2));
+      const sale = await tx.vitrineSale.create({
+        data: {
+          tenantId,
+          listingId: item.listingId,
+          quantitySold: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: itemTotal,
+          paymentMethod: input.paymentMethod,
+          customer: input.customer?.trim() || null,
+          notes: input.notes?.trim() || null,
+          financialEntryId: financialEntry.id
+        }
+      });
+
+      const newAvailable = listing.availableQuantity - item.quantity;
+      await tx.vitrineListing.update({
+        where: { id: listing.id },
+        data: {
+          availableQuantity: newAvailable,
+          ...(newAvailable === 0 ? { status: "SOLD_OUT" as const } : {})
+        }
+      });
+
+      sales.push({
+        id: sale.id,
+        listingId: item.listingId,
+        quantitySold: item.quantity,
+        totalPrice: itemTotal
+      });
+    }
+
+    return { financialEntry, sales, totalPrice };
   });
 }
 

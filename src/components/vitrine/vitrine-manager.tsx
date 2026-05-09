@@ -12,7 +12,11 @@ import {
 } from "@/components/vitrine/listing-form-modal";
 import { PriceTierManager } from "@/components/vitrine/price-tier-manager";
 import { DeathModal, type DeathFormValues } from "@/components/vitrine/death-modal";
-import { SellModal, type SaleFormValues } from "@/components/vitrine/sell-modal";
+import {
+  BulkSellModal,
+  type BulkCartItem,
+  type BulkSubmitPayload
+} from "@/components/vitrine/bulk-sell-modal";
 import { PurchaseModal, type PurchaseFormValues } from "@/components/vitrine/purchase-modal";
 import {
   formatBRL,
@@ -33,8 +37,10 @@ export function VitrineManager() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<VitrineListingItem | null>(null);
   const [pricesOpen, setPricesOpen] = useState(false);
+  // Carrinho persistente: cada clique no botao 🛒 toggle o listing.
+  // Quando o usuario clica "Finalizar venda" abre o BulkSellModal.
+  const [cart, setCart] = useState<Map<string, BulkCartItem>>(new Map());
   const [sellOpen, setSellOpen] = useState(false);
-  const [selling, setSelling] = useState<VitrineListingItem | null>(null);
   const [sellError, setSellError] = useState<string | null>(null);
   const [deathOpen, setDeathOpen] = useState(false);
   const [dying, setDying] = useState<VitrineListingItem | null>(null);
@@ -205,24 +211,58 @@ export function VitrineManager() {
     }
   }
 
-  function openSell(listing: VitrineListingItem) {
-    setSelling(listing);
+  // Toggle o listing no carrinho. Default: quantity=1, unitPrice = preço
+  // sugerido da tabela (currentPrice) ou 0 se nao houver tier.
+  function toggleCart(listing: VitrineListingItem) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      if (next.has(listing.id)) {
+        next.delete(listing.id);
+      } else {
+        next.set(listing.id, {
+          listing,
+          quantity: 1,
+          unitPrice: listing.currentPrice ?? 0
+        });
+      }
+      return next;
+    });
+  }
+
+  function clearCart() {
+    setCart(new Map());
+  }
+
+  function openCart() {
+    if (cart.size === 0) return;
     setSellError(null);
     setSellOpen(true);
   }
 
-  async function handleSell(values: SaleFormValues, id: string) {
+  function updateCartItem(
+    listingId: string,
+    patch: Partial<{ quantity: number; unitPrice: number }>
+  ) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const item = next.get(listingId);
+      if (!item) return next;
+      next.set(listingId, { ...item, ...patch });
+      return next;
+    });
+  }
+
+  async function submitBulkSale(values: BulkSubmitPayload) {
     setSellError(null);
     try {
-      const response = await fetch(`/api/vitrine/${id}/sell`, {
+      const response = await fetch("/api/vitrine/sell-bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          quantity: values.quantity,
-          unitPrice: values.unitPrice,
           paymentMethod: values.paymentMethod,
           customer: values.customer || null,
-          notes: values.notes || null
+          notes: values.notes || null,
+          items: values.items
         })
       });
       if (!response.ok) {
@@ -230,7 +270,7 @@ export function VitrineManager() {
         throw new Error(body.error ?? "Erro ao registrar venda.");
       }
       setSellOpen(false);
-      setSelling(null);
+      clearCart();
       await load();
     } catch (err) {
       setSellError(err instanceof Error ? err.message : "Erro ao registrar venda.");
@@ -265,6 +305,17 @@ export function VitrineManager() {
     }
     return [...map.values()].sort((a, b) => a.group.title.localeCompare(b.group.title));
   }, [data]);
+
+  // Set de ids no carrinho — pra destacar o botao 🛒 nos cards
+  const cartIdSet = useMemo(() => new Set(cart.keys()), [cart]);
+  // Lista do carrinho como array (ordenada por como foi adicionada)
+  const cartList = useMemo(() => Array.from(cart.values()), [cart]);
+  // Total parcial do carrinho pra mostrar na barra flutuante
+  const cartTotal = useMemo(
+    () =>
+      cartList.reduce((sum, it) => sum + Number((it.quantity * it.unitPrice).toFixed(2)), 0),
+    [cartList]
+  );
 
   // Aplica busca + filtro de grupo nos cards visiveis. Mantem `summary` e
   // contadores no panorama (todos os anuncios) e so filtra a grade.
@@ -436,9 +487,10 @@ export function VitrineManager() {
             group={group}
             listings={listings}
             onEdit={openEdit}
-            onSell={openSell}
+            onSell={toggleCart}
             onDeath={openDeath}
             onRemove={handleRemove}
+            cartIds={cartIdSet}
           />
         ))}
       </div>
@@ -466,14 +518,13 @@ export function VitrineManager() {
         onChanged={() => void load()}
       />
 
-      <SellModal
+      <BulkSellModal
         open={sellOpen}
-        listing={selling}
-        onClose={() => {
-          setSellOpen(false);
-          setSelling(null);
-        }}
-        onSubmit={handleSell}
+        cart={cartList}
+        onClose={() => setSellOpen(false)}
+        onChangeItem={updateCartItem}
+        onRemoveItem={(id) => toggleCart(cart.get(id)!.listing)}
+        onSubmit={submitBulkSale}
         error={sellError}
       />
 
@@ -494,6 +545,35 @@ export function VitrineManager() {
         onSubmit={handlePurchase}
         error={purchaseError}
       />
+
+      {/* Barra flutuante do carrinho da Vitrine — acumula listings em
+          uma unica venda. Substitui o modal per-listing antigo. */}
+      {cart.size > 0 ? (
+        <div className="fixed inset-x-3 bottom-3 z-40 mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.18)] sm:bottom-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="text-xl" aria-hidden>🛒</span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-900">
+                {cart.size} {cart.size === 1 ? "item" : "itens"} ·{" "}
+                {cartList.reduce((s, it) => s + it.quantity, 0)} ave(s) ·{" "}
+                {new Intl.NumberFormat("pt-BR", {
+                  style: "currency",
+                  currency: "BRL"
+                }).format(cartTotal)}
+              </p>
+              <p className="truncate text-[11px] text-slate-500">
+                Tudo será gerado como uma única venda
+              </p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" onClick={clearCart}>
+            Limpar
+          </Button>
+          <Button type="button" onClick={openCart}>
+            Finalizar venda
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

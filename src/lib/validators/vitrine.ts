@@ -36,6 +36,22 @@ export const saleSchema = z.object({
   notes: z.string().trim().optional().nullable()
 });
 
+// Venda agregada (carrinho da Vitrine): N listings sob 1 cliente/pagamento
+export const bulkSaleSchema = z.object({
+  paymentMethod: z.enum(["PIX", "CARD", "CASH"]),
+  customer: z.string().trim().optional().nullable(),
+  notes: z.string().trim().optional().nullable(),
+  items: z
+    .array(
+      z.object({
+        listingId: z.string().cuid("Listing inválido."),
+        quantity: z.coerce.number().int().min(1, "Quantidade mínima 1."),
+        unitPrice: z.coerce.number().min(0, "Preço inválido.")
+      })
+    )
+    .min(1, "Adicione pelo menos um item ao carrinho.")
+});
+
 export const deathSchema = z.object({
   quantity: z.coerce.number().int().min(1, "Quantidade mínima 1."),
   cause: z.string().trim().optional().nullable()
@@ -57,6 +73,7 @@ export const purchasedListingSchema = z.object({
 
 export type PriceTierEntryInput = z.infer<typeof priceTierEntrySchema>;
 export type PriceTierBatchInput = z.infer<typeof priceTierBatchSchema>;
+export type BulkSaleInput = z.infer<typeof bulkSaleSchema>;
 export type ListingCreateInput = z.infer<typeof listingCreateSchema>;
 export type ListingUpdateInput = z.infer<typeof listingUpdateSchema>;
 export type SaleInput = z.infer<typeof saleSchema>;

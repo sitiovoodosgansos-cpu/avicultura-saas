@@ -170,7 +170,7 @@ export async function deleteEntry(tenantId: string, userId: string, id: string) 
     where: { id, tenantId },
     include: {
       eggSale: { include: { items: true } },
-      vitrineSale: true
+      vitrineSales: true
     }
   });
   if (!existing) return false;
@@ -202,14 +202,13 @@ export async function deleteEntry(tenantId: string, userId: string, id: string) 
       await tx.eggSale.delete({ where: { id: sale.id } });
     }
 
-    if (existing.vitrineSale) {
-      const sale = existing.vitrineSale;
+    // Pode ter VARIAS VitrineSale ligadas (carrinho — 1 venda agregada).
+    // Devolve estoque listing por listing, depois apaga as vendas.
+    for (const sale of existing.vitrineSales) {
       const listing = await tx.vitrineListing.findUnique({ where: { id: sale.listingId } });
-      // Mesma logica tolerante: se o listing nao existe mais, ainda
-      // apaga a venda fonte (a entrada financeira sai junto).
       if (listing) {
-        // Devolve estoque pra Vitrine. Se ficou SOLD_OUT por causa da venda,
-        // reabre como AVAILABLE; preserva REMOVED se o usuario tinha tirado.
+        // Reabre como AVAILABLE so se ficou SOLD_OUT por causa da venda;
+        // preserva REMOVED se o usuario tinha tirado da vitrine.
         await tx.vitrineListing.update({
           where: { id: sale.listingId },
           data: {
