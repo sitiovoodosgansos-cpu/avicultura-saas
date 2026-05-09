@@ -3,38 +3,25 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import {
-  Bird,
-  Egg,
-  Home,
-  KanbanSquare,
-  Package,
-  Pill,
-  Settings,
-  ShoppingBag,
-  Sparkles,
-  Wallet,
-  type LucideIcon
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Lucide em vez de emoji — emojis renderizam diferente em cada OS
-// (Windows usa Segoe UI Emoji, macOS Apple Color Emoji, Android Noto)
-// e davam impressao de "esta tudo diferente" quando o usuario abria
-// em outro computador.
-// Relatorios saiu do menu — agora vive como botao destacado dentro
+// Volta pra emojis — o usuario preferiu o visual mais expressivo.
+// Trade-off conhecido: emojis variam entre SO (Segoe UI no Windows,
+// Apple Color Emoji no macOS, Noto Color no Android), mas o estilo
+// vale a pena e a maioria dos usuarios fica num SO so.
+// Relatorios saiu do menu — agora vive como atalho destacado dentro
 // do Perfil (BillingProfileManager).
-const navItems: Array<{ href: string; label: string; icon: LucideIcon }> = [
-  { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/plantel", label: "Plantel", icon: Bird },
-  { href: "/coleta-ovos", label: "Coleta", icon: Egg },
-  { href: "/prateleira", label: "Prateleira", icon: Package },
-  { href: "/chocadeiras", label: "Chocadeiras", icon: Sparkles },
-  { href: "/vitrine", label: "Vitrine", icon: ShoppingBag },
-  { href: "/sanidade", label: "Sanidade", icon: Pill },
-  { href: "/financeiro", label: "Financeiro", icon: Wallet },
-  { href: "/crm", label: "CRM", icon: KanbanSquare },
-  { href: "/perfil", label: "Perfil", icon: Settings }
+const navItems = [
+  { href: "/dashboard", label: "Dashboard", emoji: "🏠" },
+  { href: "/plantel", label: "Plantel", emoji: "🦚" },
+  { href: "/coleta-ovos", label: "Coleta", emoji: "🥚" },
+  { href: "/prateleira", label: "Prateleira", emoji: "🪺" },
+  { href: "/chocadeiras", label: "Chocadeiras", emoji: "🐣" },
+  { href: "/vitrine", label: "Vitrine", emoji: "🏪" },
+  { href: "/sanidade", label: "Sanidade", emoji: "💊" },
+  { href: "/financeiro", label: "Financeiro", emoji: "💰" },
+  { href: "/crm", label: "CRM", emoji: "📋" },
+  { href: "/perfil", label: "Perfil", emoji: "⚙️" }
 ];
 
 export function AppNav() {
@@ -64,7 +51,7 @@ export function AppNav() {
           </div>
 
           <nav className="space-y-0.5">
-            {navItems.map(({ href, label, icon: Icon }) => {
+            {navItems.map(({ href, label, emoji }) => {
               const active = pathname === href;
               return (
                 <Link
@@ -79,11 +66,11 @@ export function AppNav() {
                 >
                   <span
                     className={cn(
-                      "flex size-10 items-center justify-center rounded-2xl",
-                      active ? "bg-white/18 text-white" : "bg-white text-[color:var(--brand-strong)] shadow-sm"
+                      "flex size-10 items-center justify-center rounded-2xl text-lg",
+                      active ? "bg-white/18" : "bg-white shadow-sm"
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    {emoji}
                   </span>
                   <div>{label}</div>
                 </Link>
@@ -94,7 +81,7 @@ export function AppNav() {
       </aside>
 
       <nav className="mobile-bottom-nav fixed left-2 right-2 z-50 grid grid-cols-5 gap-0.5 rounded-2xl border border-[color:var(--line)] bg-white/95 p-1 shadow-[0_20px_45px_rgba(15,23,42,0.15)] backdrop-blur md:hidden">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {navItems.map(({ href, label, emoji }) => {
           const active = pathname === href;
           return (
             <Link
@@ -107,11 +94,11 @@ export function AppNav() {
             >
               <span
                 className={cn(
-                  "mb-0.5 flex size-6 items-center justify-center rounded-md",
-                  active ? "bg-white text-[color:var(--brand-strong)]" : "bg-slate-100/80 text-slate-600"
+                  "mb-0.5 flex size-6 items-center justify-center rounded-md text-[13px]",
+                  active ? "bg-white" : "bg-slate-100/80"
                 )}
               >
-                <Icon className="h-3.5 w-3.5" />
+                {emoji}
               </span>
               <span className="truncate">{label}</span>
             </Link>

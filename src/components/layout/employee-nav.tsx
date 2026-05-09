@@ -3,30 +3,16 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import {
-  Bird,
-  Egg,
-  Home,
-  KanbanSquare,
-  Package,
-  Pill,
-  ShoppingBag,
-  Sparkles,
-  Wallet,
-  type LucideIcon
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Lucide em vez de emoji — emojis variam visualmente entre OS (Windows
-// usa Segoe UI Emoji, macOS Apple Color Emoji, Android Noto). Os mesmos
-// icones do nav do titular pra que fique tudo consistente.
-// Relatorios saiu do menu titular pra Perfil — funcionario com permissao
-// continua acessando via /equipe/relatorios mas o item ficou removido
-// do menu (consistencia visual com o titular).
+// Volta pra emojis pra casar com o nav do titular (visual mais expressivo).
+// Trade-off: emojis variam entre OS, mas o usuario preferiu o estilo.
+// Relatorios continua acessivel via /equipe/relatorios, mas saiu do menu
+// pra ficar consistente com o titular.
 const baseItems: ReadonlyArray<{
   href: string;
   label: string;
-  icon: LucideIcon;
+  emoji: string;
   key:
     | "allowDashboard"
     | "allowPlantel"
@@ -38,15 +24,15 @@ const baseItems: ReadonlyArray<{
     | "allowFinanceiro"
     | "allowCrm";
 }> = [
-  { href: "/equipe/dashboard", label: "Dashboard", icon: Home, key: "allowDashboard" },
-  { href: "/equipe/plantel", label: "Plantel", icon: Bird, key: "allowPlantel" },
-  { href: "/equipe/coleta-ovos", label: "Coleta", icon: Egg, key: "allowEggs" },
-  { href: "/equipe/prateleira", label: "Prateleira", icon: Package, key: "allowPrateleira" },
-  { href: "/equipe/chocadeiras", label: "Chocadeiras", icon: Sparkles, key: "allowIncubators" },
-  { href: "/equipe/vitrine", label: "Vitrine", icon: ShoppingBag, key: "allowVitrine" },
-  { href: "/equipe/sanidade", label: "Sanidade", icon: Pill, key: "allowHealth" },
-  { href: "/equipe/financeiro", label: "Financeiro", icon: Wallet, key: "allowFinanceiro" },
-  { href: "/equipe/crm", label: "CRM", icon: KanbanSquare, key: "allowCrm" }
+  { href: "/equipe/dashboard", label: "Dashboard", emoji: "🏠", key: "allowDashboard" },
+  { href: "/equipe/plantel", label: "Plantel", emoji: "🦚", key: "allowPlantel" },
+  { href: "/equipe/coleta-ovos", label: "Coleta", emoji: "🥚", key: "allowEggs" },
+  { href: "/equipe/prateleira", label: "Prateleira", emoji: "🪺", key: "allowPrateleira" },
+  { href: "/equipe/chocadeiras", label: "Chocadeiras", emoji: "🐣", key: "allowIncubators" },
+  { href: "/equipe/vitrine", label: "Vitrine", emoji: "🏪", key: "allowVitrine" },
+  { href: "/equipe/sanidade", label: "Sanidade", emoji: "💊", key: "allowHealth" },
+  { href: "/equipe/financeiro", label: "Financeiro", emoji: "💰", key: "allowFinanceiro" },
+  { href: "/equipe/crm", label: "CRM", emoji: "📋", key: "allowCrm" }
 ];
 
 type Permissions = {
@@ -91,7 +77,7 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
           </div>
 
           <nav className="space-y-2">
-            {items.map(({ href, label, icon: Icon }) => {
+            {items.map(({ href, label, emoji }) => {
               const active = pathname === href;
               return (
                 <Link
@@ -106,11 +92,11 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
                 >
                   <span
                     className={cn(
-                      "flex size-10 items-center justify-center rounded-2xl",
-                      active ? "bg-white/18 text-white" : "bg-white text-[color:var(--brand-strong)] shadow-sm"
+                      "flex size-10 items-center justify-center rounded-2xl text-lg",
+                      active ? "bg-white/18" : "bg-white shadow-sm"
                     )}
                   >
-                    <Icon className="h-5 w-5" />
+                    {emoji}
                   </span>
                   <div>{label}</div>
                 </Link>
@@ -122,7 +108,7 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
 
       {/* Mobile bottom nav: scroll horizontal porque agora pode ter ate 9 modulos */}
       <nav className="mobile-bottom-nav fixed left-3 right-3 z-50 flex gap-1 overflow-x-auto rounded-[22px] border border-[color:var(--line)] bg-white/95 p-1.5 shadow-[0_20px_45px_rgba(15,23,42,0.15)] backdrop-blur md:hidden">
-        {items.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, emoji }) => {
           const active = pathname === href;
           return (
             <Link
@@ -135,11 +121,11 @@ export function EmployeeNav({ permissions }: { permissions: Permissions }) {
             >
               <span
                 className={cn(
-                  "mb-0.5 flex size-7 items-center justify-center rounded-lg",
-                  active ? "bg-white text-[color:var(--brand-strong)]" : "bg-slate-100/80 text-slate-600"
+                  "mb-0.5 flex size-7 items-center justify-center rounded-lg text-base",
+                  active ? "bg-white" : "bg-slate-100/80"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                {emoji}
               </span>
               {label}
             </Link>
