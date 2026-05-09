@@ -41,7 +41,8 @@ export default async function EmployeePortalLayout({
           allowVitrine: session.employee.allowVitrine,
           allowHealth: session.employee.allowHealth,
           allowFinanceiro: session.employee.allowFinanceiro,
-          allowRelatorios: session.employee.allowRelatorios
+          allowRelatorios: session.employee.allowRelatorios,
+          allowCrm: session.employee.allowCrm
         }}
       />
       <div className="mobile-page-with-nav flex-1 md:pb-0">

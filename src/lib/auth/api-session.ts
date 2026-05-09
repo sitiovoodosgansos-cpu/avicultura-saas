@@ -13,7 +13,8 @@ type EmployeePermission =
   | "prateleira"
   | "vitrine"
   | "financeiro"
-  | "relatorios";
+  | "relatorios"
+  | "crm";
 
 function isPermissionAllowed(
   permission: EmployeePermission,
@@ -27,6 +28,7 @@ function isPermissionAllowed(
     allowVitrine: boolean;
     allowFinanceiro: boolean;
     allowRelatorios: boolean;
+    allowCrm: boolean;
   }
 ): boolean {
   switch (permission) {
@@ -39,6 +41,7 @@ function isPermissionAllowed(
     case "vitrine": return emp.allowVitrine;
     case "financeiro": return emp.allowFinanceiro;
     case "relatorios": return emp.allowRelatorios;
+    case "crm": return emp.allowCrm;
   }
 }
 
@@ -97,7 +100,8 @@ export async function getApiSessionOr401(options?: {
               allowPrateleira: employeeSession.employee.allowPrateleira,
               allowVitrine: employeeSession.employee.allowVitrine,
               allowFinanceiro: employeeSession.employee.allowFinanceiro,
-              allowRelatorios: employeeSession.employee.allowRelatorios
+              allowRelatorios: employeeSession.employee.allowRelatorios,
+              allowCrm: employeeSession.employee.allowCrm
             }
           }
         }

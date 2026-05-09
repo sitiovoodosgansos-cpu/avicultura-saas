@@ -4,10 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3,
   Bird,
   Egg,
   Home,
+  KanbanSquare,
   Package,
   Pill,
   ShoppingBag,
@@ -20,6 +20,9 @@ import { cn } from "@/lib/utils";
 // Lucide em vez de emoji — emojis variam visualmente entre OS (Windows
 // usa Segoe UI Emoji, macOS Apple Color Emoji, Android Noto). Os mesmos
 // icones do nav do titular pra que fique tudo consistente.
+// Relatorios saiu do menu titular pra Perfil — funcionario com permissao
+// continua acessando via /equipe/relatorios mas o item ficou removido
+// do menu (consistencia visual com o titular).
 const baseItems: ReadonlyArray<{
   href: string;
   label: string;
@@ -33,7 +36,7 @@ const baseItems: ReadonlyArray<{
     | "allowVitrine"
     | "allowHealth"
     | "allowFinanceiro"
-    | "allowRelatorios";
+    | "allowCrm";
 }> = [
   { href: "/equipe/dashboard", label: "Dashboard", icon: Home, key: "allowDashboard" },
   { href: "/equipe/plantel", label: "Plantel", icon: Bird, key: "allowPlantel" },
@@ -43,7 +46,7 @@ const baseItems: ReadonlyArray<{
   { href: "/equipe/vitrine", label: "Vitrine", icon: ShoppingBag, key: "allowVitrine" },
   { href: "/equipe/sanidade", label: "Sanidade", icon: Pill, key: "allowHealth" },
   { href: "/equipe/financeiro", label: "Financeiro", icon: Wallet, key: "allowFinanceiro" },
-  { href: "/equipe/relatorios", label: "Relatórios", icon: BarChart3, key: "allowRelatorios" }
+  { href: "/equipe/crm", label: "CRM", icon: KanbanSquare, key: "allowCrm" }
 ];
 
 type Permissions = {
@@ -56,6 +59,7 @@ type Permissions = {
   allowHealth: boolean;
   allowFinanceiro: boolean;
   allowRelatorios: boolean;
+  allowCrm: boolean;
 };
 
 export function EmployeeNav({ permissions }: { permissions: Permissions }) {

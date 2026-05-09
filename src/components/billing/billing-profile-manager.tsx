@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,6 +152,25 @@ export function BillingProfileManager() {
         description="Gerencie sua conta, trial de 7 dias, assinatura e cobrança."
         icon="👤"
       />
+
+      {/* Atalhos rapidos do criatorio (substitui o menu de Relatorios). */}
+      <Card className="bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-200">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Atalhos rápidos</p>
+            <h3 className="text-sm font-semibold text-slate-900">Ferramentas do criatório</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/relatorios"
+              className="inline-flex items-center gap-2 rounded-2xl border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
+            >
+              <BarChart3 className="h-4 w-4" />
+              📊 Relatórios
+            </Link>
+          </div>
+        </div>
+      </Card>
 
       {billingMessage === "success" ? (
         <Card>

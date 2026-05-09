@@ -183,6 +183,8 @@ model Tenant {
   vaccines             Vaccine[]
   deathReasons         DeathReason[]
   birdVaccinations     BirdVaccination[]
+  leads                Lead[]
+  leadHistory          LeadHistory[]
 }
 
 model TenantMember {
@@ -544,6 +546,10 @@ model FinancialEntry {
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   eggSale       EggSale?
   vitrineSales  VitrineSale[]
+  // Lead que originou essa venda (CRM Kanban). SetNull no schema do
+  // Lead garante que apagar a entry nao quebre — o cancelamento manual
+  // em deleteEntry() reverte explicitamente o card pra EM_NEGOCIACAO.
+  lead          Lead?
 }
 
 model EggTray {
@@ -678,6 +684,7 @@ model WorkerAccessLink {
   allowVitrine    Boolean  @default(true)
   allowFinanceiro Boolean  @default(true)
   allowRelatorios Boolean  @default(true)
+  allowCrm        Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -699,6 +706,7 @@ model EmployeeAccount {
   allowVitrine    Boolean           @default(true)
   allowFinanceiro Boolean           @default(true)
   allowRelatorios Boolean           @default(true)
+  allowCrm        Boolean           @default(false)
   lastLoginAt     DateTime?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -910,4 +918,92 @@ model BirdVaccination {
   @@index([tenantId, birdId])
   @@index([tenantId, vaccineId])
   @@index([tenantId, appliedAt])
+}
+
+// === CRM Kanban ===
+
+enum LeadStage {
+  NOVO_CONTATO
+  EM_NEGOCIACAO
+  COMPROU
+  DESISTIU
+}
+
+enum LeadChannel {
+  WHATSAPP
+  OLX
+  INSTAGRAM
+  TIKTOK
+  ORNAMARKET
+  SITE
+  ADS_OFFLINE
+  INDICACAO
+  OUTRO
+}
+
+enum LeadInterestType {
+  AVES
+  OVOS
+  MAMIFEROS
+  OUTROS
+}
+
+// 1 Lead = 1 card no Kanban CRM. lastInteractionAt zera em cada
+// movimento/edit pra alimentar a barra de temperatura calculada no
+// client. archivedAt null = ativo no Kanban.
+// Sub-status livre (string) com lista controlada no client por stage.
+model Lead {
+  id                String            @id @default(cuid())
+  tenantId          String
+  // identidade
+  name              String
+  phone             String?
+  email             String?
+  city              String?
+  state             String?
+  avatarUrl         String?
+  // negocio
+  stage             LeadStage         @default(NOVO_CONTATO)
+  subStatus         String?
+  channel           LeadChannel
+  channelOther      String?
+  interestType      LeadInterestType?
+  interestText      String?
+  observation       String?
+  tags              String[]          @default([])
+  // controle de tempo / arquivamento
+  lastInteractionAt DateTime          @default(now())
+  archivedAt        DateTime?
+  archivedReason    String?
+  // posicao Kanban (Float estilo Trello)
+  position          Float             @default(0)
+  // venda concluida
+  financialEntryId  String?           @unique
+  // timestamps
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  financialEntry    FinancialEntry?   @relation(fields: [financialEntryId], references: [id], onDelete: SetNull)
+  history           LeadHistory[]
+
+  @@index([tenantId, stage, archivedAt])
+  @@index([tenantId, archivedAt])
+  @@index([tenantId, phone])
+}
+
+// Timeline do lead (movimentacoes + edits + observacoes)
+model LeadHistory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  leadId      String
+  type        String   // STAGE_CHANGE | SUBSTATUS_CHANGE | NOTE | ARCHIVED | RESTORED | SALE_RECORDED | SALE_CANCELED
+  fromValue   String?
+  toValue     String?
+  notes       String?
+  actorUserId String?
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, createdAt])
 }

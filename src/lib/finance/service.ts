@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { revertLeadAfterSaleCancel } from "@/lib/crm/service";
 
 function toDate(value: string) {
   return new Date(`${value}T12:00:00`);
@@ -201,6 +202,12 @@ export async function deleteEntry(tenantId: string, userId: string, id: string) 
       // EggSaleItem tem onDelete:Cascade na FK saleId, entao some junto.
       await tx.eggSale.delete({ where: { id: sale.id } });
     }
+
+    // Se a entry estava ligada a um Lead do CRM (campo financialEntryId
+    // unique), volta o card pra EM_NEGOCIACAO antes de apagar a entry.
+    // Roda dentro da mesma transacao pra ficar atomico com o restore
+    // de estoque.
+    await revertLeadAfterSaleCancel(tx, tenantId, id);
 
     // Pode ter VARIAS VitrineSale ligadas (carrinho — 1 venda agregada).
     // Devolve estoque listing por listing, depois apaga as vendas.

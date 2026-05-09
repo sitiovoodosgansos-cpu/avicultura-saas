@@ -37,8 +37,10 @@ export function getEmployeeRedirectPath(employee: {
   allowHealth: boolean;
   allowFinanceiro: boolean;
   allowRelatorios: boolean;
+  allowCrm: boolean;
 }) {
   if (employee.allowDashboard) return "/equipe/dashboard";
+  if (employee.allowCrm) return "/equipe/crm";
   if (employee.allowPlantel) return "/equipe/plantel";
   if (employee.allowEggs) return "/equipe/coleta-ovos";
   if (employee.allowPrateleira) return "/equipe/prateleira";
@@ -46,6 +48,8 @@ export function getEmployeeRedirectPath(employee: {
   if (employee.allowVitrine) return "/equipe/vitrine";
   if (employee.allowHealth) return "/equipe/sanidade";
   if (employee.allowFinanceiro) return "/equipe/financeiro";
+  // Relatorios saiu do menu titular — funcionario que tem permissao
+  // ainda acessa via /equipe/relatorios (rota mantida).
   if (employee.allowRelatorios) return "/equipe/relatorios";
   return "/equipe/sem-acesso";
 }

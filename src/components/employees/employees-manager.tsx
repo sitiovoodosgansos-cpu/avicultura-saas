@@ -19,6 +19,7 @@ type Employee = {
   allowVitrine: boolean;
   allowFinanceiro: boolean;
   allowRelatorios: boolean;
+  allowCrm: boolean;
   lastLoginAt: string | null;
   createdAt: string;
 };
@@ -37,6 +38,7 @@ type EmployeeForm = {
   allowVitrine: boolean;
   allowFinanceiro: boolean;
   allowRelatorios: boolean;
+  allowCrm: boolean;
 };
 
 const emptyForm: EmployeeForm = {
@@ -52,7 +54,8 @@ const emptyForm: EmployeeForm = {
   allowPrateleira: true,
   allowVitrine: true,
   allowFinanceiro: true,
-  allowRelatorios: true
+  allowRelatorios: true,
+  allowCrm: false
 };
 
 // Lista declarativa pra renderizar checkboxes em grid sem repetir codigo.
@@ -72,7 +75,8 @@ const PERMISSION_PAGES: Array<{
   { key: "allowVitrine", label: "Vitrine", badge: "Vitrine", color: "violet" },
   { key: "allowHealth", label: "Sanidade", badge: "Sanidade", color: "rose" },
   { key: "allowFinanceiro", label: "Financeiro", badge: "Financeiro", color: "teal" },
-  { key: "allowRelatorios", label: "Relatórios", badge: "Relatórios", color: "fuchsia" }
+  { key: "allowRelatorios", label: "Relatórios", badge: "Relatórios", color: "fuchsia" },
+  { key: "allowCrm", label: "CRM (Kanban de leads)", badge: "CRM", color: "lime" }
 ];
 
 // Tailwind nao gera classes dinamicas (`bg-${color}-100`), entao mapeia
@@ -86,7 +90,8 @@ const PERMISSION_COLOR_CLASSES: Record<string, string> = {
   violet: "bg-violet-100 text-violet-700",
   rose: "bg-rose-100 text-rose-700",
   teal: "bg-teal-100 text-teal-700",
-  fuchsia: "bg-fuchsia-100 text-fuchsia-700"
+  fuchsia: "bg-fuchsia-100 text-fuchsia-700",
+  lime: "bg-lime-100 text-lime-800"
 };
 
 function Toggle({
@@ -167,7 +172,8 @@ export function EmployeesManager() {
       allowPrateleira: employee.allowPrateleira,
       allowVitrine: employee.allowVitrine,
       allowFinanceiro: employee.allowFinanceiro,
-      allowRelatorios: employee.allowRelatorios
+      allowRelatorios: employee.allowRelatorios,
+      allowCrm: employee.allowCrm
     });
     setError(null);
     setSuccess(null);

@@ -13,7 +13,8 @@ const employeeObjectSchema = z.object({
   allowPrateleira: z.boolean().optional(),
   allowVitrine: z.boolean().optional(),
   allowFinanceiro: z.boolean().optional(),
-  allowRelatorios: z.boolean().optional()
+  allowRelatorios: z.boolean().optional(),
+  allowCrm: z.boolean().optional()
 });
 
 type ModuleShape = {
@@ -26,6 +27,7 @@ type ModuleShape = {
   allowVitrine?: boolean;
   allowFinanceiro?: boolean;
   allowRelatorios?: boolean;
+  allowCrm?: boolean;
 };
 
 function hasAtLeastOneModule(value: ModuleShape) {
@@ -38,7 +40,8 @@ function hasAtLeastOneModule(value: ModuleShape) {
     Boolean(value.allowPrateleira) ||
     Boolean(value.allowVitrine) ||
     Boolean(value.allowFinanceiro) ||
-    Boolean(value.allowRelatorios)
+    Boolean(value.allowRelatorios) ||
+    Boolean(value.allowCrm)
   );
 }
 

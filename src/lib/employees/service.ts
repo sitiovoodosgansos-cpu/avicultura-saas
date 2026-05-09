@@ -1,7 +1,9 @@
 import { hash } from "bcryptjs";
 import { prisma } from "@/lib/db/prisma";
 
-// Os 9 campos de permissao por pagina (perfil eh sempre owner-only).
+// Os 10 campos de permissao por pagina (perfil eh sempre owner-only).
+// allowCrm tem default false (criatorios antigos nao sao expostos
+// automaticamente ao Kanban — owner libera explicitamente).
 type Permissions = {
   allowPlantel?: boolean;
   allowEggs?: boolean;
@@ -12,6 +14,7 @@ type Permissions = {
   allowVitrine?: boolean;
   allowFinanceiro?: boolean;
   allowRelatorios?: boolean;
+  allowCrm?: boolean;
 };
 
 const PERMISSION_SELECT = {
@@ -23,7 +26,8 @@ const PERMISSION_SELECT = {
   allowPrateleira: true,
   allowVitrine: true,
   allowFinanceiro: true,
-  allowRelatorios: true
+  allowRelatorios: true,
+  allowCrm: true
 } as const;
 
 function permissionsForCreate(input: Permissions) {
@@ -36,7 +40,8 @@ function permissionsForCreate(input: Permissions) {
     allowPrateleira: input.allowPrateleira ?? true,
     allowVitrine: input.allowVitrine ?? true,
     allowFinanceiro: input.allowFinanceiro ?? true,
-    allowRelatorios: input.allowRelatorios ?? true
+    allowRelatorios: input.allowRelatorios ?? true,
+    allowCrm: input.allowCrm ?? false
   };
 }
 
@@ -50,7 +55,8 @@ function permissionsForUpdate(input: Permissions, existing: Permissions & { [key
     allowPrateleira: input.allowPrateleira ?? Boolean(existing.allowPrateleira),
     allowVitrine: input.allowVitrine ?? Boolean(existing.allowVitrine),
     allowFinanceiro: input.allowFinanceiro ?? Boolean(existing.allowFinanceiro),
-    allowRelatorios: input.allowRelatorios ?? Boolean(existing.allowRelatorios)
+    allowRelatorios: input.allowRelatorios ?? Boolean(existing.allowRelatorios),
+    allowCrm: input.allowCrm ?? Boolean(existing.allowCrm)
   };
 }
 

@@ -21,6 +21,7 @@ export async function createWorkerLink(
     allowVitrine?: boolean;
     allowFinanceiro?: boolean;
     allowRelatorios?: boolean;
+    allowCrm?: boolean;
   }
 ) {
   return prisma.workerAccessLink.create({
@@ -36,7 +37,8 @@ export async function createWorkerLink(
       allowPrateleira: input?.allowPrateleira ?? true,
       allowVitrine: input?.allowVitrine ?? true,
       allowFinanceiro: input?.allowFinanceiro ?? true,
-      allowRelatorios: input?.allowRelatorios ?? true
+      allowRelatorios: input?.allowRelatorios ?? true,
+      allowCrm: input?.allowCrm ?? false
     }
   });
 }

@@ -4,10 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3,
   Bird,
   Egg,
   Home,
+  KanbanSquare,
   Package,
   Pill,
   Settings,
@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 // (Windows usa Segoe UI Emoji, macOS Apple Color Emoji, Android Noto)
 // e davam impressao de "esta tudo diferente" quando o usuario abria
 // em outro computador.
+// Relatorios saiu do menu — agora vive como botao destacado dentro
+// do Perfil (BillingProfileManager).
 const navItems: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/plantel", label: "Plantel", icon: Bird },
@@ -31,7 +33,7 @@ const navItems: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/vitrine", label: "Vitrine", icon: ShoppingBag },
   { href: "/sanidade", label: "Sanidade", icon: Pill },
   { href: "/financeiro", label: "Financeiro", icon: Wallet },
-  { href: "/relatorios", label: "Relatorios", icon: BarChart3 },
+  { href: "/crm", label: "CRM", icon: KanbanSquare },
   { href: "/perfil", label: "Perfil", icon: Settings }
 ];
 
