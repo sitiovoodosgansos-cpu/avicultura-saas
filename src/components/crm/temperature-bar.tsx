@@ -20,12 +20,13 @@ export function TemperatureBar({
   const styles = TEMPERATURE_STYLES[temp];
   const pct = temperatureProgress(lastInteractionAt);
   const d = daysSince(lastInteractionAt);
-  const tempLabel = d === 0 ? "hoje" : d === 1 ? "1d" : `${d}d`;
+  // So a indicacao de tempo "X dias parado" — sem rotulo Quente/Morno/Frio
+  // (a cor da barra + emoji no avatar ja comunicam temperatura).
+  const tempLabel = d === 0 ? "movido hoje" : d === 1 ? "1 dia parado" : `${d} dias parado`;
   return (
     <div className="mt-1.5">
-      <div className="flex items-center justify-between text-[9px] text-zinc-500">
-        <span className={`rounded px-1 ${styles.chip}`}>{styles.label}</span>
-        <span>sem mover há {tempLabel}</span>
+      <div className="flex items-center justify-end text-[9px] text-zinc-500">
+        <span>{tempLabel}</span>
       </div>
       <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-zinc-100">
         <div className={`h-full transition-all ${styles.bar}`} style={{ width: `${pct}%` }} />

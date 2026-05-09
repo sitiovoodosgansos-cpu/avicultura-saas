@@ -56,6 +56,14 @@ export const TEMPERATURE_STYLES: Record<Temperature, TempStyle> = {
   }
 };
 
+// Emoji que substitui o avatar de iniciais no card (mais visual, scan rapido)
+export const TEMPERATURE_EMOJI: Record<Temperature, string> = {
+  hot: "🟢",
+  warm: "🟡",
+  cold: "🔴",
+  frozen: "⚪"
+};
+
 // Progresso da barra (0..100). 0d = 0%, 7d = 100%, depois trava em 100.
 export function temperatureProgress(lastInteractionAt: string | Date): number {
   const d = daysSince(lastInteractionAt);

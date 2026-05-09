@@ -6,8 +6,8 @@ import { Archive, MessageCircle } from "lucide-react";
 import { ChannelIcon } from "@/components/crm/channel-icon";
 import { TemperatureBar } from "@/components/crm/temperature-bar";
 import { findSubStatus, INTEREST_META, STAGE_META } from "@/lib/crm/sub-status";
-import { TEMPERATURE_STYLES, temperatureFor } from "@/lib/crm/temperature";
-import { leadInitials, whatsappLink, type Lead } from "@/components/crm/types";
+import { TEMPERATURE_EMOJI, TEMPERATURE_STYLES, temperatureFor } from "@/lib/crm/temperature";
+import { whatsappLink, type Lead } from "@/components/crm/types";
 
 export function LeadCard({
   lead,
@@ -52,8 +52,13 @@ export function LeadCard({
         className="cursor-grab active:cursor-grabbing touch-none select-none"
       >
         <div className="flex items-start gap-2">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-xs font-semibold text-zinc-700 shadow-sm">
-            {leadInitials(lead.name)}
+          {/* Avatar virou indicador de temperatura — visual + scan rapido.
+              Pra COMPROU usa estrela dourada em vez de emoji de cor. */}
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-base shadow-sm"
+            title={isCompro ? "Comprou" : tempStyles.label}
+          >
+            <span aria-hidden>{isCompro ? "✨" : TEMPERATURE_EMOJI[temp]}</span>
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-zinc-900">{lead.name}</p>

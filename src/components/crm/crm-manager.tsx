@@ -237,12 +237,7 @@ export function CrmManager() {
 
   return (
     <main className="grid gap-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <PageTitle title="CRM" description="Kanban de leads — arraste cards entre as colunas pra mover de fase." icon="📋" />
-        <Button type="button" onClick={openCreate}>
-          <Plus className="mr-1 inline h-4 w-4" /> Novo lead
-        </Button>
-      </div>
+      <PageTitle title="CRM" description="Kanban de clientes — arraste cards entre as colunas pra mover de fase." icon="📋" />
 
       <KpiStrip metrics={metrics} />
 
@@ -276,9 +271,16 @@ export function CrmManager() {
 
       {tab === "active" ? (
         <>
-          <FiltersBar filters={filters} setFilters={setFilters} allTags={allTags} />
+          <div className="flex flex-wrap items-stretch gap-2">
+            <div className="flex-1 min-w-[200px]">
+              <FiltersBar filters={filters} setFilters={setFilters} allTags={allTags} />
+            </div>
+            <Button type="button" onClick={openCreate} className="shrink-0">
+              <Plus className="mr-1 inline h-4 w-4" /> Novo cliente
+            </Button>
+          </div>
           {loading ? (
-            <p className="text-sm text-zinc-500">Carregando leads...</p>
+            <p className="text-sm text-zinc-500">Carregando clientes...</p>
           ) : (
             <KanbanBoard
               leads={filteredLeads}
