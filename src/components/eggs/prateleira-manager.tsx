@@ -260,35 +260,59 @@ export function PrateleiraManager() {
     setSelectionMode(null);
   }
 
+  // Carrinho persistente: cada clique no icone TOGGLE o item na selecao,
+  // sem abrir o modal. O usuario clica varios itens (venda, transfer ou
+  // descarte) e finaliza pela barra flutuante de baixo. Isso evita criar
+  // varias vendas separadas pra o mesmo cliente quando ele compra ovos
+  // de varias datas.
   function handleEntryAction(entry: TrayEntry, tray: Tray, mode: NonNullable<SelectionMode>) {
     if (entry.available <= 0) return;
 
-    setSelectionMode(mode);
-    setSelection(new Map([[entry.id, {
-      entryId: entry.id,
-      trayId: tray.id,
-      trayLabel: trayHeader(tray),
-      trayHasFlockGroup: Boolean(tray.flockGroupId),
-      quantity: entry.available,
-      available: entry.available,
-      unitPrice: 0
-    }]]));
+    // Se ja tem itens selecionados em outro modo, ignora — visualmente o
+    // icone aparece desabilitado, mas garantia extra aqui.
+    if (selectionMode && selectionMode !== mode) return;
 
-    // reset campos do modal conforme o modo
-    if (mode === "sale") {
+    setSelection((prev) => {
+      const next = new Map(prev);
+      if (next.has(entry.id)) {
+        next.delete(entry.id);
+      } else {
+        next.set(entry.id, {
+          entryId: entry.id,
+          trayId: tray.id,
+          trayLabel: trayHeader(tray),
+          trayHasFlockGroup: Boolean(tray.flockGroupId),
+          quantity: entry.available,
+          available: entry.available,
+          unitPrice: 0
+        });
+      }
+      // Se esvaziou o carrinho, libera o modo
+      if (next.size === 0) setSelectionMode(null);
+      return next;
+    });
+
+    if (selectionMode !== mode) setSelectionMode(mode);
+    setError(null);
+  }
+
+  // Abre o modal de finalizacao com os campos default preenchidos.
+  // Acionado pelo botao "Finalizar" da barra de carrinho.
+  function openFinalizeModal() {
+    if (selection.size === 0 || !selectionMode) return;
+    if (selectionMode === "sale") {
       setSaleCustomer("");
       setSaleSoldAt(today);
       setSalePaymentMethod("PIX");
       setSaleDeliveryType("PICKUP");
       setSaleShippingFee(0);
       setSaleNotes("");
-    } else if (mode === "transfer") {
+    } else if (selectionMode === "transfer") {
       setTransferIncubatorId(incubators.find((i) => i.status === "ACTIVE")?.id ?? "");
       setTransferNotes("");
     } else {
       setDiscardNotes("");
     }
-
     setError(null);
     setShowFinalizeModal(true);
   }
@@ -499,7 +523,7 @@ export function PrateleiraManager() {
       <PageTitle
         icon="🪺"
         title="Prateleira"
-        description="Ovos coletados aguardando destino: venda ou chocadeira. Selecione com os botoes verde / ambar / vermelho de cada data e finalize tudo de uma vez."
+        description="Ovos coletados aguardando destino: venda ou chocadeira. Vá clicando 🛒 / 🐣 / 🗑️ pra montar o carrinho e finalize tudo numa única operação no rodapé."
       />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
@@ -654,24 +678,45 @@ export function PrateleiraManager() {
                         <div className="flex shrink-0 items-center gap-0.5">
                           <ActionIcon
                             mode="sale"
-                            selected={false}
-                            disabled={entry.available <= 0}
+                            selected={selectionMode === "sale" && selection.has(entry.id)}
+                            disabled={
+                              entry.available <= 0 ||
+                              (selectionMode !== null && selectionMode !== "sale")
+                            }
                             onClick={() => handleEntryAction(entry, tray, "sale")}
-                            title="Vender"
+                            title={
+                              selectionMode === "sale" && selection.has(entry.id)
+                                ? "Remover do carrinho"
+                                : "Adicionar ao carrinho de venda"
+                            }
                           />
                           <ActionIcon
                             mode="transfer"
-                            selected={false}
-                            disabled={entry.available <= 0}
+                            selected={selectionMode === "transfer" && selection.has(entry.id)}
+                            disabled={
+                              entry.available <= 0 ||
+                              (selectionMode !== null && selectionMode !== "transfer")
+                            }
                             onClick={() => handleEntryAction(entry, tray, "transfer")}
-                            title="Enviar para chocadeira"
+                            title={
+                              selectionMode === "transfer" && selection.has(entry.id)
+                                ? "Remover da seleção"
+                                : "Adicionar para envio à chocadeira"
+                            }
                           />
                           <ActionIcon
                             mode="discard"
-                            selected={false}
-                            disabled={entry.available <= 0}
+                            selected={selectionMode === "discard" && selection.has(entry.id)}
+                            disabled={
+                              entry.available <= 0 ||
+                              (selectionMode !== null && selectionMode !== "discard")
+                            }
                             onClick={() => handleEntryAction(entry, tray, "discard")}
-                            title="Descartar"
+                            title={
+                              selectionMode === "discard" && selection.has(entry.id)
+                                ? "Remover da seleção"
+                                : "Adicionar à lista de descarte"
+                            }
                           />
                         </div>
                       </div>
@@ -993,6 +1038,42 @@ export function PrateleiraManager() {
           </div>
         </form>
       </AppModal>
+
+      {/* Barra flutuante do carrinho — aparece quando ha algo selecionado.
+          Substitui o comportamento antigo de abrir modal por clique e
+          permite acumular varias datas/bandejas numa unica venda. */}
+      {selection.size > 0 && selectionMode ? (
+        <div className="fixed inset-x-3 bottom-3 z-40 mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.18)] sm:bottom-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="text-xl" aria-hidden>
+              {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🐣" : "🗑️"}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-zinc-900">
+                {selection.size} {selection.size === 1 ? "item" : "itens"} ·{" "}
+                {Array.from(selection.values()).reduce((s, it) => s + it.quantity, 0)} ovos
+              </p>
+              <p className="truncate text-[11px] text-zinc-500">
+                {selectionMode === "sale"
+                  ? "Tudo será gerado como uma única venda"
+                  : selectionMode === "transfer"
+                    ? "Tudo será enviado pra mesma chocadeira"
+                    : "Tudo será descartado de uma vez"}
+              </p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" onClick={clearSelection}>
+            Limpar
+          </Button>
+          <Button type="button" onClick={openFinalizeModal}>
+            {selectionMode === "sale"
+              ? "Finalizar venda"
+              : selectionMode === "transfer"
+                ? "Enviar"
+                : "Descartar"}
+          </Button>
+        </div>
+      ) : null}
     </main>
   );
 }
