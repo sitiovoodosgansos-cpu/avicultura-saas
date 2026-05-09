@@ -522,7 +522,18 @@ export function FinanceManager() {
   }
 
   async function removeEntry(id: string) {
-    if (!window.confirm("Excluir lancamento de entrada?")) return;
+    // Categorias geradas automaticamente por venda (Prateleira / Vitrine).
+    // Confirma com mensagem clara que a delecao tambem CANCELA a venda
+    // — devolve ovos pra prateleira e aves pra vitrine.
+    const entry = entries.find((e) => e.id === id);
+    const isSaleEntry =
+      entry?.category === "EGG_SALE" ||
+      entry?.category === "CHICK_SALE" ||
+      entry?.category === "ADULT_BIRD_SALE";
+    const message = isSaleEntry
+      ? "Cancelar essa venda?\n\nOs ovos voltam pra Prateleira (ou as aves pra Vitrine) e o lançamento financeiro será removido."
+      : "Excluir lancamento de entrada?";
+    if (!window.confirm(message)) return;
     const res = await fetch(`/api/finance/entries/${id}`, { method: "DELETE" });
     if (!res.ok) {
       setError("Nao foi possivel excluir entrada.");

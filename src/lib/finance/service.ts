@@ -183,7 +183,16 @@ export async function deleteEntry(tenantId: string, userId: string, id: string) 
       const sale = existing.eggSale;
       // Devolve unidades vendidas pra prateleira: decrementa soldCount
       // de cada EggTrayEntry referenciado pelos itens.
+      // Tolerante: se a bandeja original foi apagada (coleta deletada
+      // ou cleanup de vencidas), pula sem quebrar a transacao — best
+      // effort de restauracao, o cancelamento da venda nao deve falhar
+      // por isso.
       for (const item of sale.items) {
+        const exists = await tx.eggTrayEntry.findUnique({
+          where: { id: item.trayEntryId },
+          select: { id: true }
+        });
+        if (!exists) continue;
         await tx.eggTrayEntry.update({
           where: { id: item.trayEntryId },
           data: { soldCount: { decrement: item.quantity } }
@@ -196,15 +205,19 @@ export async function deleteEntry(tenantId: string, userId: string, id: string) 
     if (existing.vitrineSale) {
       const sale = existing.vitrineSale;
       const listing = await tx.vitrineListing.findUnique({ where: { id: sale.listingId } });
-      // Devolve estoque pra Vitrine. Se ficou SOLD_OUT por causa da venda,
-      // reabre como AVAILABLE; preserva REMOVED se o usuario tinha tirado.
-      await tx.vitrineListing.update({
-        where: { id: sale.listingId },
-        data: {
-          availableQuantity: { increment: sale.quantitySold },
-          ...(listing?.status === "SOLD_OUT" ? { status: "AVAILABLE" as const } : {})
-        }
-      });
+      // Mesma logica tolerante: se o listing nao existe mais, ainda
+      // apaga a venda fonte (a entrada financeira sai junto).
+      if (listing) {
+        // Devolve estoque pra Vitrine. Se ficou SOLD_OUT por causa da venda,
+        // reabre como AVAILABLE; preserva REMOVED se o usuario tinha tirado.
+        await tx.vitrineListing.update({
+          where: { id: sale.listingId },
+          data: {
+            availableQuantity: { increment: sale.quantitySold },
+            ...(listing.status === "SOLD_OUT" ? { status: "AVAILABLE" as const } : {})
+          }
+        });
+      }
       await tx.vitrineSale.delete({ where: { id: sale.id } });
     }
 
