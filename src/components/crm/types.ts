@@ -55,6 +55,10 @@ export type CrmMetrics = {
   revenue30d: number;
   archivedCount: number;
   salesCount30d: number;
+  archivedLast30: number;
+  newToday: number;
+  newLast30: number;
+  newAvgPerDay30d: number;
 };
 
 export function leadInitials(name: string): string {

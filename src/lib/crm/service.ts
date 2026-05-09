@@ -286,15 +286,18 @@ export async function findActiveByPhone(tenantId: string, phone: string) {
 // === Metrics pra KPI strip ===
 export async function getCrmMetrics(tenantId: string) {
   const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
   const days30 = new Date(now);
   days30.setDate(days30.getDate() - 30);
 
-  const [byStage, last30Sales, archivedCount] = await Promise.all([
+  const [byStage, last30Sales, archivedTotalCount, newToday, newLast30] = await Promise.all([
     prisma.lead.groupBy({
       by: ["stage"],
       where: { tenantId, archivedAt: null },
       _count: { _all: true }
     }),
+    // Vendas concluidas nos ultimos 30 dias (lead Comprou + tem entrada financeira)
     prisma.lead.findMany({
       where: {
         tenantId,
@@ -306,21 +309,26 @@ export async function getCrmMetrics(tenantId: string) {
         financialEntry: { select: { amount: true } }
       }
     }),
-    prisma.lead.count({ where: { tenantId, archivedAt: { not: null } } })
+    // Total geral de arquivados (pra badge da aba)
+    prisma.lead.count({ where: { tenantId, archivedAt: { not: null } } }),
+    // Novos clientes hoje
+    prisma.lead.count({ where: { tenantId, createdAt: { gte: startOfToday } } }),
+    // Novos clientes nos ultimos 30 dias (pra calcular media diaria)
+    prisma.lead.count({ where: { tenantId, createdAt: { gte: days30 } } })
   ]);
 
   const byStageMap = Object.fromEntries(byStage.map((s) => [s.stage, s._count._all]));
   const totalActive = Object.values(byStageMap).reduce((s: number, v) => s + (Number(v) || 0), 0);
 
-  // Conversao 30d: COMPROU 30d / (COMPROU 30d + DESISTIU 30d) — fallback safe
-  const days30Stages = await prisma.lead.groupBy({
-    by: ["stage"],
-    where: { tenantId, updatedAt: { gte: days30 } },
-    _count: { _all: true }
+  // Conversao 30d: COMPROU 30d / (COMPROU 30d + ARQUIVADOS 30d).
+  // O "lost" eh o lead arquivado (auto pelo cron, manual, ou virou desistiu
+  // e foi pra arquivado). DESISTIU sem arquivar ainda nao conta — eh um
+  // estado intermediario no kanban que ainda tem chance de voltar.
+  const archivedLast30 = await prisma.lead.count({
+    where: { tenantId, archivedAt: { gte: days30 } }
   });
-  const m30 = Object.fromEntries(days30Stages.map((s) => [s.stage, s._count._all]));
-  const won = Number(m30.COMPROU ?? 0);
-  const lost = Number(m30.DESISTIU ?? 0);
+  const won = last30Sales.length;
+  const lost = archivedLast30;
   const conversion30d = won + lost === 0 ? 0 : Number(((won / (won + lost)) * 100).toFixed(1));
 
   // Ticket medio
@@ -329,6 +337,10 @@ export async function getCrmMetrics(tenantId: string) {
     0
   );
   const ticketAverage = last30Sales.length === 0 ? 0 : Number((totalRevenue / last30Sales.length).toFixed(2));
+
+  // Media diaria de novos nos ultimos 30 dias (1 casa decimal pra dar
+  // precisao mesmo com poucos leads)
+  const newAvgPerDay30d = Number((newLast30 / 30).toFixed(1));
 
   return {
     totalActive,
@@ -342,8 +354,12 @@ export async function getCrmMetrics(tenantId: string) {
     conversion30d,
     ticketAverage,
     revenue30d: Number(totalRevenue.toFixed(2)),
-    archivedCount,
-    salesCount30d: last30Sales.length
+    archivedCount: archivedTotalCount,
+    salesCount30d: last30Sales.length,
+    archivedLast30,
+    newToday,
+    newLast30,
+    newAvgPerDay30d
   };
 }
 
