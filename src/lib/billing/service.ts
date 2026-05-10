@@ -39,6 +39,8 @@ function mapPlanCodeToLabel(planCode?: string | null) {
   if (monthlyPriceIds.includes(planCode)) return "Starter mensal";
 
   const normalized = planCode.toLowerCase();
+  // Codigos novos do Asaas
+  if (normalized === "starter_asaas_97") return "Starter R$97/mês";
   if (normalized.includes("year") || normalized.includes("anual")) return "Starter anual";
   if (normalized.includes("month") || normalized.includes("mensal")) return "Starter mensal";
   if (normalized === "starter") return "Starter";
@@ -47,6 +49,11 @@ function mapPlanCodeToLabel(planCode?: string | null) {
   if (normalized.startsWith("price_")) return "Starter";
   return planCode;
 }
+
+// Codigo do plano Asaas atual. Se um dia mudarmos preco/criar plano novo,
+// codigos antigos ficam grandfathered no DB do mesmo jeito que o Stripe.
+export const ASAAS_PLAN_CODE_STARTER_97 = "starter_asaas_97";
+export const ASAAS_PLAN_VALUE_STARTER_97 = 97;
 
 export async function getTenantBilling(tenantId: string) {
   const [tenant, subscription, farm, payments] = await Promise.all([
@@ -177,5 +184,91 @@ export async function upsertStripeSubscription(input: {
       status: mappedTenantStatus,
       trialEndsAt: trialEndsAt ?? undefined
     }
+  });
+}
+
+// === Asaas ===
+//
+// Diferente do Stripe, o status da subscription do Asaas eh manejado pela
+// soma de eventos de Payment (PAYMENT_CONFIRMED → ACTIVE, PAYMENT_OVERDUE
+// → PAST_DUE etc), porque a propria subscription Asaas nao reflete o estado
+// real da cobranca atual.
+
+export async function upsertAsaasSubscription(input: {
+  tenantId: string;
+  customerId: string;
+  subscriptionId: string;
+  status: SubscriptionStatus;
+  planCode?: string;
+  nextDueDate?: string | null; // YYYY-MM-DD
+}) {
+  const existing = await prisma.subscription.findFirst({
+    where: { providerSubId: input.subscriptionId, provider: "asaas" }
+  });
+
+  const currentPeriodEnd = input.nextDueDate
+    ? new Date(`${input.nextDueDate}T12:00:00`)
+    : undefined;
+
+  if (existing) {
+    await prisma.subscription.update({
+      where: { id: existing.id },
+      data: {
+        providerCustomerId: input.customerId,
+        status: input.status,
+        currentPeriodEnd,
+        planCode: input.planCode ?? existing.planCode
+      }
+    });
+  } else {
+    await prisma.subscription.create({
+      data: {
+        tenantId: input.tenantId,
+        provider: "asaas",
+        providerCustomerId: input.customerId,
+        providerSubId: input.subscriptionId,
+        status: input.status,
+        planCode: input.planCode ?? ASAAS_PLAN_CODE_STARTER_97,
+        currentPeriodEnd
+      }
+    });
+  }
+
+  // Reflete no Tenant pra que getTenantBilling().isAccessAllowed funcione.
+  const tenantStatus: TenantStatus =
+    input.status === "ACTIVE"
+      ? "ACTIVE"
+      : input.status === "PAST_DUE"
+        ? "PAST_DUE"
+        : input.status === "CANCELED"
+          ? "CANCELED"
+          : "SUSPENDED";
+
+  await prisma.tenant.update({
+    where: { id: input.tenantId },
+    data: { status: tenantStatus }
+  });
+}
+
+// Procura a subscription Asaas mais recente do tenant. Retorna null se nunca
+// teve. Usado no checkout pra reusar customer + decidir se cria sub nova
+// ou retoma existente.
+export async function findLatestAsaasSubscription(tenantId: string) {
+  return prisma.subscription.findFirst({
+    where: { tenantId, provider: "asaas" },
+    orderBy: { createdAt: "desc" }
+  });
+}
+
+// Subscription Stripe ATIVA (legado). Se retornar truthy, NAO oferece Asaas
+// — o cliente Stripe legado fica congelado em R$37/mes.
+export async function findActiveStripeSubscription(tenantId: string) {
+  return prisma.subscription.findFirst({
+    where: {
+      tenantId,
+      provider: "stripe",
+      status: { in: ["ACTIVE", "TRIALING", "PAST_DUE"] }
+    },
+    orderBy: { createdAt: "desc" }
   });
 }
