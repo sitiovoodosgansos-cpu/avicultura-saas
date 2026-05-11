@@ -134,7 +134,7 @@ const faqs = [
     answer: "Você começa pelo básico e evolui conforme sua criação cresce."
   },
   {
-    question: "R$37 por mês vale a pena?",
+    question: "R$97 por mês vale a pena?",
     answer:
       "Se o app te ajudar a evitar perdas, controlar melhor sua produção e enxergar seu resultado, ele já se paga."
   }
@@ -310,7 +310,7 @@ export function OrnabirdLanding() {
               </div>
 
               <p className="mt-4 text-sm text-slate-500">
-                7 dias grátis. Depois, R$37/mês. Cancele quando quiser.
+                7 dias grátis. Depois, R$97/mês. Cancele quando quiser.
               </p>
             </motion.div>
 
@@ -494,7 +494,7 @@ export function OrnabirdLanding() {
               <p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
                 7 dias grátis
               </p>
-              <p className="mt-6 font-heading text-5xl font-semibold tracking-tight text-slate-950">R$37/mês</p>
+              <p className="mt-6 font-heading text-5xl font-semibold tracking-tight text-slate-950">R$97/mês</p>
               <p className="mt-2 text-sm text-slate-500">Cancele quando quiser</p>
 
               <ul className="mt-7 space-y-3 text-sm text-slate-700">
@@ -553,7 +553,7 @@ export function OrnabirdLanding() {
                 Começar meu teste grátis
               </Link>
             </div>
-            <p className="mt-4 text-sm text-slate-300">7 dias grátis. Depois, R$37/mês.</p>
+            <p className="mt-4 text-sm text-slate-300">7 dias grátis. Depois, R$97/mês.</p>
           </div>
         </section>
       </main>
