@@ -59,17 +59,10 @@ export async function POST(request: Request) {
       customerId = customer.id;
     }
 
-    // Metodos de pagamento aceitos. Stripe Brasil:
-    // - card: recorrente nativo (recomendado)
-    // - boleto: recorrente — Stripe gera novo boleto a cada fatura
-    // - pix: recorrente via faturas (cliente paga QR code mensalmente)
-    // O usuario precisa habilitar essas 3 opcoes em Stripe Dashboard
-    // → Settings → Payment methods → Brazil pra funcionarem.
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      payment_method_types: ["card", "boleto", "pix"],
       success_url: `${appUrl}/perfil?billing=success`,
       cancel_url: `${appUrl}/perfil?billing=cancel`,
       metadata: { tenantId, billingCycle }
