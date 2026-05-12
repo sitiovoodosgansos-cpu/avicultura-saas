@@ -18,6 +18,7 @@ import {
   type BulkSubmitPayload
 } from "@/components/vitrine/bulk-sell-modal";
 import { PurchaseModal, type PurchaseFormValues } from "@/components/vitrine/purchase-modal";
+import { AvulsasModal, type AvulsasFormValues } from "@/components/vitrine/avulsas-modal";
 import {
   formatBRL,
   type FlockGroupRef,
@@ -47,6 +48,8 @@ export function VitrineManager() {
   const [deathError, setDeathError] = useState<string | null>(null);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [avulsasOpen, setAvulsasOpen] = useState(false);
+  const [avulsasError, setAvulsasError] = useState<string | null>(null);
 
   // Filtros: busca livre + dropdown de grupo (mesmo padrao da Prateleira).
   const [searchQuery, setSearchQuery] = useState("");
@@ -193,6 +196,43 @@ export function VitrineManager() {
       await load();
     } catch (err) {
       setPurchaseError(err instanceof Error ? err.message : "Erro ao registrar compra.");
+      throw err;
+    }
+  }
+
+  // Insercao em lote de aves "avulsas" — pre-existentes ao uso do sistema.
+  // Cria N Birds + N VitrineListings num so request (vai aparecer no
+  // Plantel E na Vitrine, com anilhas auto-geradas).
+  async function handleAvulsasSubmit(values: AvulsasFormValues) {
+    setAvulsasError(null);
+    try {
+      const response = await fetch("/api/vitrine/avulsas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          flockGroupId: values.flockGroupId,
+          ageInMonths: values.ageInMonths,
+          females: values.females,
+          males: values.males,
+          unknownSex: values.unknownSex
+        })
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? "Erro ao inserir aves.");
+      }
+      const json = (await response.json()) as { missingTier?: boolean };
+      setAvulsasOpen(false);
+      await load();
+      if (json.missingTier) {
+        // Aviso amigavel: aves estao na vitrine mas sem preco — usuario
+        // precisa configurar tier
+        setError(
+          "Aves inseridas, mas a raça ainda não tem tabela de preços. Configure a tabela pra elas aparecerem com valor."
+        );
+      }
+    } catch (err) {
+      setAvulsasError(err instanceof Error ? err.message : "Erro ao inserir aves.");
       throw err;
     }
   }
@@ -379,6 +419,14 @@ export function VitrineManager() {
           <Button type="button" variant="outline" onClick={() => setPricesOpen(true)}>
             Tabela de preços
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => { setAvulsasError(null); setAvulsasOpen(true); }}
+            disabled={!data || data.flockGroups.length === 0}
+          >
+            🐔 Inserir aves avulsas
+          </Button>
           <Button type="button" variant="outline" onClick={() => { setPurchaseError(null); setPurchaseOpen(true); }}>
             🛒 Comprar p/ revenda
           </Button>
@@ -544,6 +592,14 @@ export function VitrineManager() {
         onClose={() => setPurchaseOpen(false)}
         onSubmit={handlePurchase}
         error={purchaseError}
+      />
+
+      <AvulsasModal
+        open={avulsasOpen}
+        onClose={() => setAvulsasOpen(false)}
+        onSubmit={handleAvulsasSubmit}
+        flockGroups={data?.flockGroups ?? []}
+        error={avulsasError}
       />
 
       {/* Barra flutuante do carrinho da Vitrine — acumula listings em

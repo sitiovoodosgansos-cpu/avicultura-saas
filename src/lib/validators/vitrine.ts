@@ -57,6 +57,27 @@ export const deathSchema = z.object({
   cause: z.string().trim().optional().nullable()
 });
 
+// Insercao de aves "avulsas" — aves que ja existiam antes do usuario comecar
+// a usar o sistema (nao tem registro de eclosao). Cria N Birds + N
+// VitrineListings de uma vez, agrupados num FlockGroup existente.
+export const avulsasInsertSchema = z
+  .object({
+    flockGroupId: z.string().cuid("Card inválido."),
+    ageInMonths: z.coerce.number().int().min(0, "Idade inválida.").max(999),
+    females: z.coerce.number().int().min(0).max(500).default(0),
+    males: z.coerce.number().int().min(0).max(500).default(0),
+    unknownSex: z.coerce.number().int().min(0).max(500).default(0)
+  })
+  .refine(
+    (d) => d.females + d.males + d.unknownSex >= 1,
+    "Adicione pelo menos 1 ave (fêmea, macho ou indefinido)."
+  )
+  .refine(
+    (d) => d.females + d.males + d.unknownSex <= 500,
+    "Limite de 500 aves por leva. Divida em duas operações pra mais."
+  );
+export type AvulsasInsertInput = z.infer<typeof avulsasInsertSchema>;
+
 export const purchasedListingSchema = z.object({
   speciesId: z.string().cuid("Espécie inválida."),
   breedId: z.string().cuid("Raça inválida."),

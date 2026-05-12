@@ -6,6 +6,7 @@ import {
   getCurrentPrice
 } from "@/lib/vitrine/pricing";
 import type {
+  AvulsasInsertInput,
   BulkSaleInput,
   DeathInput,
   ListingCreateInput,
@@ -253,6 +254,141 @@ export async function createPurchasedListing(tenantId: string, input: PurchasedL
   });
 
   return result;
+}
+
+export type AvulsasInsertResult = {
+  createdBirdIds: string[];
+  createdListingIds: string[];
+  missingTier: boolean;
+};
+
+// Insere "aves avulsas" no plantel + vitrine. Cobre o cenario do usuario que
+// comeca a usar o sistema com aves ja existentes (sem registro de eclosao):
+// cria N Birds individuais (com ringNumber auto), agrupadas no FlockGroup
+// escolhido, todas com a mesma idade. Pra cada Bird cria um VitrineListing
+// 1:1 (mesmo padrao do `createListingFromBird`) — assim a ave aparece tanto
+// no card do Plantel quanto no card da Vitrine, e o preco resolve pela
+// PriceTier da raca conforme a idade.
+//
+// Diferente do `createPurchasedListing` (recria), aqui as aves entram no
+// FlockGroup REGULAR (nao no grupo oculto "Recria · ...") porque sao aves
+// do plantel proprio, nao compradas pra revenda.
+export async function createAvulsasBatch(
+  tenantId: string,
+  userId: string | null,
+  input: AvulsasInsertInput
+): Promise<AvulsasInsertResult> {
+  const totalCount = input.females + input.males + input.unknownSex;
+  if (totalCount === 0) {
+    throw new Error("Adicione pelo menos 1 ave.");
+  }
+
+  // Valida flockGroup pertence ao tenant E nao eh grupo oculto de recria
+  const group = await prisma.flockGroup.findFirst({
+    where: { id: input.flockGroupId, tenantId },
+    select: { id: true, bayNumber: true, title: true }
+  });
+  if (!group) throw new Error("Card de raça não encontrado.");
+  if (group.title.startsWith("Recria · ")) {
+    throw new Error(
+      "Não é possível adicionar aves a um grupo de recria. Escolha um card normal."
+    );
+  }
+
+  // Calcula birthDate uma vez (todas as aves da leva tem mesma idade)
+  const birthDate = birthDateFromAgeInMonths(input.ageInMonths);
+
+  // Gera ringNumbers ANTES da transacao (operacao com proprio retry interno)
+  const ringNumbers = await generateRingNumbers(tenantId, totalCount);
+  if (ringNumbers.length !== totalCount) {
+    throw new Error("Falha ao gerar anilhas automáticas. Tente novamente.");
+  }
+
+  // Lista de sexos na ordem: femeas → machos → indefinido
+  const sexes: ("FEMALE" | "MALE" | "UNKNOWN")[] = [
+    ...Array.from({ length: input.females }, () => "FEMALE" as const),
+    ...Array.from({ length: input.males }, () => "MALE" as const),
+    ...Array.from({ length: input.unknownSex }, () => "UNKNOWN" as const)
+  ];
+
+  const now = new Date();
+
+  const result = await prisma.$transaction(async (tx) => {
+    const createdBirdIds: string[] = [];
+    const createdListingIds: string[] = [];
+
+    for (let i = 0; i < totalCount; i += 1) {
+      const ring = ringNumbers[i];
+      const sex = sexes[i];
+      const bird = await tx.bird.create({
+        data: {
+          tenantId,
+          flockGroupId: group.id,
+          bayNumber: group.bayNumber,
+          ringNumber: ring,
+          sex,
+          status: "ACTIVE",
+          origin: "Ave avulsa (cadastrada após implantação)",
+          acquisitionDate: now,
+          statusHistory: {
+            create: {
+              tenantId,
+              fromStatus: null,
+              toStatus: "ACTIVE",
+              reason: "Inserção avulsa"
+            }
+          }
+        }
+      });
+      createdBirdIds.push(bird.id);
+
+      const listing = await tx.vitrineListing.create({
+        data: {
+          tenantId,
+          flockGroupId: group.id,
+          title: `Anilha ${ring}`,
+          birthDate,
+          initialQuantity: 1,
+          availableQuantity: 1,
+          priceOverride: null,
+          sourceBirdId: bird.id
+        }
+      });
+      createdListingIds.push(listing.id);
+    }
+
+    return { createdBirdIds, createdListingIds };
+  });
+
+  // Audit log unico pra batch (fora da transacao pra nao engordar lock)
+  await prisma.auditLog.create({
+    data: {
+      tenantId,
+      userId: userId ?? undefined,
+      action: "BULK_AVULSAS_INSERT",
+      entity: "Bird",
+      entityId: result.createdBirdIds[0] ?? "batch",
+      after: {
+        count: totalCount,
+        flockGroupId: group.id,
+        ageInMonths: input.ageInMonths,
+        females: input.females,
+        males: input.males,
+        unknownSex: input.unknownSex
+      }
+    }
+  });
+
+  // Indica pro UI se precisa configurar tier de preco (warning amigavel)
+  const tierExists = await prisma.priceTier.findFirst({
+    where: { tenantId, flockGroupId: group.id },
+    select: { id: true }
+  });
+
+  return {
+    ...result,
+    missingTier: !tierExists
+  };
 }
 
 export async function updateListing(tenantId: string, id: string, input: ListingUpdateInput) {
