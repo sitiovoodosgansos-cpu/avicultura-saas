@@ -262,12 +262,19 @@ export async function findLatestAsaasSubscription(tenantId: string) {
 
 // Subscription Stripe ATIVA (legado). Se retornar truthy, NAO oferece Asaas
 // — o cliente Stripe legado fica congelado em R$37/mes.
+//
+// "Ativa de verdade" exige providerCustomerId nao-null: trial criado no
+// signup tem status=TRIALING e provider=stripe por padrao, mas sem
+// providerCustomerId (so vira nao-null quando o usuario faz checkout no
+// Stripe). Sem o filtro de customerId, trials novos eram bloqueados de
+// assinar Asaas.
 export async function findActiveStripeSubscription(tenantId: string) {
   return prisma.subscription.findFirst({
     where: {
       tenantId,
       provider: "stripe",
-      status: { in: ["ACTIVE", "TRIALING", "PAST_DUE"] }
+      providerCustomerId: { not: null },
+      status: { in: ["ACTIVE", "PAST_DUE"] }
     },
     orderBy: { createdAt: "desc" }
   });
