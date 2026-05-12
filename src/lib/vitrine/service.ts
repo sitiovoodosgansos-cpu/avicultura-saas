@@ -258,21 +258,20 @@ export async function createPurchasedListing(tenantId: string, input: PurchasedL
 
 export type AvulsasInsertResult = {
   createdBirdIds: string[];
-  createdListingIds: string[];
+  createdListingId: string;
   missingTier: boolean;
 };
 
 // Insere "aves avulsas" no plantel + vitrine. Cobre o cenario do usuario que
 // comeca a usar o sistema com aves ja existentes (sem registro de eclosao):
-// cria N Birds individuais (com ringNumber auto), agrupadas no FlockGroup
-// escolhido, todas com a mesma idade. Pra cada Bird cria um VitrineListing
-// 1:1 (mesmo padrao do `createListingFromBird`) — assim a ave aparece tanto
-// no card do Plantel quanto no card da Vitrine, e o preco resolve pela
-// PriceTier da raca conforme a idade.
+// cria N Birds individuais (com ringNumber auto) no FlockGroup escolhido +
+// UM listing agregado (availableQuantity=N) — segue o mesmo pattern de
+// chocadas/recrias que tambem sao agrupadas em listing unico em vez de N
+// listings de 1.
 //
-// Diferente do `createPurchasedListing` (recria), aqui as aves entram no
-// FlockGroup REGULAR (nao no grupo oculto "Recria · ...") porque sao aves
-// do plantel proprio, nao compradas pra revenda.
+// Decisao do user: 100 aves de uma leva = 1 linha no card da vitrine, nao
+// 100 linhas. Pra ver anilhas individuais, o usuario abre o card no Plantel.
+// Se inserir 2 levas com idades diferentes, sao 2 listings (1 por idade).
 export async function createAvulsasBatch(
   tenantId: string,
   userId: string | null,
@@ -311,22 +310,38 @@ export async function createAvulsasBatch(
     ...Array.from({ length: input.unknownSex }, () => "UNKNOWN" as const)
   ];
 
+  // Resumo da composicao (vai pro title/description do listing)
+  const compositionParts = [
+    input.females > 0 ? `${input.females}♀` : null,
+    input.males > 0 ? `${input.males}♂` : null,
+    input.unknownSex > 0 ? `${input.unknownSex}?` : null
+  ].filter(Boolean);
+  const compositionLabel = compositionParts.join(" · ");
+  const ageLabel =
+    input.ageInMonths === 0
+      ? "recém"
+      : input.ageInMonths === 1
+        ? "1 mês"
+        : `${input.ageInMonths} meses`;
+  const listingTitle = `Lote avulso · ${totalCount} aves · ${ageLabel}`;
+  const listingDescription = `Composição: ${compositionLabel || "indefinido"}. Anilhas: ${ringNumbers[0]}${ringNumbers.length > 1 ? ` a ${ringNumbers[ringNumbers.length - 1]}` : ""}.`;
+
   const now = new Date();
 
   const result = await prisma.$transaction(async (tx) => {
     const createdBirdIds: string[] = [];
-    const createdListingIds: string[] = [];
 
+    // Cria N Birds individuais (ringNumbers únicas + statusHistory).
+    // Loop sequencial porque createMany nao suporta nested writes (status
+    // history). Pra 100 aves vai dar ~500ms — aceitavel.
     for (let i = 0; i < totalCount; i += 1) {
-      const ring = ringNumbers[i];
-      const sex = sexes[i];
       const bird = await tx.bird.create({
         data: {
           tenantId,
           flockGroupId: group.id,
           bayNumber: group.bayNumber,
-          ringNumber: ring,
-          sex,
+          ringNumber: ringNumbers[i],
+          sex: sexes[i],
           status: "ACTIVE",
           origin: "Ave avulsa (cadastrada após implantação)",
           acquisitionDate: now,
@@ -335,29 +350,32 @@ export async function createAvulsasBatch(
               tenantId,
               fromStatus: null,
               toStatus: "ACTIVE",
-              reason: "Inserção avulsa"
+              reason: "Inserção avulsa em lote"
             }
           }
         }
       });
       createdBirdIds.push(bird.id);
-
-      const listing = await tx.vitrineListing.create({
-        data: {
-          tenantId,
-          flockGroupId: group.id,
-          title: `Anilha ${ring}`,
-          birthDate,
-          initialQuantity: 1,
-          availableQuantity: 1,
-          priceOverride: null,
-          sourceBirdId: bird.id
-        }
-      });
-      createdListingIds.push(listing.id);
     }
 
-    return { createdBirdIds, createdListingIds };
+    // Cria 1 listing AGREGADO (sem sourceBirdId — mesmo pattern de chocadas
+    // e recrias). availableQuantity = N. Quando vender N aves, decrementa
+    // o listing mas nao marca Birds especificas como SOLD automaticamente
+    // (consistente com o comportamento atual de listings agregados).
+    const listing = await tx.vitrineListing.create({
+      data: {
+        tenantId,
+        flockGroupId: group.id,
+        title: listingTitle,
+        birthDate,
+        initialQuantity: totalCount,
+        availableQuantity: totalCount,
+        priceOverride: null,
+        description: listingDescription
+      }
+    });
+
+    return { createdBirdIds, createdListingId: listing.id };
   });
 
   // Audit log unico pra batch (fora da transacao pra nao engordar lock)
