@@ -206,25 +206,7 @@ export function BillingProfileManager() {
         icon="👤"
       />
 
-      {/* Atalhos rapidos do criatorio (substitui o menu de Relatorios). */}
-      <Card className="bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-200">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Atalhos rápidos</p>
-            <h3 className="text-sm font-semibold text-slate-900">Ferramentas do criatório</h3>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/relatorios"
-              className="inline-flex items-center gap-2 rounded-2xl border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
-            >
-              <BarChart3 className="h-4 w-4" />
-              📊 Relatórios
-            </Link>
-          </div>
-        </div>
-      </Card>
-
+      {/* Avisos criticos sempre no topo, antes do pricing card */}
       {billingMessage === "success" ? (
         <Card>
           <p className="text-sm text-emerald-700">Assinatura iniciada com sucesso. Aguarde alguns segundos e atualize a página.</p>
@@ -248,32 +230,7 @@ export function BillingProfileManager() {
         </Card>
       ) : null}
 
-      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
-        <Card>
-          <p className="text-sm text-zinc-500">🏡 Sitio</p>
-          <p className="mt-2 text-xl font-semibold text-zinc-900">{data?.farmName ?? "-"}</p>
-        </Card>
-        <Card>
-          <p className="text-sm text-zinc-500">📦 Plano atual</p>
-          <p className="mt-2 text-xl font-semibold text-zinc-900">
-            {data?.subscription?.planLabel ?? data?.subscription?.planCode ?? "Starter"}
-          </p>
-        </Card>
-        <Card>
-          <p className="text-sm text-zinc-500">💳 Status da assinatura</p>
-          <p className="mt-2 text-xl font-semibold text-zinc-900">{labelStatus(data?.subscription?.status ?? data?.tenant.status)}</p>
-        </Card>
-        <Card>
-          <p className="text-sm text-zinc-500">⏳ Teste grátis</p>
-          <p className="mt-2 text-xl font-semibold text-zinc-900">{trialLabel}</p>
-        </Card>
-      </section>
-
-      {/* Identidade do criatorio (CPF/CNPJ, endereco, logo) — fica ANTES do plano
-          pra usuario completar os dados antes de iniciar a assinatura, ja que o
-          Asaas exige CPF/CNPJ pra emitir cobranca. */}
-      <TenantProfileEditor />
-
+      {/* === Plano/Assinatura — destaque maximo no topo da pagina === */}
       {(() => {
         const sub = data?.subscription ?? null;
         const isStripeLegacyActive =
@@ -666,6 +623,54 @@ export function BillingProfileManager() {
           </div>
         );
       })()}
+
+      {/* === Info secundaria abaixo do pricing card === */}
+
+      {/* KPI grid com resumo da conta */}
+      <section className="mobile-kpi-grid grid grid-cols-2 gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
+        <Card>
+          <p className="text-sm text-zinc-500">🏡 Sitio</p>
+          <p className="mt-2 text-xl font-semibold text-zinc-900">{data?.farmName ?? "-"}</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-zinc-500">📦 Plano atual</p>
+          <p className="mt-2 text-xl font-semibold text-zinc-900">
+            {data?.subscription?.planLabel ?? data?.subscription?.planCode ?? "Starter"}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-sm text-zinc-500">💳 Status da assinatura</p>
+          <p className="mt-2 text-xl font-semibold text-zinc-900">{labelStatus(data?.subscription?.status ?? data?.tenant.status)}</p>
+        </Card>
+        <Card>
+          <p className="text-sm text-zinc-500">⏳ Teste grátis</p>
+          <p className="mt-2 text-xl font-semibold text-zinc-900">{trialLabel}</p>
+        </Card>
+      </section>
+
+      {/* Identidade do criatorio (CPF/CNPJ, endereco, logo). Asaas exige
+          CPF/CNPJ pra emitir cobranca — se nao preencheu, o checkout retorna
+          422 com mensagem direcionando aqui. */}
+      <TenantProfileEditor />
+
+      {/* Atalho pra Relatorios */}
+      <Card className="bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-200">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Atalhos rápidos</p>
+            <h3 className="text-sm font-semibold text-slate-900">Ferramentas do criatório</h3>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/relatorios"
+              className="inline-flex items-center gap-2 rounded-2xl border border-indigo-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
+            >
+              <BarChart3 className="h-4 w-4" />
+              📊 Relatórios
+            </Link>
+          </div>
+        </div>
+      </Card>
 
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Histórico de pagamentos (eventos)</h3>
