@@ -329,39 +329,9 @@ export async function createAvulsasBatch(
   const now = new Date();
 
   const result = await prisma.$transaction(async (tx) => {
-    const createdBirdIds: string[] = [];
-
-    // Cria N Birds individuais (ringNumbers únicas + statusHistory).
-    // Loop sequencial porque createMany nao suporta nested writes (status
-    // history). Pra 100 aves vai dar ~500ms — aceitavel.
-    for (let i = 0; i < totalCount; i += 1) {
-      const bird = await tx.bird.create({
-        data: {
-          tenantId,
-          flockGroupId: group.id,
-          bayNumber: group.bayNumber,
-          ringNumber: ringNumbers[i],
-          sex: sexes[i],
-          status: "ACTIVE",
-          origin: "Ave avulsa (cadastrada após implantação)",
-          acquisitionDate: now,
-          statusHistory: {
-            create: {
-              tenantId,
-              fromStatus: null,
-              toStatus: "ACTIVE",
-              reason: "Inserção avulsa em lote"
-            }
-          }
-        }
-      });
-      createdBirdIds.push(bird.id);
-    }
-
-    // Cria 1 listing AGREGADO (sem sourceBirdId — mesmo pattern de chocadas
-    // e recrias). availableQuantity = N. Quando vender N aves, decrementa
-    // o listing mas nao marca Birds especificas como SOLD automaticamente
-    // (consistente com o comportamento atual de listings agregados).
+    // Cria primeiro o listing AGREGADO pra ter o ID e vincular as Birds via
+    // aggregatedListingId — assim o modal "Ver aves do lote" consegue filtrar
+    // exatamente as Birds desse listing depois.
     const listing = await tx.vitrineListing.create({
       data: {
         tenantId,
@@ -374,6 +344,35 @@ export async function createAvulsasBatch(
         description: listingDescription
       }
     });
+
+    // Cria N Birds individuais (ringNumbers únicas + statusHistory) +
+    // aggregatedListingId apontando pro listing recem-criado.
+    // Loop sequencial porque createMany nao suporta nested writes.
+    const createdBirdIds: string[] = [];
+    for (let i = 0; i < totalCount; i += 1) {
+      const bird = await tx.bird.create({
+        data: {
+          tenantId,
+          flockGroupId: group.id,
+          bayNumber: group.bayNumber,
+          ringNumber: ringNumbers[i],
+          sex: sexes[i],
+          status: "ACTIVE",
+          origin: "Ave avulsa (cadastrada após implantação)",
+          acquisitionDate: now,
+          aggregatedListingId: listing.id,
+          statusHistory: {
+            create: {
+              tenantId,
+              fromStatus: null,
+              toStatus: "ACTIVE",
+              reason: "Inserção avulsa em lote"
+            }
+          }
+        }
+      });
+      createdBirdIds.push(bird.id);
+    }
 
     return { createdBirdIds, createdListingId: listing.id };
   });

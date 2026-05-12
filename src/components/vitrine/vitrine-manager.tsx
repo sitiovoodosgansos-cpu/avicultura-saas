@@ -19,6 +19,7 @@ import {
 } from "@/components/vitrine/bulk-sell-modal";
 import { PurchaseModal, type PurchaseFormValues } from "@/components/vitrine/purchase-modal";
 import { AvulsasModal, type AvulsasFormValues } from "@/components/vitrine/avulsas-modal";
+import { ListingBirdsModal } from "@/components/vitrine/listing-birds-modal";
 import {
   formatBRL,
   type FlockGroupRef,
@@ -50,6 +51,7 @@ export function VitrineManager() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [avulsasOpen, setAvulsasOpen] = useState(false);
   const [avulsasError, setAvulsasError] = useState<string | null>(null);
+  const [viewingBirdsListing, setViewingBirdsListing] = useState<VitrineListingItem | null>(null);
 
   // Filtros: busca livre + dropdown de grupo (mesmo padrao da Prateleira).
   const [searchQuery, setSearchQuery] = useState("");
@@ -530,6 +532,7 @@ export function VitrineManager() {
             onSell={toggleCart}
             onDeath={openDeath}
             onRemove={handleRemove}
+            onViewBirds={(listing) => setViewingBirdsListing(listing)}
             cartIds={cartIdSet}
           />
         ))}
@@ -592,6 +595,17 @@ export function VitrineManager() {
         onSubmit={handleAvulsasSubmit}
         flockGroups={data?.flockGroups ?? []}
         error={avulsasError}
+      />
+
+      <ListingBirdsModal
+        open={viewingBirdsListing !== null}
+        listingId={viewingBirdsListing?.id ?? null}
+        listingTitle={
+          viewingBirdsListing?.title?.trim() ||
+          viewingBirdsListing?.flockGroup?.title ||
+          null
+        }
+        onClose={() => setViewingBirdsListing(null)}
       />
 
       {/* Barra flutuante do carrinho da Vitrine — acumula listings em

@@ -62,7 +62,12 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [filterBreed, setFilterBreed] = useState("");
   const [filterVariety, setFilterVariety] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [ringSearch, setRingSearch] = useState("");
+  // Pre-popula busca por anilha via query param ?ring=A0480 (deeplink do
+  // botao "Ver aves do lote" na vitrine). Roda so no mount.
+  const [ringSearch, setRingSearch] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("ring") ?? "";
+  });
   const [workerLinks, setWorkerLinks] = useState<WorkerLink[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showBirdModal, setShowBirdModal] = useState(false);

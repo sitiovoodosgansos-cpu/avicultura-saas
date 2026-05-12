@@ -313,8 +313,13 @@ model Bird {
   status          BirdStatus          @default(ACTIVE)
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+  // Vinculo com listing agregado da vitrine (aves avulsas em lote).
+  // Diferente do `vitrineListing` (1:1 pra aves publicadas individualmente),
+  // aqui N aves do mesmo lote apontam pro mesmo listing.
+  aggregatedListingId String?
   tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   flockGroup      FlockGroup          @relation(fields: [flockGroupId], references: [id], onDelete: Cascade)
+  aggregatedListing VitrineListing? @relation("AggregatedListingBirds", fields: [aggregatedListingId], references: [id], onDelete: SetNull)
   statusHistory   BirdStatusHistory[]
   infirmaryCases  InfirmaryCase[]
   quarantineCases QuarantineCase[]
@@ -793,6 +798,11 @@ model VitrineListing {
 
   sourceIncubatorBatch IncubatorBatch? @relation(fields: [sourceIncubatorBatchId], references: [id], onDelete: SetNull)
   sourceBird           Bird?           @relation(fields: [sourceBirdId], references: [id], onDelete: SetNull)
+
+  // Aves vinculadas a este listing como LOTE (aves avulsas, mesma idade).
+  // Diferente do sourceBird (1:1), aqui sao N aves apontando pra 1 listing.
+  // Reverse relation de Bird.aggregatedListing.
+  aggregatedBirds Bird[] @relation("AggregatedListingBirds")
 
   photos VitrineListingPhoto[]
   sales  VitrineSale[]
