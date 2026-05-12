@@ -3,11 +3,11 @@ import { getApiSessionOr401 } from "@/lib/auth/api-session";
 import { prisma } from "@/lib/db/prisma";
 import { asaasClient } from "@/lib/billing/asaas";
 import {
-  ASAAS_PLAN_CODE_STARTER_97,
-  ASAAS_PLAN_VALUE_STARTER_97,
+  ASAAS_PLANS,
   findActiveStripeSubscription,
   findLatestAsaasSubscription,
-  upsertAsaasSubscription
+  upsertAsaasSubscription,
+  type AsaasPlanCycle
 } from "@/lib/billing/service";
 import { getClientIp, rateLimit } from "@/lib/security/rate-limit";
 
@@ -56,12 +56,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2) Pega o body opcional (CPF/CNPJ e telefone pra preencher no Asaas).
-    //    Se o body nao trouxer, vamos cair no tenant.cnpj salvo no perfil.
+    // 2) Pega o body opcional (CPF/CNPJ, telefone, ciclo).
+    //    cycle: "monthly" (R$97/mes) ou "yearly" (R$997/ano). Default monthly.
     const body = (await request.json().catch(() => ({}))) as {
       cpfCnpj?: string;
       mobilePhone?: string;
+      cycle?: AsaasPlanCycle;
     };
+    const cycle: AsaasPlanCycle = body.cycle === "yearly" ? "yearly" : "monthly";
+    const plan = ASAAS_PLANS[cycle];
 
     // 3) Pega tenant + email do owner pra criar/atualizar customer Asaas.
     //    A API Asaas ATÉ aceita criar customer sem cpfCnpj, MAS quando vai
@@ -145,13 +148,16 @@ export async function POST(request: Request) {
       });
     }
 
-    // 6) Cria nova subscription
+    // 6) Cria nova subscription com base no ciclo escolhido (mensal/anual)
     const subscription = await asaasClient.createSubscription({
       customerId,
-      value: ASAAS_PLAN_VALUE_STARTER_97,
+      value: plan.value,
       nextDueDate: todayPlusOneDayISO(),
-      cycle: "MONTHLY",
-      description: `Ornabird Starter — assinatura mensal R$${ASAAS_PLAN_VALUE_STARTER_97}`,
+      cycle: plan.cycle,
+      description:
+        cycle === "yearly"
+          ? `Ornabird Starter — assinatura anual R$${plan.value}`
+          : `Ornabird Starter — assinatura mensal R$${plan.value}`,
       externalReference: tenantId
     });
 
@@ -162,7 +168,7 @@ export async function POST(request: Request) {
       customerId,
       subscriptionId: subscription.id,
       status: "INCOMPLETE",
-      planCode: ASAAS_PLAN_CODE_STARTER_97,
+      planCode: plan.code,
       nextDueDate: subscription.nextDueDate
     });
 

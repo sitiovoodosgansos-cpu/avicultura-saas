@@ -41,6 +41,7 @@ function mapPlanCodeToLabel(planCode?: string | null) {
   const normalized = planCode.toLowerCase();
   // Codigos novos do Asaas
   if (normalized === "starter_asaas_97") return "Starter R$97/mês";
+  if (normalized === "starter_asaas_997_yearly") return "Starter R$997/ano";
   if (normalized.includes("year") || normalized.includes("anual")) return "Starter anual";
   if (normalized.includes("month") || normalized.includes("mensal")) return "Starter mensal";
   if (normalized === "starter") return "Starter";
@@ -50,10 +51,29 @@ function mapPlanCodeToLabel(planCode?: string | null) {
   return planCode;
 }
 
-// Codigo do plano Asaas atual. Se um dia mudarmos preco/criar plano novo,
+// Codigos dos planos Asaas. Se um dia mudarmos preco/criar plano novo,
 // codigos antigos ficam grandfathered no DB do mesmo jeito que o Stripe.
 export const ASAAS_PLAN_CODE_STARTER_97 = "starter_asaas_97";
 export const ASAAS_PLAN_VALUE_STARTER_97 = 97;
+export const ASAAS_PLAN_CODE_STARTER_997_YEARLY = "starter_asaas_997_yearly";
+export const ASAAS_PLAN_VALUE_STARTER_997_YEARLY = 997;
+
+// Planos disponiveis. Resolvido por cycle no checkout.
+export const ASAAS_PLANS = {
+  monthly: {
+    code: ASAAS_PLAN_CODE_STARTER_97,
+    value: ASAAS_PLAN_VALUE_STARTER_97,
+    cycle: "MONTHLY" as const,
+    label: "Starter mensal"
+  },
+  yearly: {
+    code: ASAAS_PLAN_CODE_STARTER_997_YEARLY,
+    value: ASAAS_PLAN_VALUE_STARTER_997_YEARLY,
+    cycle: "YEARLY" as const,
+    label: "Starter anual"
+  }
+} as const;
+export type AsaasPlanCycle = keyof typeof ASAAS_PLANS;
 
 export async function getTenantBilling(tenantId: string) {
   const [tenant, subscription, farm, payments] = await Promise.all([

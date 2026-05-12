@@ -55,6 +55,8 @@ function labelStatus(status?: string | null) {
   return map[status] ?? status;
 }
 
+type PlanCycle = "monthly" | "yearly";
+
 export function BillingProfileManager() {
   const [loading, setLoading] = useState(true);
   const [processingCycle, setProcessingCycle] = useState<
@@ -62,6 +64,9 @@ export function BillingProfileManager() {
   >(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<BillingStatus | null>(null);
+  // Ciclo selecionado no toggle do Estado C. Default "yearly" pra ancorar
+  // no plano com desconto (~14% off vs pagar 12 meses).
+  const [selectedCycle, setSelectedCycle] = useState<PlanCycle>("yearly");
 
   const params = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "");
   const billingMessage = params.get("billing");
@@ -129,7 +134,8 @@ export function BillingProfileManager() {
       const res = await fetch("/api/billing/asaas/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}) // CPF/CNPJ vem do perfil do tenant
+        // CPF/CNPJ vem do perfil do tenant; cycle vem do toggle
+        body: JSON.stringify({ cycle: selectedCycle })
       });
       const payload = await parseApiPayload<{
         ok?: boolean;
@@ -346,6 +352,14 @@ export function BillingProfileManager() {
           const isIncomplete = sub?.status === "INCOMPLETE";
           const isPastDueOrIncomplete = isPastDue || isIncomplete;
           const isActive = sub?.status === "ACTIVE";
+          // Detecta ciclo pra mostrar valor + sufixo certos. planCode no DB
+          // determina; default monthly se algum codigo legado vier
+          const isYearlyPlan = sub?.planCode === "starter_asaas_997_yearly";
+          const planPrice = isYearlyPlan ? "997" : "97";
+          const planSuffix = isYearlyPlan ? "/ ano" : "/ mês";
+          const planSubtext = isYearlyPlan
+            ? "PIX, Boleto ou Cartão — assinatura anual"
+            : "PIX, Boleto ou Cartão — recorrência automática mensal";
 
           // Cor do header acompanha urgencia. Classes LITERAIS pq Tailwind JIT
           // nao consegue extrair classes com template strings.
@@ -397,16 +411,18 @@ export function BillingProfileManager() {
                     <span>{variant.icon}</span>
                     {variant.label}
                   </span>
-                  <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Starter</h3>
-                  <p className={`text-sm ${variant.textLight}`}>
-                    PIX, Boleto ou Cartão — recorrência automática mensal.
-                  </p>
+                  <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
+                    Starter {isYearlyPlan ? "Anual" : "Mensal"}
+                  </h3>
+                  <p className={`text-sm ${variant.textLight}`}>{planSubtext}</p>
                   <div className="mt-4 flex items-baseline gap-1.5">
                     <span className={`text-sm font-medium ${variant.textMedium}`}>R$</span>
                     <span className="text-5xl font-extrabold leading-none tracking-tight tabular-nums sm:text-6xl">
-                      97
+                      {planPrice}
                     </span>
-                    <span className={`text-base font-medium ${variant.textMedium}`}>/ mês</span>
+                    <span className={`text-base font-medium ${variant.textMedium}`}>
+                      {planSuffix}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -492,7 +508,13 @@ export function BillingProfileManager() {
           );
         }
 
-        // Estado C: Sem assinatura (ou Stripe CANCELED) — pricing card polido
+        // Estado C: Sem assinatura — pricing card com toggle Mensal/Anual.
+        // Valores derivados do ciclo selecionado (controla preco grande, CTA
+        // e mensagem). Anual: R$997/ano = 12 × R$83,08 (economia R$167/ano,
+        // ~14% off vs pagar 12 vezes o mensal).
+        const isYearly = selectedCycle === "yearly";
+        const ctaPrice = isYearly ? "R$997/ano" : "R$97/mês";
+        const equivalentMonthly = isYearly ? "Equivale a R$83,08/mês" : null;
         return (
           <div className="overflow-hidden rounded-3xl border border-emerald-200/70 bg-white shadow-sm">
             {/* Faixa superior com gradient + selo */}
@@ -505,19 +527,69 @@ export function BillingProfileManager() {
                 <span className="inline-flex w-fit items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white ring-1 ring-white/30 backdrop-blur">
                   ✨ Plano único — sem fidelidade
                 </span>
-                <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
-                  Starter
-                </h3>
+                <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Starter</h3>
                 <p className="text-sm text-emerald-50">
                   Tudo o que você precisa pra gerenciar seu criatório em um só lugar.
                 </p>
+
+                {/* Toggle Mensal | Anual */}
+                <div className="mt-5 inline-flex w-fit items-center rounded-full bg-white/10 p-1 ring-1 ring-white/25 backdrop-blur">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCycle("monthly")}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                      !isYearly
+                        ? "bg-white text-emerald-700 shadow-sm"
+                        : "text-white/80 hover:text-white"
+                    }`}
+                  >
+                    Mensal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCycle("yearly")}
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                      isYearly
+                        ? "bg-white text-emerald-700 shadow-sm"
+                        : "text-white/80 hover:text-white"
+                    }`}
+                  >
+                    Anual
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                        isYearly
+                          ? "bg-emerald-600 text-white"
+                          : "bg-emerald-300/40 text-emerald-100"
+                      }`}
+                    >
+                      −14%
+                    </span>
+                  </button>
+                </div>
+
+                {/* Preço grande, troca conforme cycle */}
                 <div className="mt-4 flex items-baseline gap-1.5">
                   <span className="text-sm font-medium text-emerald-100">R$</span>
                   <span className="text-5xl font-extrabold leading-none tracking-tight tabular-nums sm:text-6xl">
-                    97
+                    {isYearly ? "997" : "97"}
                   </span>
-                  <span className="text-base font-medium text-emerald-100">/ mês</span>
+                  <span className="text-base font-medium text-emerald-100">
+                    {isYearly ? "/ ano" : "/ mês"}
+                  </span>
                 </div>
+                {equivalentMonthly ? (
+                  <p className="mt-1 text-xs font-medium text-emerald-100">
+                    {equivalentMonthly} · <span className="font-bold text-white">Economize R$167/ano</span>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-emerald-100/80">
+                    Ou economize com o anual: <button
+                      type="button"
+                      onClick={() => setSelectedCycle("yearly")}
+                      className="font-bold text-white underline-offset-2 hover:underline"
+                    >R$997/ano (−14%)</button>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -570,7 +642,7 @@ export function BillingProfileManager() {
                   onClick={startAsaasCheckout}
                   className="flex-1 bg-emerald-600 py-6 text-base font-semibold shadow-sm shadow-emerald-600/30 hover:bg-emerald-700 sm:py-3"
                 >
-                  {processingCycle === "asaas" ? "Abrindo Asaas..." : "Assinar agora — R$97/mês"}
+                  {processingCycle === "asaas" ? "Abrindo Asaas..." : `Assinar agora — ${ctaPrice}`}
                 </Button>
                 <Button
                   type="button"
