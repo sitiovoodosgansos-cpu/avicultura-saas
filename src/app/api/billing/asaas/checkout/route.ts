@@ -56,22 +56,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2) Pega o body opcional (CPF/CNPJ pra preencher no Asaas; sem isso
-    //    o cliente vai precisar informar na hora do PIX/Boleto)
+    // 2) Pega o body opcional (CPF/CNPJ e telefone pra preencher no Asaas).
+    //    Se o body nao trouxer, vamos cair no tenant.cnpj salvo no perfil.
     const body = (await request.json().catch(() => ({}))) as {
       cpfCnpj?: string;
       mobilePhone?: string;
     };
 
-    // 3) Pega tenant + email do owner pra criar/atualizar customer Asaas
+    // 3) Pega tenant + email do owner pra criar/atualizar customer Asaas.
+    //    O Asaas exige cpfCnpj OBRIGATORIAMENTE na criacao do customer (nao
+    //    da pra criar customer sem isso e deixar pra preencher na tela de
+    //    pagamento — testado). Entao se o tenant nao tem CNPJ/CPF cadastrado
+    //    no perfil E o body nao mandou, peca pra preencher antes.
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, name: true }
+      select: { id: true, name: true, cnpj: true, phone: true, whatsapp: true }
     });
     if (!tenant) {
       return NextResponse.json({ error: "Tenant não encontrado." }, { status: 404 });
     }
     const ownerEmail = auth.session.user.email ?? undefined;
+    const cpfCnpj = (body.cpfCnpj ?? tenant.cnpj ?? "").replace(/\D/g, "");
+    const mobilePhone = (body.mobilePhone ?? tenant.whatsapp ?? tenant.phone ?? "").replace(/\D/g, "") || undefined;
 
     // 4) Cliente Asaas: reusa pelo Subscription anterior ou cria novo
     const existingSub = await findLatestAsaasSubscription(tenantId);
@@ -83,11 +89,21 @@ export async function POST(request: Request) {
       if (found) {
         customerId = found.id;
       } else {
+        // Vai criar customer novo no Asaas — exige cpfCnpj nao vazio.
+        if (!cpfCnpj || cpfCnpj.length < 11) {
+          return NextResponse.json(
+            {
+              error:
+                "Para assinar, preencha o CPF ou CNPJ no perfil do criatório antes (campo 'CNPJ / CPF' em /perfil → botão 'Editar')."
+            },
+            { status: 422 }
+          );
+        }
         const created = await asaasClient.createCustomer({
           name: tenant.name,
           email: ownerEmail,
-          cpfCnpj: body.cpfCnpj,
-          mobilePhone: body.mobilePhone,
+          cpfCnpj,
+          mobilePhone,
           tenantId
         });
         customerId = created.id;
