@@ -20,6 +20,8 @@ type BillingStatus = {
   };
   subscription: {
     id: string;
+    provider: string; // "stripe" | "asaas"
+    providerSubId: string | null;
     planCode: string;
     planLabel?: string;
     status: string;
@@ -55,7 +57,9 @@ function labelStatus(status?: string | null) {
 
 export function BillingProfileManager() {
   const [loading, setLoading] = useState(true);
-  const [processingCycle, setProcessingCycle] = useState<null | "monthly" | "yearly" | "portal">(null);
+  const [processingCycle, setProcessingCycle] = useState<
+    null | "monthly" | "yearly" | "portal" | "asaas" | "cancel"
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<BillingStatus | null>(null);
 
@@ -93,30 +97,6 @@ export function BillingProfileManager() {
     }
   }
 
-  async function startCheckout(billingCycle: "monthly" | "yearly") {
-    setProcessingCycle(billingCycle);
-    setError(null);
-    try {
-      const res = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ billingCycle })
-      });
-      const payload = await parseApiPayload<{ url?: string; error?: string }>(res);
-
-      if (!res.ok || !payload?.url) {
-        setError(payload?.error ?? "Nao foi possivel iniciar a assinatura.");
-        return;
-      }
-
-      await openUrlWithNativeFallback(payload.url);
-    } catch {
-      setError("Nao foi possivel iniciar a assinatura. Verifique a conexao e tente novamente.");
-    } finally {
-      setProcessingCycle(null);
-    }
-  }
-
   async function openPortal() {
     setProcessingCycle("portal");
     setError(null);
@@ -132,6 +112,66 @@ export function BillingProfileManager() {
       await openUrlWithNativeFallback(payload.url);
     } catch {
       setError("Nao foi possivel abrir o portal de cobranca. Verifique a conexao e tente novamente.");
+    } finally {
+      setProcessingCycle(null);
+    }
+  }
+
+  // === Asaas: assina ou abre cobranca pendente ===
+  async function startAsaasCheckout() {
+    setProcessingCycle("asaas");
+    setError(null);
+    try {
+      const res = await fetch("/api/billing/asaas/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}) // CPF/CNPJ podem ser preenchidos no Asaas
+      });
+      const payload = await parseApiPayload<{
+        ok?: boolean;
+        paymentUrl?: string | null;
+        message?: string;
+        error?: string;
+      }>(res);
+      if (!res.ok || !payload?.ok) {
+        setError(payload?.error ?? "Nao foi possivel iniciar assinatura Asaas.");
+        return;
+      }
+      if (payload.paymentUrl) {
+        await openUrlWithNativeFallback(payload.paymentUrl);
+      } else {
+        setError(
+          "Assinatura criada, mas a Asaas ainda nao gerou a fatura. Aguarde 1 minuto e clique em 'Atualizar status'."
+        );
+        await loadData();
+      }
+    } catch {
+      setError("Nao foi possivel iniciar assinatura. Verifique a conexao e tente novamente.");
+    } finally {
+      setProcessingCycle(null);
+    }
+  }
+
+  async function cancelAsaasSubscription() {
+    if (
+      !window.confirm(
+        "Cancelar a assinatura? Você continua tendo acesso até o final do período já pago. Sem novas cobranças."
+      )
+    ) {
+      return;
+    }
+    setProcessingCycle("cancel");
+    setError(null);
+    try {
+      const res = await fetch("/api/billing/asaas/cancel", { method: "POST" });
+      const payload = await parseApiPayload<{ ok?: boolean; error?: string }>(res);
+      if (!res.ok || !payload?.ok) {
+        setError(payload?.error ?? "Falha ao cancelar.");
+        return;
+      }
+      await loadData();
+    } catch {
+      setError("Falha ao cancelar. Verifique a conexao e tente novamente.");
     } finally {
       setProcessingCycle(null);
     }
@@ -216,31 +256,155 @@ export function BillingProfileManager() {
         </Card>
       </section>
 
-      <Card>
-        <h3 className="text-base font-semibold text-zinc-900">Ações de cobrança</h3>
-        <p className="mt-1 text-sm text-zinc-600">
-          Escolha o plano Starter mensal ou anual. Você também pode abrir o portal para gerenciar pagamento, troca de plano e cancelamento.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" disabled={processingCycle !== null} onClick={() => startCheckout("monthly")}>
-            {processingCycle === "monthly" ? "Processando..." : "Starter mensal"}
-          </Button>
-          <Button type="button" variant="outline" disabled={processingCycle !== null} onClick={() => startCheckout("yearly")}>
-            {processingCycle === "yearly" ? "Processando..." : "Starter anual"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={processingCycle !== null || !data?.subscription?.providerCustomerId}
-            onClick={openPortal}
-          >
-            Abrir portal de cobrança
-          </Button>
-          <Button type="button" variant="outline" onClick={loadData}>
-            Atualizar status
-          </Button>
-        </div>
-      </Card>
+      {(() => {
+        const sub = data?.subscription ?? null;
+        const isStripeLegacyActive =
+          sub?.provider === "stripe" &&
+          (sub.status === "ACTIVE" || sub.status === "TRIALING" || sub.status === "PAST_DUE");
+        const isAsaasActive =
+          sub?.provider === "asaas" &&
+          (sub.status === "ACTIVE" || sub.status === "PAST_DUE" || sub.status === "INCOMPLETE");
+
+        // Estado A: Cliente Stripe legado (grandfathered em R$37/mês)
+        if (isStripeLegacyActive) {
+          return (
+            <Card className="border-amber-200 bg-amber-50">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                    Plano legado — preço congelado
+                  </span>
+                  <h3 className="mt-2 text-base font-semibold text-zinc-900">Starter Stripe — R$37/mês</h3>
+                  <p className="mt-1 text-sm text-zinc-700">
+                    Você assinou antes da mudança de preço, então mantém o valor antigo. Para gerenciar pagamento,
+                    troca de cartão ou cancelar, abra o portal Stripe abaixo.
+                  </p>
+                  <p className="mt-2 text-xs text-zinc-600">
+                    Se cancelar, futuras assinaturas serão pelo novo plano R$97/mês com PIX, Boleto e Cartão (Asaas).
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={processingCycle !== null || !sub?.providerCustomerId}
+                  onClick={openPortal}
+                >
+                  {processingCycle === "portal" ? "Abrindo..." : "Abrir portal Stripe"}
+                </Button>
+                <Button type="button" variant="outline" onClick={loadData}>
+                  Atualizar status
+                </Button>
+              </div>
+            </Card>
+          );
+        }
+
+        // Estado B: Asaas ativo (ou em atraso/incompleto — mostra link de pagamento)
+        if (isAsaasActive) {
+          const periodEnd = sub?.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
+          const isPastDueOrIncomplete = sub?.status === "PAST_DUE" || sub?.status === "INCOMPLETE";
+          return (
+            <Card>
+              <div>
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    sub?.status === "ACTIVE"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : sub?.status === "PAST_DUE"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {labelStatus(sub?.status)}
+                </span>
+                <h3 className="mt-2 text-base font-semibold text-zinc-900">
+                  Starter — R$97/mês (PIX, Boleto ou Cartão)
+                </h3>
+                {periodEnd ? (
+                  <p className="mt-1 text-sm text-zinc-700">
+                    Próxima cobrança em <strong>{periodEnd.toLocaleDateString("pt-BR")}</strong>
+                  </p>
+                ) : null}
+                {isPastDueOrIncomplete ? (
+                  <p className="mt-2 text-sm text-red-700">
+                    Cobrança em aberto. Clique em &quot;Abrir fatura&quot; abaixo para finalizar o pagamento e
+                    manter seu acesso.
+                  </p>
+                ) : null}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  disabled={processingCycle !== null}
+                  onClick={startAsaasCheckout}
+                >
+                  {processingCycle === "asaas"
+                    ? "Abrindo..."
+                    : isPastDueOrIncomplete
+                      ? "Abrir fatura"
+                      : "Ver fatura atual"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={processingCycle !== null}
+                  onClick={cancelAsaasSubscription}
+                  className="text-red-700 hover:bg-red-50"
+                >
+                  {processingCycle === "cancel" ? "Cancelando..." : "Cancelar assinatura"}
+                </Button>
+                <Button type="button" variant="outline" onClick={loadData}>
+                  Atualizar status
+                </Button>
+              </div>
+            </Card>
+          );
+        }
+
+        // Estado C: Sem assinatura (ou Stripe CANCELED) — CTA Asaas R$97
+        return (
+          <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="flex-1">
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                  Plano único
+                </span>
+                <h3 className="mt-2 text-lg font-semibold text-zinc-900">
+                  Starter — R$97/mês
+                </h3>
+                <p className="mt-1 text-sm text-zinc-700">
+                  Pague com <strong>PIX</strong>, <strong>Boleto</strong> ou <strong>Cartão</strong>. Cancele a
+                  qualquer momento direto aqui pelo painel.
+                </p>
+                <ul className="mt-3 space-y-1 text-sm text-zinc-700">
+                  <li>✅ Sem fidelidade</li>
+                  <li>✅ Cobrança recorrente automática</li>
+                  <li>✅ Acesso completo a todos os módulos</li>
+                </ul>
+              </div>
+              <div className="flex flex-col gap-2 md:min-w-[220px]">
+                <Button
+                  type="button"
+                  disabled={processingCycle !== null}
+                  onClick={startAsaasCheckout}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {processingCycle === "asaas" ? "Iniciando..." : "Assinar — R$97/mês"}
+                </Button>
+                <Button type="button" variant="outline" onClick={loadData}>
+                  Atualizar status
+                </Button>
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-zinc-600">
+              Após clicar em assinar, você será redirecionado para a tela do Asaas onde escolhe a forma de
+              pagamento. PIX é instantâneo; o acesso libera assim que o pagamento for confirmado.
+            </p>
+          </Card>
+        );
+      })()}
 
       <Card>
         <h3 className="text-base font-semibold text-zinc-900">Histórico de pagamentos (eventos)</h3>
