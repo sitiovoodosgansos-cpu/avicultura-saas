@@ -278,101 +278,217 @@ export function BillingProfileManager() {
           sub?.provider === "asaas" &&
           (sub.status === "ACTIVE" || sub.status === "PAST_DUE" || sub.status === "INCOMPLETE");
 
-        // Estado A: Cliente Stripe legado (grandfathered em R$37/mês)
+        // Estado A: Cliente Stripe legado (grandfathered em R$37/mes)
         if (isStripeLegacyActive) {
           return (
-            <Card className="border-amber-200 bg-amber-50">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                    Plano legado — preço congelado
+            <div className="overflow-hidden rounded-3xl border border-amber-200/70 bg-white shadow-sm">
+              {/* Header amber pra sinalizar plano "antigo congelado" */}
+              <div className="relative bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 px-6 py-8 text-white sm:px-8">
+                <div className="absolute inset-0 opacity-20" aria-hidden>
+                  <div className="absolute -top-10 -right-10 h-48 w-48 rounded-full bg-white blur-3xl" />
+                  <div className="absolute -bottom-12 -left-12 h-56 w-56 rounded-full bg-white blur-3xl" />
+                </div>
+                <div className="relative flex flex-col gap-1">
+                  <span className="inline-flex w-fit items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white ring-1 ring-white/30 backdrop-blur">
+                    🔒 Plano legado — preço congelado
                   </span>
-                  <h3 className="mt-2 text-base font-semibold text-zinc-900">Starter Stripe — R$37/mês</h3>
-                  <p className="mt-1 text-sm text-zinc-700">
-                    Você assinou antes da mudança de preço, então mantém o valor antigo. Para gerenciar pagamento,
-                    troca de cartão ou cancelar, abra o portal Stripe abaixo.
+                  <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Starter</h3>
+                  <p className="text-sm text-amber-50">
+                    Você assinou antes da mudança de preço — mantém o valor antigo.
                   </p>
-                  <p className="mt-2 text-xs text-zinc-600">
-                    Se cancelar, futuras assinaturas serão pelo novo plano R$97/mês com PIX, Boleto e Cartão (Asaas).
-                  </p>
+                  <div className="mt-4 flex items-baseline gap-1.5">
+                    <span className="text-sm font-medium text-amber-100">R$</span>
+                    <span className="text-5xl font-extrabold leading-none tracking-tight tabular-nums sm:text-6xl">
+                      37
+                    </span>
+                    <span className="text-base font-medium text-amber-100">/ mês</span>
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={processingCycle !== null || !sub?.providerCustomerId}
-                  onClick={openPortal}
-                >
-                  {processingCycle === "portal" ? "Abrindo..." : "Abrir portal Stripe"}
-                </Button>
-                <Button type="button" variant="outline" onClick={loadData}>
-                  Atualizar status
-                </Button>
+              {/* Corpo branco */}
+              <div className="space-y-5 px-6 py-6 sm:px-8 sm:py-7">
+                <div className="space-y-2 text-sm text-zinc-700">
+                  <p>
+                    Para gerenciar pagamento, trocar cartão ou cancelar, abra o portal Stripe.
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    Se cancelar, futuras assinaturas serão pelo novo plano R$97/mês com PIX, Boleto
+                    e Cartão (via Asaas).
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    disabled={processingCycle !== null || !sub?.providerCustomerId}
+                    onClick={openPortal}
+                    className="flex-1 bg-amber-600 py-6 text-base font-semibold shadow-sm shadow-amber-600/30 hover:bg-amber-700 sm:py-3"
+                  >
+                    {processingCycle === "portal" ? "Abrindo..." : "Abrir portal Stripe"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={loadData}
+                    className="sm:w-auto"
+                  >
+                    Atualizar
+                  </Button>
+                </div>
               </div>
-            </Card>
+            </div>
           );
         }
 
         // Estado B: Asaas ativo (ou em atraso/incompleto — mostra link de pagamento)
         if (isAsaasActive) {
           const periodEnd = sub?.currentPeriodEnd ? new Date(sub.currentPeriodEnd) : null;
-          const isPastDueOrIncomplete = sub?.status === "PAST_DUE" || sub?.status === "INCOMPLETE";
+          const isPastDue = sub?.status === "PAST_DUE";
+          const isIncomplete = sub?.status === "INCOMPLETE";
+          const isPastDueOrIncomplete = isPastDue || isIncomplete;
+          const isActive = sub?.status === "ACTIVE";
+
+          // Cor do header acompanha urgencia. Classes LITERAIS pq Tailwind JIT
+          // nao consegue extrair classes com template strings.
+          //   ACTIVE     → emerald (tudo certo)
+          //   INCOMPLETE → amber (aguardando pagto da 1a fatura)
+          //   PAST_DUE   → rose (cobranca vencida — atencao!)
+          const variant = isActive
+            ? {
+                gradient: "from-emerald-500 via-emerald-600 to-teal-700",
+                textLight: "text-emerald-50",
+                textMedium: "text-emerald-100",
+                border: "border-emerald-200/70",
+                cta: "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30",
+                icon: "✅",
+                label: "Assinatura ativa"
+              }
+            : isPastDue
+              ? {
+                  gradient: "from-rose-500 via-rose-600 to-red-700",
+                  textLight: "text-rose-50",
+                  textMedium: "text-rose-100",
+                  border: "border-rose-200/70",
+                  cta: "bg-rose-600 hover:bg-rose-700 shadow-rose-600/30",
+                  icon: "⚠️",
+                  label: "Cobrança em atraso"
+                }
+              : {
+                  gradient: "from-amber-400 via-amber-500 to-orange-600",
+                  textLight: "text-amber-50",
+                  textMedium: "text-amber-100",
+                  border: "border-amber-200/70",
+                  cta: "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30",
+                  icon: "⏳",
+                  label: "Aguardando 1º pagamento"
+                };
+
           return (
-            <Card>
-              <div>
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${
-                    sub?.status === "ACTIVE"
-                      ? "bg-emerald-100 text-emerald-800"
-                      : sub?.status === "PAST_DUE"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-amber-100 text-amber-800"
-                  }`}
-                >
-                  {labelStatus(sub?.status)}
-                </span>
-                <h3 className="mt-2 text-base font-semibold text-zinc-900">
-                  Starter — R$97/mês (PIX, Boleto ou Cartão)
-                </h3>
+            <div
+              className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${variant.border}`}
+            >
+              {/* Header gradient — cor reflete urgencia/status */}
+              <div className={`relative bg-gradient-to-br ${variant.gradient} px-6 py-8 text-white sm:px-8`}>
+                <div className="absolute inset-0 opacity-20" aria-hidden>
+                  <div className="absolute -top-10 -right-10 h-48 w-48 rounded-full bg-white blur-3xl" />
+                  <div className="absolute -bottom-12 -left-12 h-56 w-56 rounded-full bg-white blur-3xl" />
+                </div>
+                <div className="relative flex flex-col gap-1">
+                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white ring-1 ring-white/30 backdrop-blur">
+                    <span>{variant.icon}</span>
+                    {variant.label}
+                  </span>
+                  <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">Starter</h3>
+                  <p className={`text-sm ${variant.textLight}`}>
+                    PIX, Boleto ou Cartão — recorrência automática mensal.
+                  </p>
+                  <div className="mt-4 flex items-baseline gap-1.5">
+                    <span className={`text-sm font-medium ${variant.textMedium}`}>R$</span>
+                    <span className="text-5xl font-extrabold leading-none tracking-tight tabular-nums sm:text-6xl">
+                      97
+                    </span>
+                    <span className={`text-base font-medium ${variant.textMedium}`}>/ mês</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Corpo branco */}
+              <div className="space-y-5 px-6 py-6 sm:px-8 sm:py-7">
+                {/* Info linha: data da proxima cobranca */}
                 {periodEnd ? (
-                  <p className="mt-1 text-sm text-zinc-700">
-                    Próxima cobrança em <strong>{periodEnd.toLocaleDateString("pt-BR")}</strong>
-                  </p>
+                  <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/70 px-4 py-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-lg ring-1 ring-zinc-200">
+                      📅
+                    </div>
+                    <div className="flex-1 text-sm">
+                      <p className="text-xs uppercase tracking-wider text-zinc-500">
+                        {isActive ? "Próxima cobrança" : "Vencimento da fatura"}
+                      </p>
+                      <p className="font-semibold text-zinc-900">
+                        {periodEnd.toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric"
+                        })}
+                      </p>
+                    </div>
+                  </div>
                 ) : null}
+
+                {/* Aviso vermelho/amber pra cobranca em aberto */}
                 {isPastDueOrIncomplete ? (
-                  <p className="mt-2 text-sm text-red-700">
-                    Cobrança em aberto. Clique em &quot;Abrir fatura&quot; abaixo para finalizar o pagamento e
-                    manter seu acesso.
-                  </p>
+                  <div
+                    className={`flex gap-2 rounded-2xl border px-4 py-3 text-sm ${
+                      isPastDue
+                        ? "border-rose-200 bg-rose-50 text-rose-800"
+                        : "border-amber-200 bg-amber-50 text-amber-800"
+                    }`}
+                  >
+                    <span aria-hidden>{isPastDue ? "⚠️" : "⏳"}</span>
+                    <p>
+                      {isPastDue
+                        ? "Sua última cobrança venceu. Pague agora pra manter o acesso ao sistema."
+                        : "Clique em \"Abrir fatura\" pra finalizar o 1º pagamento e ativar a assinatura."}
+                    </p>
+                  </div>
                 ) : null}
+
+                {/* CTAs */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    disabled={processingCycle !== null}
+                    onClick={startAsaasCheckout}
+                    className={`flex-1 py-6 text-base font-semibold text-white shadow-sm sm:py-3 ${variant.cta}`}
+                  >
+                    {processingCycle === "asaas"
+                      ? "Abrindo Asaas..."
+                      : isPastDueOrIncomplete
+                        ? "Abrir fatura"
+                        : "Ver fatura atual"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={loadData} className="sm:w-auto">
+                    Atualizar
+                  </Button>
+                </div>
+
+                {/* Acao secundaria: cancelar (separada visualmente) */}
+                <div className="border-t border-zinc-100 pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+                    <p>
+                      Você mantém acesso até o final do período pago. Sem multa por cancelamento.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={processingCycle !== null}
+                      onClick={cancelAsaasSubscription}
+                      className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline disabled:opacity-50"
+                    >
+                      {processingCycle === "cancel" ? "Cancelando..." : "Cancelar assinatura"}
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  disabled={processingCycle !== null}
-                  onClick={startAsaasCheckout}
-                >
-                  {processingCycle === "asaas"
-                    ? "Abrindo..."
-                    : isPastDueOrIncomplete
-                      ? "Abrir fatura"
-                      : "Ver fatura atual"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={processingCycle !== null}
-                  onClick={cancelAsaasSubscription}
-                  className="text-red-700 hover:bg-red-50"
-                >
-                  {processingCycle === "cancel" ? "Cancelando..." : "Cancelar assinatura"}
-                </Button>
-                <Button type="button" variant="outline" onClick={loadData}>
-                  Atualizar status
-                </Button>
-              </div>
-            </Card>
+            </div>
           );
         }
 
