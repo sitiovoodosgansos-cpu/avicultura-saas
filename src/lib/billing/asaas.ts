@@ -155,6 +155,31 @@ export const asaasClient = {
     return res.data?.[0] ?? null;
   },
 
+  // Atualiza dados do customer. Usado pra sincronizar cpfCnpj/telefone do
+  // perfil do tenant antes de criar cobranca (Asaas exige cpfCnpj setado
+  // no customer pra emitir cobranca; se foi criado em tentativa antiga
+  // sem cpfCnpj, da pra patchar agora). Endpoint POST /v3/customers/{id}
+  // (Asaas usa POST em vez de PATCH/PUT pra updates).
+  async updateCustomer(
+    id: string,
+    input: {
+      name?: string;
+      email?: string;
+      cpfCnpj?: string;
+      mobilePhone?: string;
+    }
+  ): Promise<AsaasCustomer> {
+    return request<AsaasCustomer>(`/v3/customers/${id}`, {
+      method: "POST",
+      json: {
+        name: input.name,
+        email: input.email,
+        cpfCnpj: input.cpfCnpj,
+        mobilePhone: input.mobilePhone
+      }
+    });
+  },
+
   async createSubscription(input: {
     customerId: string;
     value: number;

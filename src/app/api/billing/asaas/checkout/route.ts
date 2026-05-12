@@ -64,10 +64,12 @@ export async function POST(request: Request) {
     };
 
     // 3) Pega tenant + email do owner pra criar/atualizar customer Asaas.
-    //    O Asaas exige cpfCnpj OBRIGATORIAMENTE na criacao do customer (nao
-    //    da pra criar customer sem isso e deixar pra preencher na tela de
-    //    pagamento — testado). Entao se o tenant nao tem CNPJ/CPF cadastrado
-    //    no perfil E o body nao mandou, peca pra preencher antes.
+    //    A API Asaas ATÉ aceita criar customer sem cpfCnpj, MAS quando vai
+    //    emitir cobranca falha com "Para criar esta cobranca eh necessario
+    //    preencher o CPF ou CNPJ do cliente". Por isso travamos cpfCnpj
+    //    upfront E sincronizamos no customer Asaas via updateCustomer (pra
+    //    consertar tambem o caso de customer criado em tentativas antigas
+    //    sem cpfCnpj).
     const tenant = await prisma.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true, name: true, cnpj: true, phone: true, whatsapp: true }
@@ -79,6 +81,17 @@ export async function POST(request: Request) {
     const cpfCnpj = (body.cpfCnpj ?? tenant.cnpj ?? "").replace(/\D/g, "");
     const mobilePhone = (body.mobilePhone ?? tenant.whatsapp ?? tenant.phone ?? "").replace(/\D/g, "") || undefined;
 
+    // CPF/CNPJ é obrigatorio. Trava upfront com mensagem amigavel.
+    if (!cpfCnpj || cpfCnpj.length < 11) {
+      return NextResponse.json(
+        {
+          error:
+            "Para assinar, preencha o CPF ou CNPJ no perfil do criatório antes (campo 'CNPJ / CPF' em /perfil → botão 'Editar')."
+        },
+        { status: 422 }
+      );
+    }
+
     // 4) Cliente Asaas: reusa pelo Subscription anterior ou cria novo
     const existingSub = await findLatestAsaasSubscription(tenantId);
     let customerId = existingSub?.providerCustomerId ?? null;
@@ -89,16 +102,6 @@ export async function POST(request: Request) {
       if (found) {
         customerId = found.id;
       } else {
-        // Vai criar customer novo no Asaas — exige cpfCnpj nao vazio.
-        if (!cpfCnpj || cpfCnpj.length < 11) {
-          return NextResponse.json(
-            {
-              error:
-                "Para assinar, preencha o CPF ou CNPJ no perfil do criatório antes (campo 'CNPJ / CPF' em /perfil → botão 'Editar')."
-            },
-            { status: 422 }
-          );
-        }
         const created = await asaasClient.createCustomer({
           name: tenant.name,
           email: ownerEmail,
@@ -109,6 +112,18 @@ export async function POST(request: Request) {
         customerId = created.id;
       }
     }
+
+    // Sincroniza dados no customer Asaas. Idempotente — atualiza mesmo
+    // se ja estiver certo. Conserta o caso de customer ter sido criado
+    // numa tentativa antiga sem cpfCnpj (causa do "Para criar esta
+    // cobranca eh necessario preencher CPF/CNPJ" mesmo depois do user
+    // preencher o perfil).
+    await asaasClient.updateCustomer(customerId, {
+      name: tenant.name,
+      email: ownerEmail,
+      cpfCnpj,
+      mobilePhone
+    });
 
     // 5) Se ja tem subscription nao-cancelada, devolve URL de pagamento
     //    pendente (cobre ACTIVE, PAST_DUE e INCOMPLETE — usuario clica
