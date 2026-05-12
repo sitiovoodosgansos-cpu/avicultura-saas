@@ -145,13 +145,21 @@ export function TenantProfileEditor() {
 
   return (
     <Card>
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-zinc-900">Identidade do criatório</h3>
           <p className="mt-1 text-xs text-zinc-500">
-            Preencha as informações para envio ou impressão de recibo.
+            Preencha as informações para envio ou impressão de recibo (e pra assinar via Asaas, que exige CPF/CNPJ).
           </p>
         </div>
+        {/* Botao Editar no topo do card, mais acessivel pra usuario que quer ajustar perfil
+            rapidamente sem precisar scrollar ate o fim. So aparece quando NAO esta editando
+            (no modo edicao, Salvar/Cancelar ficam no rodape do form). */}
+        {!loading && !isEditing ? (
+          <Button type="button" onClick={() => { setIsEditing(true); setMessage(null); }}>
+            Editar
+          </Button>
+        ) : null}
       </div>
 
       {loading ? (
@@ -260,11 +268,7 @@ export function TenantProfileEditor() {
                   Cancelar
                 </Button>
               </>
-            ) : (
-              <Button type="button" onClick={() => { setIsEditing(true); setMessage(null); }}>
-                Editar
-              </Button>
-            )}
+            ) : null}
             {message ? (
               <span
                 className={`text-xs font-semibold ${

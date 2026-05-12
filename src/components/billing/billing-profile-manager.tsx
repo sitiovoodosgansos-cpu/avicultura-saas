@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmployeesManager } from "@/components/employees/employees-manager";
 import { TenantProfileEditor } from "@/components/profile/tenant-profile-editor";
-import { openUrlWithNativeFallback } from "@/lib/mobile/open-url";
+import { completeOpenInTab, openUrlWithNativeFallback, preOpenBlankTab } from "@/lib/mobile/open-url";
 
 type BillingStatus = {
   tenant: {
@@ -118,14 +118,18 @@ export function BillingProfileManager() {
   }
 
   // === Asaas: assina ou abre cobranca pendente ===
+  // Importante: o pre-open da aba precisa rolar SINCRONO dentro do click handler,
+  // antes do await fetch — senao o popup blocker bloqueia. Se o fetch der erro,
+  // a gente fecha a aba pre-aberta.
   async function startAsaasCheckout() {
+    const pendingTab = preOpenBlankTab();
     setProcessingCycle("asaas");
     setError(null);
     try {
       const res = await fetch("/api/billing/asaas/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}) // CPF/CNPJ podem ser preenchidos no Asaas
+        body: JSON.stringify({}) // CPF/CNPJ vem do perfil do tenant
       });
       const payload = await parseApiPayload<{
         ok?: boolean;
@@ -134,18 +138,21 @@ export function BillingProfileManager() {
         error?: string;
       }>(res);
       if (!res.ok || !payload?.ok) {
+        if (pendingTab && !pendingTab.closed) pendingTab.close();
         setError(payload?.error ?? "Nao foi possivel iniciar assinatura Asaas.");
         return;
       }
       if (payload.paymentUrl) {
-        await openUrlWithNativeFallback(payload.paymentUrl);
+        await completeOpenInTab(pendingTab, payload.paymentUrl);
       } else {
+        if (pendingTab && !pendingTab.closed) pendingTab.close();
         setError(
           "Assinatura criada, mas a Asaas ainda nao gerou a fatura. Aguarde 1 minuto e clique em 'Atualizar status'."
         );
         await loadData();
       }
     } catch {
+      if (pendingTab && !pendingTab.closed) pendingTab.close();
       setError("Nao foi possivel iniciar assinatura. Verifique a conexao e tente novamente.");
     } finally {
       setProcessingCycle(null);
@@ -256,6 +263,11 @@ export function BillingProfileManager() {
         </Card>
       </section>
 
+      {/* Identidade do criatorio (CPF/CNPJ, endereco, logo) — fica ANTES do plano
+          pra usuario completar os dados antes de iniciar a assinatura, ja que o
+          Asaas exige CPF/CNPJ pra emitir cobranca. */}
+      <TenantProfileEditor />
+
       {(() => {
         const sub = data?.subscription ?? null;
         const isStripeLegacyActive =
@@ -364,46 +376,106 @@ export function BillingProfileManager() {
           );
         }
 
-        // Estado C: Sem assinatura (ou Stripe CANCELED) — CTA Asaas R$97
+        // Estado C: Sem assinatura (ou Stripe CANCELED) — pricing card polido
         return (
-          <Card className="border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="flex-1">
-                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                  Plano único
-                </span>
-                <h3 className="mt-2 text-lg font-semibold text-zinc-900">
-                  Starter — R$97/mês
-                </h3>
-                <p className="mt-1 text-sm text-zinc-700">
-                  Pague com <strong>PIX</strong>, <strong>Boleto</strong> ou <strong>Cartão</strong>. Cancele a
-                  qualquer momento direto aqui pelo painel.
-                </p>
-                <ul className="mt-3 space-y-1 text-sm text-zinc-700">
-                  <li>✅ Sem fidelidade</li>
-                  <li>✅ Cobrança recorrente automática</li>
-                  <li>✅ Acesso completo a todos os módulos</li>
-                </ul>
+          <div className="overflow-hidden rounded-3xl border border-emerald-200/70 bg-white shadow-sm">
+            {/* Faixa superior com gradient + selo */}
+            <div className="relative bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 px-6 py-8 text-white sm:px-8">
+              <div className="absolute inset-0 opacity-20" aria-hidden>
+                <div className="absolute -top-10 -right-10 h-48 w-48 rounded-full bg-white blur-3xl" />
+                <div className="absolute -bottom-12 -left-12 h-56 w-56 rounded-full bg-white blur-3xl" />
               </div>
-              <div className="flex flex-col gap-2 md:min-w-[220px]">
+              <div className="relative flex flex-col gap-1">
+                <span className="inline-flex w-fit items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white ring-1 ring-white/30 backdrop-blur">
+                  ✨ Plano único — sem fidelidade
+                </span>
+                <h3 className="mt-3 text-2xl font-bold tracking-tight sm:text-3xl">
+                  Starter
+                </h3>
+                <p className="text-sm text-emerald-50">
+                  Tudo o que você precisa pra gerenciar seu criatório em um só lugar.
+                </p>
+                <div className="mt-4 flex items-baseline gap-1.5">
+                  <span className="text-sm font-medium text-emerald-100">R$</span>
+                  <span className="text-5xl font-extrabold leading-none tracking-tight tabular-nums sm:text-6xl">
+                    97
+                  </span>
+                  <span className="text-base font-medium text-emerald-100">/ mês</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Conteudo branco */}
+            <div className="space-y-6 px-6 py-6 sm:px-8 sm:py-7">
+              {/* Features em grid */}
+              <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+                {[
+                  { icon: "🐔", label: "Plantel, ovos, chocadeiras e prateleira" },
+                  { icon: "📋", label: "CRM com kanban e funil de vendas" },
+                  { icon: "🏬", label: "Vitrine pública pra divulgar suas aves" },
+                  { icon: "💰", label: "Financeiro e relatórios completos" },
+                  { icon: "🩺", label: "Sanidade e histórico de saúde" },
+                  { icon: "👥", label: "Funcionários com permissões granulares" }
+                ].map((f) => (
+                  <div key={f.label} className="flex items-start gap-2.5">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] text-emerald-700">
+                      ✓
+                    </div>
+                    <div className="text-sm text-zinc-700">
+                      <span className="mr-1">{f.icon}</span>
+                      {f.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Linha separadora */}
+              <div className="h-px bg-gradient-to-r from-transparent via-zinc-200 to-transparent" />
+
+              {/* Métodos de pagamento como chips */}
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-zinc-500">Aceita</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                  ⚡ PIX
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700 ring-1 ring-amber-200">
+                  🧾 Boleto
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-700 ring-1 ring-blue-200">
+                  💳 Cartão
+                </span>
+              </div>
+
+              {/* CTA */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Button
                   type="button"
                   disabled={processingCycle !== null}
                   onClick={startAsaasCheckout}
-                  className="bg-emerald-600 hover:bg-emerald-700"
+                  className="flex-1 bg-emerald-600 py-6 text-base font-semibold shadow-sm shadow-emerald-600/30 hover:bg-emerald-700 sm:py-3"
                 >
-                  {processingCycle === "asaas" ? "Iniciando..." : "Assinar — R$97/mês"}
+                  {processingCycle === "asaas" ? "Abrindo Asaas..." : "Assinar agora — R$97/mês"}
                 </Button>
-                <Button type="button" variant="outline" onClick={loadData}>
-                  Atualizar status
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={loadData}
+                  className="sm:w-auto"
+                >
+                  Atualizar
                 </Button>
               </div>
+
+              {/* Footer info */}
+              <div className="flex items-start gap-2 rounded-2xl bg-zinc-50 px-3 py-2.5 text-[11px] text-zinc-600">
+                <span aria-hidden>🔒</span>
+                <p>
+                  Pagamento processado pela <strong>Asaas</strong> em uma nova aba. PIX libera o
+                  acesso em segundos. Cancele a qualquer momento direto aqui pelo painel.
+                </p>
+              </div>
             </div>
-            <p className="mt-4 text-xs text-zinc-600">
-              Após clicar em assinar, você será redirecionado para a tela do Asaas onde escolhe a forma de
-              pagamento. PIX é instantâneo; o acesso libera assim que o pagamento for confirmado.
-            </p>
-          </Card>
+          </div>
         );
       })()}
 
@@ -437,8 +509,6 @@ export function BillingProfileManager() {
           </div>
         ) : null}
       </Card>
-
-      <TenantProfileEditor />
 
       <EmployeesManager />
 
