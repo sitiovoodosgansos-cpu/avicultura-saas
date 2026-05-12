@@ -88,7 +88,7 @@ export function AvulsasModal({
   }
 
   return (
-    <AppModal open={open} title="Inserir aves avulsas" onClose={onClose} error={error}>
+    <AppModal open={open} title="Inserir aves" onClose={onClose} error={error}>
       <form onSubmit={handleSubmit} className="grid gap-4">
         <p className="rounded-xl bg-emerald-50 px-3 py-2 text-[11px] leading-relaxed text-emerald-800">
           Use isso pra cadastrar aves que <strong>já existiam antes</strong> do seu uso do

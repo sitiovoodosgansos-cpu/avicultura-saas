@@ -421,21 +421,13 @@ export function VitrineManager() {
           </Button>
           <Button
             type="button"
-            variant="outline"
             onClick={() => { setAvulsasError(null); setAvulsasOpen(true); }}
             disabled={!data || data.flockGroups.length === 0}
           >
-            🐔 Inserir aves avulsas
+            🐔 Inserir aves
           </Button>
           <Button type="button" variant="outline" onClick={() => { setPurchaseError(null); setPurchaseOpen(true); }}>
             🛒 Comprar p/ revenda
-          </Button>
-          <Button
-            type="button"
-            onClick={openCreate}
-            disabled={!data || data.flockGroups.length === 0}
-          >
-            Adicionar
           </Button>
         </div>
       </Card>
