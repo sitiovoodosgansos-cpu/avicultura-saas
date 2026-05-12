@@ -260,7 +260,8 @@ export function BillingProfileManager() {
         const sub = data?.subscription ?? null;
         const isStripeLegacyActive =
           sub?.provider === "stripe" &&
-          (sub.status === "ACTIVE" || sub.status === "TRIALING" || sub.status === "PAST_DUE");
+          sub.providerCustomerId !== null &&
+          (sub.status === "ACTIVE" || sub.status === "PAST_DUE");
         const isAsaasActive =
           sub?.provider === "asaas" &&
           (sub.status === "ACTIVE" || sub.status === "PAST_DUE" || sub.status === "INCOMPLETE");
