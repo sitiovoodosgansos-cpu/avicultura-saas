@@ -157,9 +157,15 @@ export function BillingProfileManager() {
         );
         await loadData();
       }
-    } catch {
+    } catch (err) {
       if (pendingTab && !pendingTab.closed) pendingTab.close();
-      setError("Nao foi possivel iniciar assinatura. Verifique a conexao e tente novamente.");
+      // Usa err.message se for um Error real (ex: popup bloqueado do
+      // completeOpenInTab) — preserva mensagens amigaveis especificas.
+      if (err instanceof Error && err.message) {
+        setError(err.message);
+      } else {
+        setError("Nao foi possivel iniciar assinatura. Verifique a conexao e tente novamente.");
+      }
     } finally {
       setProcessingCycle(null);
     }
