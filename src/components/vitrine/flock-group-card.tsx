@@ -42,10 +42,6 @@ export function FlockGroupCard({
   /** ids dos listings que ja estao no carrinho — pra destacar visualmente */
   cartIds?: Set<string>;
 }) {
-  const taxonomy = [group.species.name, group.breed?.name, group.variety?.name]
-    .filter(Boolean)
-    .join(" · ");
-
   const available = listings.filter((listing) => listing.status === "AVAILABLE");
   const totalAvailable = available.reduce((acc, listing) => acc + listing.availableQuantity, 0);
   const totalValue = available.reduce((acc, listing) => {
@@ -57,10 +53,7 @@ export function FlockGroupCard({
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--brand-strong)] sm:text-xs">
-            {taxonomy || "Sem taxonomia"}
-          </p>
-          <h3 className="mt-0.5 truncate text-base font-semibold leading-tight text-slate-900 sm:text-lg">
+          <h3 className="truncate text-base font-semibold leading-tight text-slate-900 sm:text-lg">
             {group.title}
           </h3>
         </div>
