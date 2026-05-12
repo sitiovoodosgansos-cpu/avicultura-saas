@@ -175,6 +175,7 @@ model Tenant {
   eggSales             EggSale[]
   eggSaleItems         EggSaleItem[]
   priceTiers           PriceTier[]
+  eggPrices            EggPrice[]
   vitrineListings      VitrineListing[]
   vitrineSales         VitrineSale[]
   vitrineDeaths        VitrineDeathRecord[]
@@ -294,6 +295,7 @@ model FlockGroup {
   batches                 IncubatorBatch[]
   trays                   EggTray[]
   priceTiers              PriceTier[]
+  eggPrice                EggPrice?
   vitrineListings         VitrineListing[]
 }
 
@@ -741,6 +743,23 @@ model PriceTier {
 
   @@unique([tenantId, flockGroupId, ageInMonths])
   @@index([tenantId, flockGroupId])
+}
+
+// Preco unitario do OVO por raca (FlockGroup). Diferente de PriceTier
+// (que tem faixa por idade pra ave adulta), aqui eh 1 preco fixo por raca
+// — ovos nao variam por idade na pratica. Decisao do user em 2026-05-12.
+model EggPrice {
+  id           String   @id @default(cuid())
+  tenantId     String
+  flockGroupId String   @unique
+  unitPrice    Decimal  @db.Decimal(10, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  flockGroup FlockGroup @relation(fields: [flockGroupId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model VitrineListing {

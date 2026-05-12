@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AppModal } from "@/components/ui/app-modal";
+import { EggPriceManager } from "@/components/eggs/egg-price-manager";
 
 type TrayEntry = {
   id: string;
@@ -141,6 +142,10 @@ export function PrateleiraManager() {
 
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [showExternalModal, setShowExternalModal] = useState(false);
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  // Map<flockGroupId, unitPrice> usado pra pre-preencher unitPrice ao
+  // adicionar bandeja no carrinho de venda (selectionMode === "sale").
+  const [eggPrices, setEggPrices] = useState<Map<string, number>>(new Map());
 
   const [saleCustomer, setSaleCustomer] = useState("");
   const [saleSoldAt, setSaleSoldAt] = useState(today);
@@ -174,10 +179,11 @@ export function PrateleiraManager() {
     setLoading(true);
     setError(null);
     try {
-      const [trayRes, incRes, groupRes] = await Promise.all([
+      const [trayRes, incRes, groupRes, priceRes] = await Promise.all([
         fetch("/api/eggs/trays", { cache: "no-store" }),
         fetch("/api/eggs/incubators", { cache: "no-store" }),
-        fetch("/api/eggs/flock-groups", { cache: "no-store" })
+        fetch("/api/eggs/flock-groups", { cache: "no-store" }),
+        fetch("/api/eggs/prices", { cache: "no-store" })
       ]);
       if (!trayRes.ok) throw new Error("Falha ao carregar prateleira.");
       const trayData = (await trayRes.json()) as { trays: Tray[] };
@@ -189,6 +195,18 @@ export function PrateleiraManager() {
       if (groupRes.ok) {
         const groupData = (await groupRes.json()) as { groups: FlockGroupOption[] };
         setFlockGroups(groupData.groups ?? []);
+      }
+      if (priceRes.ok) {
+        const priceData = (await priceRes.json()) as {
+          rows: Array<{ flockGroupId: string; unitPrice: number | null }>;
+        };
+        const map = new Map<string, number>();
+        for (const row of priceData.rows) {
+          if (row.unitPrice !== null && row.unitPrice > 0) {
+            map.set(row.flockGroupId, row.unitPrice);
+          }
+        }
+        setEggPrices(map);
       }
     } catch (err) {
       setError((err as Error).message);
@@ -277,6 +295,12 @@ export function PrateleiraManager() {
       if (next.has(entry.id)) {
         next.delete(entry.id);
       } else {
+        // Pre-preenche unitPrice da tabela de precos por raca (modo "sale").
+        // Pra outros modos (transfer/discard) deixa 0 — campo nao eh usado.
+        const presetPrice =
+          mode === "sale" && tray.flockGroupId
+            ? (eggPrices.get(tray.flockGroupId) ?? 0)
+            : 0;
         next.set(entry.id, {
           entryId: entry.id,
           trayId: tray.id,
@@ -284,7 +308,7 @@ export function PrateleiraManager() {
           trayHasFlockGroup: Boolean(tray.flockGroupId),
           quantity: entry.available,
           available: entry.available,
-          unitPrice: 0
+          unitPrice: presetPrice
         });
       }
       // Se esvaziou o carrinho, libera o modo
@@ -525,6 +549,15 @@ export function PrateleiraManager() {
         title="Prateleira"
         description="Ovos coletados aguardando destino: venda ou chocadeira. Vá clicando 🛒 / 🐣 / 🗑️ pra montar o carrinho e finalize tudo numa única operação no rodapé."
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" onClick={() => setShowPriceModal(true)}>
+          💰 Tabela de preços
+        </Button>
+        <span className="text-xs text-zinc-500">
+          Pré-fixe o preço do ovo por raça pra economizar tempo na venda
+        </span>
+      </div>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <Card>
@@ -1074,6 +1107,16 @@ export function PrateleiraManager() {
           </Button>
         </div>
       ) : null}
+
+      <EggPriceManager
+        open={showPriceModal}
+        onClose={() => setShowPriceModal(false)}
+        onSaved={() => {
+          // Re-carrega trays + precos pra que selecionar bandeja ja pegue
+          // o preco novo
+          void loadData();
+        }}
+      />
     </main>
   );
 }

@@ -93,6 +93,20 @@ export const eggSaleSchema = z
     notes: z.string().trim().optional()
   });
 
+// Tabela de precos de ovo por raca. Save em batch: { flockGroupId, unitPrice }[]
+// Se unitPrice = 0/null, remove o registro (sinaliza "sem preco definido").
+export const eggPriceBatchSchema = z.object({
+  prices: z
+    .array(
+      z.object({
+        flockGroupId: z.string().cuid("Card inválido."),
+        unitPrice: z.coerce.number().min(0, "Preço inválido.").nullable()
+      })
+    )
+    .min(0)
+});
+export type EggPriceBatchInput = z.infer<typeof eggPriceBatchSchema>;
+
 export type ExternalTrayInput = z.infer<typeof externalTraySchema>;
 export type TrayDiscardInput = z.infer<typeof trayDiscardSchema>;
 export type TrayDiscardBulkInput = z.infer<typeof trayDiscardBulkSchema>;
