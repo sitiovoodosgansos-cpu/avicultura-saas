@@ -456,10 +456,59 @@ export async function updateListing(tenantId: string, id: string, input: Listing
 export async function removeListing(tenantId: string, id: string) {
   const existing = await prisma.vitrineListing.findFirst({
     where: { id, tenantId },
-    select: { id: true }
+    select: {
+      id: true,
+      sourceBirdId: true,
+      sourceIncubatorBatchId: true,
+      _count: { select: { sales: true, deaths: true, aggregatedBirds: true } }
+    }
   });
   if (!existing) return false;
 
+  // Listing "avulso agregado" = sem ave-fonte 1:1 e sem chocada vinculada,
+  // ou seja: foi criado via "Inserir aves" (criou N Birds em conjunto).
+  // Nesse caso o user espera que deletar o lote apague TUDO (incluindo
+  // as Birds que aparecem no Plantel/Sanidade) — caso contrario a ave
+  // continua viva pelo sistema mesmo apos remover o lote da vitrine.
+  const isAggregatedAvulso =
+    existing.sourceBirdId === null && existing.sourceIncubatorBatchId === null;
+
+  // Soft delete se ja houve venda/obito registrado no listing —
+  // preserva historico financeiro/zootecnico.
+  const hasHistory = existing._count.sales > 0 || existing._count.deaths > 0;
+
+  if (isAggregatedAvulso && !hasHistory) {
+    // Coleta os ids das Birds aggregadas pra apagar dependencias com
+    // onDelete=Restrict (InfirmaryCase, QuarantineCase) antes do Bird.delete.
+    // O resto (BirdStatusHistory, BirdVaccination) cascateia sozinho.
+    const birds = await prisma.bird.findMany({
+      where: { tenantId, aggregatedListingId: id },
+      select: { id: true }
+    });
+    const birdIds = birds.map((b) => b.id);
+
+    await prisma.$transaction(async (tx) => {
+      if (birdIds.length > 0) {
+        // Casos clinicos sao Restrict — preciso apagar manualmente
+        await tx.infirmaryCase.deleteMany({
+          where: { tenantId, birdId: { in: birdIds } }
+        });
+        await tx.quarantineCase.deleteMany({
+          where: { tenantId, birdId: { in: birdIds } }
+        });
+        await tx.bird.deleteMany({
+          where: { tenantId, id: { in: birdIds } }
+        });
+      }
+      // Photos cascateiam via onDelete=Cascade no schema
+      await tx.vitrineListing.delete({ where: { id } });
+    });
+
+    return true;
+  }
+
+  // Fallback soft-delete pra listings 1:1 (sourceBirdId), chocadas, ou
+  // qualquer listing que ja teve movimentos — preserva historico.
   await prisma.vitrineListing.update({
     where: { id },
     data: { status: "REMOVED" }
