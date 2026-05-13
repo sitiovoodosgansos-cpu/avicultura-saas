@@ -52,8 +52,11 @@ export async function POST(request: Request) {
     );
   }
 
+  // Mensagem generica intencional: nao revela se o e-mail existe ou nao
+  // (anti-enumeration). Inclui dica de spam pq muitos users esperam o
+  // e-mail e nao olham a caixa de spam — feedback recorrente.
   const genericMessage =
-    "Se este e-mail existir, voce recebera um link para redefinir sua senha em alguns minutos.";
+    "Se este e-mail estiver cadastrado, voce recebera um link para redefinir sua senha em ate 2 minutos. Verifique a caixa de entrada E a pasta de spam/lixo eletronico.";
 
   const user = await prisma.user.findFirst({
     where: {
@@ -71,27 +74,38 @@ export async function POST(request: Request) {
   });
 
   if (!user) {
+    // Loga (sem expor pro client) pra dar visibilidade quando users
+    // tentam recuperar senha com e-mail nao cadastrado — sintoma comum
+    // de "nao to recebendo email" reportado pelo dono.
+    console.warn("forgot-password: user not found", { emailAttempted: parsed.data.email });
     return NextResponse.json({ ok: true, message: genericMessage });
   }
 
   const baseUrl = resolveResetBaseUrl(request);
   if (!baseUrl) {
-    console.error("Could not resolve reset password base URL.");
+    console.error("forgot-password: could not resolve reset base URL", { userId: user.id });
     return NextResponse.json({ ok: true, message: genericMessage });
   }
 
   const issued = await issuePasswordResetToken(user.id);
   if (!issued) {
+    console.error("forgot-password: failed to issue reset token", { userId: user.id });
     return NextResponse.json({ ok: true, message: genericMessage });
   }
 
   const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(issued.rawToken)}`;
 
-  await sendPasswordResetEmail({
+  const emailOk = await sendPasswordResetEmail({
     to: user.email,
     name: user.name,
     resetLink
   });
+
+  if (!emailOk) {
+    console.error("forgot-password: sendPasswordResetEmail returned false", { userId: user.id });
+  } else {
+    console.log("forgot-password: email sent", { userId: user.id });
+  }
 
   return NextResponse.json({ ok: true, message: genericMessage });
 }

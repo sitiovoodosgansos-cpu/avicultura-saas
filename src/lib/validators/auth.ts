@@ -17,8 +17,16 @@ export const registerSchema = z.object({
     .regex(/[0-9]/, "Use ao menos um numero.")
 });
 
+// Email passa por trim + lowercase ANTES de validar/buscar pra evitar
+// mismatch silencioso quando o user digita com espaco extra ou caps
+// diferente do cadastro (a query usa mode:insensitive mas espacos
+// quebram o match igual).
 export const forgotPasswordSchema = z.object({
-  email: z.email("Informe um e-mail valido.")
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .pipe(z.email("Informe um e-mail valido."))
 });
 
 export const resetPasswordSchema = z

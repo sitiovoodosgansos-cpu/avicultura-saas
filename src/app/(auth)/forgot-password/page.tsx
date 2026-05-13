@@ -43,7 +43,7 @@ export default function ForgotPasswordPage() {
 
       setMessage(
         data.message ??
-          "Se este e-mail existir, voce recebera um link para redefinir sua senha em alguns minutos."
+          "Se este e-mail estiver cadastrado, voce recebera um link em ate 2 minutos. Verifique tambem a pasta de spam."
       );
     } catch {
       setServerError("Falha de conexao. Tente novamente.");
@@ -66,7 +66,19 @@ export default function ForgotPasswordPage() {
           </div>
 
           {serverError ? <p className="text-sm text-red-600">{serverError}</p> : null}
-          {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+
+          {message ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+              <p className="font-medium">E-mail enviado!</p>
+              <p className="mt-1 text-emerald-800">{message}</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-emerald-700">
+                <li>Procure por <strong>&quot;Ornabird&quot;</strong> ou <strong>send.ornabird.app</strong></li>
+                <li>Verifique a pasta de <strong>spam / lixo eletronico</strong></li>
+                <li>O link expira em 1 hora</li>
+                <li>Nao chegou? Confirme se o e-mail digitado e o mesmo do cadastro</li>
+              </ul>
+            </div>
+          ) : null}
 
           <Button className="w-full" type="submit" disabled={loading}>
             {loading ? "Enviando..." : "Enviar link de recuperacao"}
@@ -78,6 +90,13 @@ export default function ForgotPasswordPage() {
           <Link href="/login" className="font-semibold text-[#0f766e] hover:underline">
             Voltar para login
           </Link>
+        </p>
+
+        <p className="mt-3 text-xs text-zinc-400">
+          Continua sem conseguir? Entre em contato em{" "}
+          <a href="mailto:sitiovoodosgansos@gmail.com" className="underline hover:text-zinc-600">
+            sitiovoodosgansos@gmail.com
+          </a>
         </p>
       </Card>
     </main>
