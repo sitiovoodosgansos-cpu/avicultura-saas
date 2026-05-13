@@ -34,8 +34,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const userId = await consumePasswordResetToken(parsed.data.token);
-  if (!userId) {
+  const consumed = await consumePasswordResetToken(parsed.data.token);
+  if (!consumed) {
     return NextResponse.json(
       { error: "Token invalido ou expirado. Solicite uma nova recuperacao." },
       { status: 400 }
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   }
 
   const passwordHash = await hash(parsed.data.password, 12);
-  await completePasswordReset(userId, passwordHash);
+  await completePasswordReset(consumed.accountId, passwordHash, consumed.kind);
 
   return NextResponse.json({ ok: true });
 }

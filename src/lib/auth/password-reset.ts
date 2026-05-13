@@ -3,10 +3,16 @@ import { prisma } from "@/lib/db/prisma";
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
+// kind: distingue conta de proprietario (User) de conta de funcionario
+// (EmployeeAccount), pra que o consume saiba em qual tabela atualizar
+// a senha. Tokens antigos sem `k` sao tratados como user (back-compat).
+export type AccountKind = "user" | "employee";
+
 type ResetPayload = {
   uid: string;
   exp: number;
   fp: string;
+  k?: AccountKind;
 };
 
 function toBase64Url(value: string) {
@@ -29,13 +35,22 @@ function fingerprintPasswordHash(passwordHash: string) {
   return createHash("sha256").update(passwordHash).digest("hex").slice(0, 24);
 }
 
-export async function issuePasswordResetToken(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, isActive: true, passwordHash: true }
-  });
+export async function issuePasswordResetToken(
+  accountId: string,
+  kind: AccountKind = "user"
+) {
+  const account =
+    kind === "employee"
+      ? await prisma.employeeAccount.findUnique({
+          where: { id: accountId },
+          select: { id: true, isActive: true, passwordHash: true }
+        })
+      : await prisma.user.findUnique({
+          where: { id: accountId },
+          select: { id: true, isActive: true, passwordHash: true }
+        });
 
-  if (!user || !user.isActive) {
+  if (!account || !account.isActive) {
     return null;
   }
 
@@ -45,9 +60,10 @@ export async function issuePasswordResetToken(userId: string) {
   }
 
   const payload: ResetPayload = {
-    uid: user.id,
+    uid: account.id,
     exp: Date.now() + RESET_TOKEN_TTL_MS,
-    fp: fingerprintPasswordHash(user.passwordHash)
+    fp: fingerprintPasswordHash(account.passwordHash),
+    k: kind
   };
 
   const payloadBase64 = toBase64Url(JSON.stringify(payload));
@@ -90,26 +106,45 @@ export async function consumePasswordResetToken(rawToken: string) {
     return null;
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.uid },
-    select: { id: true, isActive: true, passwordHash: true }
-  });
+  const kind: AccountKind = payload.k === "employee" ? "employee" : "user";
 
-  if (!user || !user.isActive) {
+  const account =
+    kind === "employee"
+      ? await prisma.employeeAccount.findUnique({
+          where: { id: payload.uid },
+          select: { id: true, isActive: true, passwordHash: true }
+        })
+      : await prisma.user.findUnique({
+          where: { id: payload.uid },
+          select: { id: true, isActive: true, passwordHash: true }
+        });
+
+  if (!account || !account.isActive) {
     return null;
   }
 
-  const currentFingerprint = fingerprintPasswordHash(user.passwordHash);
+  const currentFingerprint = fingerprintPasswordHash(account.passwordHash);
   if (currentFingerprint !== payload.fp) {
     return null;
   }
 
-  return user.id;
+  return { accountId: account.id, kind };
 }
 
-export async function completePasswordReset(userId: string, passwordHash: string) {
+export async function completePasswordReset(
+  accountId: string,
+  passwordHash: string,
+  kind: AccountKind = "user"
+) {
+  if (kind === "employee") {
+    await prisma.employeeAccount.update({
+      where: { id: accountId },
+      data: { passwordHash }
+    });
+    return;
+  }
   await prisma.user.update({
-    where: { id: userId },
+    where: { id: accountId },
     data: { passwordHash }
   });
 }

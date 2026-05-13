@@ -55,29 +55,34 @@ export async function POST(request: Request) {
   const successMessage =
     "Link enviado! Verifique a caixa de entrada E a pasta de spam/lixo eletronico — pode levar ate 2 minutos.";
 
-  const user = await prisma.user.findFirst({
-    where: {
-      email: {
-        equals: parsed.data.email,
-        mode: "insensitive"
+  // Busca em ambas as tabelas: User (proprietario do criatorio) e
+  // EmployeeAccount (funcionario com login proprio). Antes so olhava
+  // User — funcionarios nao conseguiam recuperar senha por design.
+  const [user, employee] = await Promise.all([
+    prisma.user.findFirst({
+      where: {
+        email: { equals: parsed.data.email, mode: "insensitive" },
+        isActive: true
       },
-      isActive: true
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true
-    }
-  });
+      select: { id: true, name: true, email: true }
+    }),
+    prisma.employeeAccount.findFirst({
+      where: {
+        email: { equals: parsed.data.email, mode: "insensitive" },
+        isActive: true
+      },
+      select: { id: true, name: true, email: true }
+    })
+  ]);
 
-  if (!user) {
-    // DECISAO DE PRODUTO: antes retornavamos 200 OK silenciosamente
-    // (anti-enumeration). Pra um SaaS pequeno como o Ornabird o ganho
-    // de seguranca eh marginal e o custo de UX eh alto — pessoas
-    // digitavam email errado, recebiam mensagem 'se existir voce
-    // recebera' e ficavam esperando email que nunca chegava.
-    // Agora retornamos 404 explicito com sugestao pra criar conta.
-    console.warn("forgot-password: user not found", { emailAttempted: parsed.data.email });
+  const account = user
+    ? { id: user.id, name: user.name, email: user.email, kind: "user" as const }
+    : employee
+      ? { id: employee.id, name: employee.name, email: employee.email, kind: "employee" as const }
+      : null;
+
+  if (!account) {
+    console.warn("forgot-password: account not found", { emailAttempted: parsed.data.email });
     return NextResponse.json(
       {
         error:
@@ -90,16 +95,22 @@ export async function POST(request: Request) {
 
   const baseUrl = resolveResetBaseUrl(request);
   if (!baseUrl) {
-    console.error("forgot-password: could not resolve reset base URL", { userId: user.id });
+    console.error("forgot-password: could not resolve reset base URL", {
+      accountId: account.id,
+      kind: account.kind
+    });
     return NextResponse.json(
       { error: "Erro de configuracao no servidor. Contate o suporte." },
       { status: 500 }
     );
   }
 
-  const issued = await issuePasswordResetToken(user.id);
+  const issued = await issuePasswordResetToken(account.id, account.kind);
   if (!issued) {
-    console.error("forgot-password: failed to issue reset token", { userId: user.id });
+    console.error("forgot-password: failed to issue reset token", {
+      accountId: account.id,
+      kind: account.kind
+    });
     return NextResponse.json(
       { error: "Nao foi possivel gerar o link agora. Tente novamente." },
       { status: 500 }
@@ -109,19 +120,22 @@ export async function POST(request: Request) {
   const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(issued.rawToken)}`;
 
   const emailOk = await sendPasswordResetEmail({
-    to: user.email,
-    name: user.name,
+    to: account.email,
+    name: account.name,
     resetLink
   });
 
   if (!emailOk) {
-    console.error("forgot-password: sendPasswordResetEmail returned false", { userId: user.id });
+    console.error("forgot-password: sendPasswordResetEmail returned false", {
+      accountId: account.id,
+      kind: account.kind
+    });
     return NextResponse.json(
       { error: "Falha ao enviar o e-mail. Tente novamente em alguns minutos." },
       { status: 502 }
     );
   }
 
-  console.log("forgot-password: email sent", { userId: user.id });
+  console.log("forgot-password: email sent", { accountId: account.id, kind: account.kind });
   return NextResponse.json({ ok: true, message: successMessage });
 }
