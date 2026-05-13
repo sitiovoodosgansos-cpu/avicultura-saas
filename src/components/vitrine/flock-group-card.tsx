@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Pencil, ShoppingCart, Users } from "lucide-react";
+import { Pencil, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
@@ -28,21 +28,14 @@ export function FlockGroupCard({
   group,
   listings,
   onEdit,
-  onSell,
-  onDeath,
   onRemove,
-  onViewBirds,
-  cartIds
+  onViewBirds
 }: {
   group: FlockGroupRef;
   listings: VitrineListingItem[];
   onEdit: (listing: VitrineListingItem) => void;
-  onSell: (listing: VitrineListingItem) => void;
-  onDeath: (listing: VitrineListingItem) => void;
   onRemove: (id: string) => void;
   onViewBirds: (listing: VitrineListingItem) => void;
-  /** ids dos listings que ja estao no carrinho — pra destacar visualmente */
-  cartIds?: Set<string>;
 }) {
   const available = listings.filter((listing) => listing.status === "AVAILABLE");
   const totalAvailable = available.reduce((acc, listing) => acc + listing.availableQuantity, 0);
@@ -153,30 +146,6 @@ export function FlockGroupCard({
                 ) : null}
               </div>
               <div className="flex shrink-0 gap-1.5">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant={cartIds?.has(listing.id) ? "default" : "outline"}
-                  onClick={() => onSell(listing)}
-                  disabled={listing.status !== "AVAILABLE" || listing.availableQuantity === 0}
-                  aria-label={cartIds?.has(listing.id) ? "Remover do carrinho" : "Adicionar ao carrinho"}
-                  title={cartIds?.has(listing.id) ? "Remover do carrinho" : "Adicionar ao carrinho"}
-                  className={`h-8 w-8 sm:h-9 sm:w-9 ${cartIds?.has(listing.id) ? "bg-emerald-600 text-white hover:bg-emerald-700" : ""}`}
-                >
-                  <ShoppingCart className="h-4 w-4" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="outline"
-                  onClick={() => onDeath(listing)}
-                  disabled={listing.status !== "AVAILABLE" || listing.availableQuantity === 0}
-                  aria-label="Registrar óbito"
-                  title="Registrar óbito"
-                  className="h-8 w-8 border-rose-200 bg-white text-rose-600 hover:border-rose-300 hover:bg-rose-50 sm:h-9 sm:w-9"
-                >
-                  <span className="text-base leading-none" aria-hidden>💀</span>
-                </Button>
                 <Button
                   type="button"
                   size="icon"
