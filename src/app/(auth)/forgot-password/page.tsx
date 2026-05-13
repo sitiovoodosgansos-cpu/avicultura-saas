@@ -13,6 +13,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   const {
     register,
@@ -25,6 +26,7 @@ export default function ForgotPasswordPage() {
   const onSubmit = handleSubmit(async (values) => {
     setLoading(true);
     setServerError(null);
+    setErrorCode(null);
     setMessage(null);
 
     try {
@@ -34,16 +36,21 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify(values)
       });
 
-      const data = (await response.json()) as { error?: string; message?: string };
+      const data = (await response.json()) as {
+        error?: string;
+        message?: string;
+        code?: string;
+      };
 
       if (!response.ok) {
         setServerError(data.error ?? "Nao foi possivel enviar o e-mail agora.");
+        setErrorCode(data.code ?? null);
         return;
       }
 
       setMessage(
         data.message ??
-          "Se este e-mail estiver cadastrado, voce recebera um link em ate 2 minutos. Verifique tambem a pasta de spam."
+          "Link enviado! Verifique a caixa de entrada E a pasta de spam — pode levar ate 2 minutos."
       );
     } catch {
       setServerError("Falha de conexao. Tente novamente.");
@@ -65,7 +72,22 @@ export default function ForgotPasswordPage() {
             {errors.email ? <p className="mt-1 text-xs text-red-600">{errors.email.message}</p> : null}
           </div>
 
-          {serverError ? <p className="text-sm text-red-600">{serverError}</p> : null}
+          {serverError ? (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+              <p className="font-medium">
+                {errorCode === "USER_NOT_FOUND" ? "E-mail nao cadastrado" : "Nao foi possivel enviar"}
+              </p>
+              <p className="mt-1 text-red-800">{serverError}</p>
+              {errorCode === "USER_NOT_FOUND" ? (
+                <p className="mt-2 text-xs text-red-700">
+                  Ainda nao tem conta?{" "}
+                  <Link href="/register" className="font-semibold underline hover:text-red-900">
+                    Criar conta agora
+                  </Link>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {message ? (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
@@ -75,7 +97,6 @@ export default function ForgotPasswordPage() {
                 <li>Procure por <strong>&quot;Ornabird&quot;</strong> ou <strong>send.ornabird.app</strong></li>
                 <li>Verifique a pasta de <strong>spam / lixo eletronico</strong></li>
                 <li>O link expira em 1 hora</li>
-                <li>Nao chegou? Confirme se o e-mail digitado e o mesmo do cadastro</li>
               </ul>
             </div>
           ) : null}

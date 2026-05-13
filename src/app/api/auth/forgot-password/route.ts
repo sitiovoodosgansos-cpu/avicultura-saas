@@ -52,11 +52,8 @@ export async function POST(request: Request) {
     );
   }
 
-  // Mensagem generica intencional: nao revela se o e-mail existe ou nao
-  // (anti-enumeration). Inclui dica de spam pq muitos users esperam o
-  // e-mail e nao olham a caixa de spam — feedback recorrente.
-  const genericMessage =
-    "Se este e-mail estiver cadastrado, voce recebera um link para redefinir sua senha em ate 2 minutos. Verifique a caixa de entrada E a pasta de spam/lixo eletronico.";
+  const successMessage =
+    "Link enviado! Verifique a caixa de entrada E a pasta de spam/lixo eletronico — pode levar ate 2 minutos.";
 
   const user = await prisma.user.findFirst({
     where: {
@@ -74,23 +71,39 @@ export async function POST(request: Request) {
   });
 
   if (!user) {
-    // Loga (sem expor pro client) pra dar visibilidade quando users
-    // tentam recuperar senha com e-mail nao cadastrado — sintoma comum
-    // de "nao to recebendo email" reportado pelo dono.
+    // DECISAO DE PRODUTO: antes retornavamos 200 OK silenciosamente
+    // (anti-enumeration). Pra um SaaS pequeno como o Ornabird o ganho
+    // de seguranca eh marginal e o custo de UX eh alto — pessoas
+    // digitavam email errado, recebiam mensagem 'se existir voce
+    // recebera' e ficavam esperando email que nunca chegava.
+    // Agora retornamos 404 explicito com sugestao pra criar conta.
     console.warn("forgot-password: user not found", { emailAttempted: parsed.data.email });
-    return NextResponse.json({ ok: true, message: genericMessage });
+    return NextResponse.json(
+      {
+        error:
+          "Nao encontramos uma conta com este e-mail. Verifique se digitou o e-mail correto (atencao a domínio: gmail.com x hotmail.com, etc) ou crie uma conta.",
+        code: "USER_NOT_FOUND"
+      },
+      { status: 404 }
+    );
   }
 
   const baseUrl = resolveResetBaseUrl(request);
   if (!baseUrl) {
     console.error("forgot-password: could not resolve reset base URL", { userId: user.id });
-    return NextResponse.json({ ok: true, message: genericMessage });
+    return NextResponse.json(
+      { error: "Erro de configuracao no servidor. Contate o suporte." },
+      { status: 500 }
+    );
   }
 
   const issued = await issuePasswordResetToken(user.id);
   if (!issued) {
     console.error("forgot-password: failed to issue reset token", { userId: user.id });
-    return NextResponse.json({ ok: true, message: genericMessage });
+    return NextResponse.json(
+      { error: "Nao foi possivel gerar o link agora. Tente novamente." },
+      { status: 500 }
+    );
   }
 
   const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(issued.rawToken)}`;
@@ -103,9 +116,12 @@ export async function POST(request: Request) {
 
   if (!emailOk) {
     console.error("forgot-password: sendPasswordResetEmail returned false", { userId: user.id });
-  } else {
-    console.log("forgot-password: email sent", { userId: user.id });
+    return NextResponse.json(
+      { error: "Falha ao enviar o e-mail. Tente novamente em alguns minutos." },
+      { status: 502 }
+    );
   }
 
-  return NextResponse.json({ ok: true, message: genericMessage });
+  console.log("forgot-password: email sent", { userId: user.id });
+  return NextResponse.json({ ok: true, message: successMessage });
 }
