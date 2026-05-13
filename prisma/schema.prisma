@@ -186,6 +186,7 @@ model Tenant {
   birdVaccinations     BirdVaccination[]
   leads                Lead[]
   leadHistory          LeadHistory[]
+  tasks                Task[]
 }
 
 model TenantMember {
@@ -1036,4 +1037,28 @@ model LeadHistory {
   lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId, createdAt])
+}
+
+// To-do list compartilhado por criatorio. Toda tarefa eh visivel por
+// qualquer usuario (owner ou employee) do mesmo tenant. Auto-arquiva
+// 7 dias apos criada via filtro lazy no GET /api/tasks (sem cron).
+model Task {
+  id          String    @id @default(cuid())
+  tenantId    String
+  title       String                                     // "Construir nova baia"
+  notes       String?                                    // descricao opcional
+  pageKey     String                                     // slug: "plantel" | "vitrine" | ...
+  completedAt DateTime?                                  // null = ativa
+  archivedAt  DateTime?                                  // soft delete manual
+  // Autoria — apenas 1 dos dois preenchido por linha
+  createdByUserId       String?
+  createdByEmployeeId   String?
+  completedByUserId     String?
+  completedByEmployeeId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, archivedAt])
+  @@index([tenantId, pageKey, archivedAt])
 }
