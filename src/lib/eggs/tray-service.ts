@@ -500,66 +500,94 @@ export async function createEggSale(
         ? Array.from(labelSet)[0]
         : `${Array.from(labelSet).slice(0, 2).join(", ")}${labelSet.size > 2 ? ` +${labelSet.size - 2}` : ""}`;
 
+  // PRE-VALIDACAO fora da transacao: busca todos os entries de uma vez,
+  // valida quantidade disponivel e quebra cedo se algo nao bater.
+  // Isso reduz o tempo da transaction (que conta no timeout do Prisma).
+  const entriesById = new Map(entries.map((e) => [e.id, e]));
+  for (const item of input.items) {
+    const entry = entriesById.get(item.trayEntryId);
+    if (!entry) {
+      return { ok: false as const, reason: "EXCEEDS_AVAILABLE" as const, message: "Entrada nao encontrada." };
+    }
+    const available =
+      entry.initialCount - entry.soldCount - entry.discardedCount - entry.transferredCount;
+    if (item.quantity > available) {
+      return {
+        ok: false as const,
+        reason: "EXCEEDS_AVAILABLE" as const,
+        message: `Quantidade indisponivel. Restam ${available} ovos nessa data.`
+      };
+    }
+  }
+
   try {
-    const sale = await prisma.$transaction(async (tx) => {
-      const descParts = [
-        input.items.map((i) => `${i.quantity}x R$${i.unitPrice.toFixed(2)}`).join(" + "),
-        shipping > 0 ? `frete R$${shipping.toFixed(2)}` : null
-      ].filter(Boolean).join(" + ");
+    const sale = await prisma.$transaction(
+      async (tx) => {
+        const descParts = [
+          input.items.map((i) => `${i.quantity}x R$${i.unitPrice.toFixed(2)}`).join(" + "),
+          shipping > 0 ? `frete R$${shipping.toFixed(2)}` : null
+        ]
+          .filter(Boolean)
+          .join(" + ");
 
-      const financialEntry = await tx.financialEntry.create({
-        data: {
-          tenantId,
-          date: soldAt,
-          category: "EGG_SALE",
-          item: itemLabel,
-          amount: totalAmount,
-          customer: input.customer || null,
-          paymentMethod: input.paymentMethod ?? null,
-          description: descParts,
-          notes: input.notes
-        }
-      });
-
-      const created = await tx.eggSale.create({
-        data: {
-          tenantId,
-          customer: input.customer || null,
-          totalAmount,
-          soldAt,
-          paymentMethod: input.paymentMethod ?? null,
-          shippingFee: shipping > 0 ? shipping : null,
-          financialEntryId: financialEntry.id,
-          notes: input.notes
-        }
-      });
-
-      for (const item of input.items) {
-        const entry = await tx.eggTrayEntry.findFirst({ where: { id: item.trayEntryId, tenantId } });
-        if (!entry) throw new Error("Entrada nao encontrada.");
-        const available = entry.initialCount - entry.soldCount - entry.discardedCount - entry.transferredCount;
-        if (item.quantity > available) {
-          throw new Error(`Quantidade indisponivel. Restam ${available} ovos nessa data.`);
-        }
-        await tx.eggTrayEntry.update({
-          where: { id: entry.id },
-          data: { soldCount: { increment: item.quantity } }
-        });
-        const subtotal = Number((item.quantity * item.unitPrice).toFixed(2));
-        await tx.eggSaleItem.create({
+        const financialEntry = await tx.financialEntry.create({
           data: {
             tenantId,
-            saleId: created.id,
-            trayEntryId: entry.id,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subtotal
+            date: soldAt,
+            category: "EGG_SALE",
+            item: itemLabel,
+            amount: totalAmount,
+            customer: input.customer || null,
+            paymentMethod: input.paymentMethod ?? null,
+            description: descParts,
+            notes: input.notes
           }
         });
-      }
 
-      return created;
-    });
+        const created = await tx.eggSale.create({
+          data: {
+            tenantId,
+            customer: input.customer || null,
+            totalAmount,
+            soldAt,
+            paymentMethod: input.paymentMethod ?? null,
+            shippingFee: shipping > 0 ? shipping : null,
+            financialEntryId: financialEntry.id,
+            notes: input.notes
+          }
+        });
+
+        // Updates e creates em PARALELO pra reduzir tempo total da
+        // transacao (default Prisma e 5s; antes ficava sequencial e
+        // estourava com N itens em rede serverless lenta).
+        await Promise.all(
+          input.items.flatMap((item) => {
+            const subtotal = Number((item.quantity * item.unitPrice).toFixed(2));
+            return [
+              tx.eggTrayEntry.update({
+                where: { id: item.trayEntryId },
+                data: { soldCount: { increment: item.quantity } }
+              }),
+              tx.eggSaleItem.create({
+                data: {
+                  tenantId,
+                  saleId: created.id,
+                  trayEntryId: item.trayEntryId,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  subtotal
+                }
+              })
+            ];
+          })
+        );
+
+        return created;
+      },
+      // Aumenta timeout pra cobrir cenarios com muitos itens em rede
+      // lenta (Vercel <-> Prisma Postgres pode passar de 5s default).
+      { maxWait: 10_000, timeout: 30_000 }
+    );
 
     await prisma.auditLog.create({
       data: {

@@ -404,78 +404,89 @@ export function PrateleiraManager() {
     setSaving(true);
     setError(null);
 
-    const items = Array.from(selection.values()).filter((it) => it.quantity > 0);
-    if (items.length === 0) {
-      setError("Nenhum item valido para enviar.");
-      setSaving(false);
-      return;
-    }
-
-    let res: Response;
-
-    if (selectionMode === "sale") {
-      res = await fetch("/api/eggs/sales", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer: saleCustomer || undefined,
-          soldAt: saleSoldAt,
-          paymentMethod: salePaymentMethod,
-          shippingFee: saleDeliveryType === "DELIVERY" && saleShippingFee > 0 ? saleShippingFee : undefined,
-          items: items.map((it) => ({
-            trayEntryId: it.entryId,
-            quantity: it.quantity,
-            unitPrice: it.unitPrice ?? 0
-          })),
-          notes: saleNotes || undefined
-        })
-      });
-    } else if (selectionMode === "transfer") {
-      const externalIssue = items.find((it) => !it.trayHasFlockGroup);
-      if (externalIssue) {
-        setError(`Bandeja "${externalIssue.trayLabel}" e externa sem grupo do plantel. Edite o cadastro antes de incubar.`);
-        setSaving(false);
+    try {
+      const items = Array.from(selection.values()).filter((it) => it.quantity > 0);
+      if (items.length === 0) {
+        setError("Nenhum item valido para enviar.");
         return;
       }
-      if (!transferIncubatorId) {
-        setError("Selecione a chocadeira.");
-        setSaving(false);
+
+      let res: Response;
+
+      if (selectionMode === "sale") {
+        res = await fetch("/api/eggs/sales", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customer: saleCustomer || undefined,
+            soldAt: saleSoldAt,
+            paymentMethod: salePaymentMethod,
+            shippingFee:
+              saleDeliveryType === "DELIVERY" && saleShippingFee > 0 ? saleShippingFee : undefined,
+            items: items.map((it) => ({
+              trayEntryId: it.entryId,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice ?? 0
+            })),
+            notes: saleNotes || undefined
+          })
+        });
+      } else if (selectionMode === "transfer") {
+        const externalIssue = items.find((it) => !it.trayHasFlockGroup);
+        if (externalIssue) {
+          setError(
+            `Bandeja "${externalIssue.trayLabel}" e externa sem grupo do plantel. Edite o cadastro antes de incubar.`
+          );
+          return;
+        }
+        if (!transferIncubatorId) {
+          setError("Selecione a chocadeira.");
+          return;
+        }
+        res = await fetch("/api/eggs/trays/transfer-bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            incubatorId: transferIncubatorId,
+            items: items.map((it) => ({ trayEntryId: it.entryId, quantity: it.quantity })),
+            notes: transferNotes || undefined
+          })
+        });
+      } else if (selectionMode === "discard") {
+        res = await fetch("/api/eggs/trays/discard-bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: items.map((it) => ({ trayEntryId: it.entryId, quantity: it.quantity })),
+            notes: discardNotes || undefined
+          })
+        });
+      } else {
         return;
       }
-      res = await fetch("/api/eggs/trays/transfer-bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          incubatorId: transferIncubatorId,
-          items: items.map((it) => ({ trayEntryId: it.entryId, quantity: it.quantity })),
-          notes: transferNotes || undefined
-        })
-      });
-    } else if (selectionMode === "discard") {
-      res = await fetch("/api/eggs/trays/discard-bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: items.map((it) => ({ trayEntryId: it.entryId, quantity: it.quantity })),
-          notes: discardNotes || undefined
-        })
-      });
-    } else {
-      setSaving(false);
-      return;
-    }
 
-    if (!res.ok) {
-      const payload = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(payload.error ?? "Falha ao processar.");
-      setSaving(false);
-      return;
-    }
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(payload.error ?? "Falha ao processar.");
+        return;
+      }
 
-    setShowFinalizeModal(false);
-    clearSelection();
-    setSaving(false);
-    await loadData();
+      setShowFinalizeModal(false);
+      clearSelection();
+      await loadData();
+    } catch (err) {
+      // Captura network errors / aborts / fetch exceptions — antes o
+      // botao ficava preso em "Salvando..." se o fetch jogasse erro
+      // (ex: timeout serverless, perda de conexao).
+      console.error("submitFinalize falhou", err);
+      setError(
+        err instanceof Error
+          ? `Erro ao salvar: ${err.message}. Tente novamente.`
+          : "Erro inesperado ao salvar. Tente novamente."
+      );
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function submitExternal(event: React.FormEvent<HTMLFormElement>) {
