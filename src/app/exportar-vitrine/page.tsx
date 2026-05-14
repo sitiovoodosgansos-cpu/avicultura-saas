@@ -40,7 +40,9 @@ export default async function ExportarVitrinePage() {
   }
 
   const data = await loadVitrineExportData(session.user.tenantId);
-  const { tenant, rows, totals, generatedAt } = data;
+  // totals omitidos do PDF cliente — esse documento eh compartilhado
+  // com compradores e o valor acumulado nao deve aparecer.
+  const { tenant, rows, generatedAt } = data;
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -103,22 +105,6 @@ export default async function ExportarVitrinePage() {
           </div>
         </header>
 
-        {/* ============ RESUMO ============ */}
-        <section className="mt-5 grid grid-cols-2 gap-3">
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-emerald-700">
-              Total de aves disponíveis
-            </p>
-            <p className="mt-1 text-2xl font-bold text-emerald-900">{totals.aves}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
-              Valor total estimado
-            </p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{formatBRL(totals.valor)}</p>
-          </div>
-        </section>
-
         {/* ============ TABELA ============ */}
         {rows.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-dashed border-slate-300 p-10 text-center">
@@ -131,7 +117,7 @@ export default async function ExportarVitrinePage() {
             </p>
           </div>
         ) : (
-          <section className="mt-6">
+          <section className="mt-8">
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b-2 border-slate-300 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-600">
@@ -184,17 +170,6 @@ export default async function ExportarVitrinePage() {
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="border-t-2 border-slate-300 text-sm font-bold">
-                  <td colSpan={5} className="py-3 pr-3 text-right text-slate-500">
-                    Totais:
-                  </td>
-                  <td className="py-3 px-2 text-center text-slate-900">{totals.aves}</td>
-                  <td className="py-3 pl-2 text-right text-emerald-700">
-                    {formatBRL(totals.valor)}
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </section>
         )}
