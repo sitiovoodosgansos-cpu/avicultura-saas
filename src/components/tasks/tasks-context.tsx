@@ -12,12 +12,20 @@ import {
 import type { TaskDTO } from "@/lib/tasks/service";
 import type { TaskPageKey } from "@/lib/tasks/pages";
 
+export type Assignee = { id: string; name: string };
+
 type TasksContextValue = {
   tasks: TaskDTO[];
+  assignees: Assignee[];
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
-  createTask: (input: { title: string; pageKey: TaskPageKey; notes?: string }) => Promise<void>;
+  createTask: (input: {
+    title: string;
+    pageKey: TaskPageKey;
+    notes?: string;
+    assignedToEmployeeId?: string | null;
+  }) => Promise<void>;
   toggleComplete: (id: string, done: boolean) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
   isModalOpen: boolean;
@@ -31,6 +39,7 @@ const TasksContext = createContext<TasksContextValue | null>(null);
 
 export function TasksProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<TaskDTO[]>([]);
+  const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,19 +49,32 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/tasks?includeCompleted=true`, { cache: "no-store" });
-      if (!res.ok) {
-        if (res.status === 401) {
-          // Usuario nao autenticado — silencia (paginas publicas tambem
-          // montam o provider via layout).
+      // Carrega tarefas + assignees em paralelo. Se o usuario nao for
+      // autenticado os dois retornam 401 e a UI fica vazia (silencioso).
+      const [tasksRes, assigneesRes] = await Promise.all([
+        fetch(`/api/tasks?includeCompleted=true`, { cache: "no-store" }),
+        fetch(`/api/tasks/assignees`, { cache: "no-store" })
+      ]);
+
+      if (!tasksRes.ok) {
+        if (tasksRes.status === 401) {
           setTasks([]);
+          setAssignees([]);
           return;
         }
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        const body = (await tasksRes.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? "Erro ao carregar tarefas.");
       }
-      const data = (await res.json()) as { tasks: TaskDTO[] };
-      setTasks(data.tasks);
+      const tasksData = (await tasksRes.json()) as { tasks: TaskDTO[] };
+      setTasks(tasksData.tasks);
+
+      // Assignees nao eh critico — se falhar deixa lista vazia (so esconde dropdown)
+      if (assigneesRes.ok) {
+        const a = (await assigneesRes.json()) as { assignees: Assignee[] };
+        setAssignees(a.assignees);
+      } else {
+        setAssignees([]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar tarefas.");
     } finally {
@@ -65,7 +87,12 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   }, [reload]);
 
   const createTask = useCallback(
-    async (input: { title: string; pageKey: TaskPageKey; notes?: string }) => {
+    async (input: {
+      title: string;
+      pageKey: TaskPageKey;
+      notes?: string;
+      assignedToEmployeeId?: string | null;
+    }) => {
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,6 +149,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const value = useMemo<TasksContextValue>(
     () => ({
       tasks,
+      assignees,
       loading,
       error,
       reload,
@@ -136,6 +164,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     }),
     [
       tasks,
+      assignees,
       loading,
       error,
       reload,

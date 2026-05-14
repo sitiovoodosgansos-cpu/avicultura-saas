@@ -720,6 +720,8 @@ model EmployeeAccount {
   updatedAt       DateTime          @updatedAt
   tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sessions        EmployeeSession[]
+  // Tarefas em que esse funcionario eh o responsavel (assignee)
+  tasksAssigned   Task[]            @relation("AssignedTasks")
 
   @@unique([tenantId, email])
 }
@@ -1055,10 +1057,15 @@ model Task {
   createdByEmployeeId   String?
   completedByUserId     String?
   completedByEmployeeId String?
+  // Atribuicao opcional a um funcionario (EmployeeAccount). Quando o
+  // employee eh deletado, o vinculo vira null mas a tarefa permanece.
+  assignedToEmployeeId  String?
+  assignedToEmployee    EmployeeAccount? @relation("AssignedTasks", fields: [assignedToEmployeeId], references: [id], onDelete: SetNull)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, archivedAt])
   @@index([tenantId, pageKey, archivedAt])
+  @@index([tenantId, assignedToEmployeeId, archivedAt])
 }

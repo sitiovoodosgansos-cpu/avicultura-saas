@@ -41,6 +41,8 @@ function authorshipForComplete(actor: Actor) {
     : { completedByUserId: null, completedByEmployeeId: actor.id };
 }
 
+export type TaskAssignee = { id: string; name: string } | null;
+
 export type TaskDTO = {
   id: string;
   title: string;
@@ -51,6 +53,7 @@ export type TaskDTO = {
   ageInDays: number;
   daysRemaining: number;
   tone: TaskTone;
+  assignee: TaskAssignee;
 };
 
 function toDTO(task: {
@@ -60,6 +63,7 @@ function toDTO(task: {
   pageKey: string;
   completedAt: Date | null;
   createdAt: Date;
+  assignedToEmployee: { id: string; name: string } | null;
 }): TaskDTO {
   const age = ageInDays(task.createdAt);
   return {
@@ -71,9 +75,21 @@ function toDTO(task: {
     createdAt: task.createdAt.toISOString(),
     ageInDays: age,
     daysRemaining: Math.max(0, VISIBILITY_DAYS - age),
-    tone: toneFor(task.createdAt)
+    tone: toneFor(task.createdAt),
+    assignee: task.assignedToEmployee
   };
 }
+
+// Inclui o nome do employee atribuido pra hidratar a UI sem segunda query
+const TASK_SELECT = {
+  id: true,
+  title: true,
+  notes: true,
+  pageKey: true,
+  completedAt: true,
+  createdAt: true,
+  assignedToEmployee: { select: { id: true, name: true } }
+} as const;
 
 export async function listActiveTasks(
   tenantId: string,
@@ -88,14 +104,7 @@ export async function listActiveTasks(
       ...(opts?.includeCompleted ? {} : { completedAt: null })
     },
     orderBy: [{ completedAt: "asc" }, { createdAt: "desc" }],
-    select: {
-      id: true,
-      title: true,
-      notes: true,
-      pageKey: true,
-      completedAt: true,
-      createdAt: true
-    }
+    select: TASK_SELECT
   });
   return tasks.map(toDTO);
 }
@@ -105,22 +114,26 @@ export async function createTask(
   actor: Actor,
   input: TaskCreateInput
 ): Promise<TaskDTO> {
+  // Valida que o assignee, se informado, eh um employee do MESMO tenant
+  if (input.assignedToEmployeeId) {
+    const emp = await prisma.employeeAccount.findFirst({
+      where: { id: input.assignedToEmployeeId, tenantId, isActive: true },
+      select: { id: true }
+    });
+    if (!emp) {
+      throw new Error("Funcionario invalido ou inativo.");
+    }
+  }
   const created = await prisma.task.create({
     data: {
       tenantId,
       title: input.title,
       notes: input.notes ?? null,
       pageKey: input.pageKey,
+      assignedToEmployeeId: input.assignedToEmployeeId ?? null,
       ...authorshipForCreate(actor)
     },
-    select: {
-      id: true,
-      title: true,
-      notes: true,
-      pageKey: true,
-      completedAt: true,
-      createdAt: true
-    }
+    select: TASK_SELECT
   });
   return toDTO(created);
 }
@@ -137,21 +150,28 @@ export async function updateTask(
   });
   if (!existing) return null;
 
+  // Valida assignee (se passado e nao-null) — mesma checagem do create
+  if (input.assignedToEmployeeId) {
+    const emp = await prisma.employeeAccount.findFirst({
+      where: { id: input.assignedToEmployeeId, tenantId, isActive: true },
+      select: { id: true }
+    });
+    if (!emp) {
+      throw new Error("Funcionario invalido ou inativo.");
+    }
+  }
+
   const updated = await prisma.task.update({
     where: { id },
     data: {
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.pageKey !== undefined ? { pageKey: input.pageKey } : {}),
-      ...(input.notes !== undefined ? { notes: input.notes } : {})
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      ...(input.assignedToEmployeeId !== undefined
+        ? { assignedToEmployeeId: input.assignedToEmployeeId }
+        : {})
     },
-    select: {
-      id: true,
-      title: true,
-      notes: true,
-      pageKey: true,
-      completedAt: true,
-      createdAt: true
-    }
+    select: TASK_SELECT
   });
   return toDTO(updated);
 }
@@ -173,16 +193,17 @@ export async function setTaskCompletion(
     data: done
       ? { completedAt: new Date(), ...authorshipForComplete(actor) }
       : { completedAt: null, completedByUserId: null, completedByEmployeeId: null },
-    select: {
-      id: true,
-      title: true,
-      notes: true,
-      pageKey: true,
-      completedAt: true,
-      createdAt: true
-    }
+    select: TASK_SELECT
   });
   return toDTO(updated);
+}
+
+export async function listAssignees(tenantId: string) {
+  return prisma.employeeAccount.findMany({
+    where: { tenantId, isActive: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" }
+  });
 }
 
 export async function archiveTask(tenantId: string, id: string): Promise<boolean> {

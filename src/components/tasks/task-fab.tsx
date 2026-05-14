@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { NotebookPen } from "lucide-react";
 import { useTasks } from "@/components/tasks/tasks-context";
 
 export function TaskFab() {
@@ -19,7 +19,7 @@ export function TaskFab() {
         md:right-8 md:bottom-8 md:top-auto md:size-14
       "
     >
-      <Pencil className="size-5 md:size-6" aria-hidden />
+      <NotebookPen className="size-5 md:size-6" aria-hidden />
     </button>
   );
 }

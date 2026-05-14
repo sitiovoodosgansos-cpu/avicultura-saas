@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { HardHat, Trash2 } from "lucide-react";
 import { AppModal } from "@/components/ui/app-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,7 @@ function countdownLabel(daysRemaining: number) {
 export function TasksModal() {
   const {
     tasks,
+    assignees,
     loading,
     error,
     createTask,
@@ -58,6 +59,7 @@ export function TasksModal() {
 
   const [newTitle, setNewTitle] = useState("");
   const [newPageKey, setNewPageKey] = useState<TaskPageKey>("plantel");
+  const [newAssigneeId, setNewAssigneeId] = useState<string>(""); // "" = sem responsavel
   const [submitting, setSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -77,9 +79,13 @@ export function TasksModal() {
     setSubmitting(true);
     setLocalError(null);
     try {
-      await createTask({ title: newTitle.trim(), pageKey: newPageKey });
+      await createTask({
+        title: newTitle.trim(),
+        pageKey: newPageKey,
+        assignedToEmployeeId: newAssigneeId || null
+      });
       setNewTitle("");
-      // Mantem o pageKey selecionado pra criar varias tarefas na mesma pagina
+      // Mantem pageKey e assignee selecionados pra criar varias tarefas seguidas
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : "Erro ao criar tarefa.");
     } finally {
@@ -106,22 +112,39 @@ export function TasksModal() {
           maxLength={200}
           required
         />
-        <div className="flex gap-2">
-          <select
-            value={newPageKey}
-            onChange={(e) => setNewPageKey(e.target.value as TaskPageKey)}
-            className="flex-1 rounded-xl border border-[color:var(--line)] bg-white px-3 py-2 text-sm text-slate-700"
-          >
-            {TASK_PAGES.map((p) => (
-              <option key={p.key} value={p.key}>
-                {p.emoji} {p.label}
-              </option>
-            ))}
-          </select>
-          <Button type="submit" disabled={submitting || !newTitle.trim()}>
-            {submitting ? "Adicionando..." : "Adicionar"}
-          </Button>
-        </div>
+        <select
+          value={newPageKey}
+          onChange={(e) => setNewPageKey(e.target.value as TaskPageKey)}
+          className="rounded-xl border border-[color:var(--line)] bg-white px-3 py-2 text-sm text-slate-700"
+        >
+          {TASK_PAGES.map((p) => (
+            <option key={p.key} value={p.key}>
+              {p.emoji} {p.label}
+            </option>
+          ))}
+        </select>
+        {/* Dropdown de funcionario — so aparece se ha employees cadastrados */}
+        {assignees.length > 0 ? (
+          <div className="flex items-center gap-2">
+            <HardHat className="size-4 shrink-0 text-slate-500" aria-hidden />
+            <select
+              value={newAssigneeId}
+              onChange={(e) => setNewAssigneeId(e.target.value)}
+              className="flex-1 rounded-xl border border-[color:var(--line)] bg-white px-3 py-2 text-sm text-slate-700"
+              aria-label="Atribuir a funcionario"
+            >
+              <option value="">Sem responsavel</option>
+              {assignees.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <Button type="submit" disabled={submitting || !newTitle.trim()}>
+          {submitting ? "Adicionando..." : "Adicionar tarefa"}
+        </Button>
       </form>
 
       {/* Toggle "mostrar concluidas" */}
@@ -245,6 +268,15 @@ function TaskCard({
               <span aria-hidden>{page.emoji}</span>
               {page.label}
             </Link>
+            {task.assignee ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800"
+                title={`Responsavel: ${task.assignee.name}`}
+              >
+                <HardHat className="size-3" aria-hidden />
+                {task.assignee.name}
+              </span>
+            ) : null}
             <span
               className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${palette.chipBg} ${palette.chipText}`}
             >
