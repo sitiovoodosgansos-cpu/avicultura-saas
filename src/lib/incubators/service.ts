@@ -23,7 +23,7 @@ export async function listIncubatorContext(tenantId: string) {
           select: {
             id: true,
             title: true,
-            species: { select: { name: true } }
+            species: { select: { id: true, name: true, incubationDays: true } }
           }
         },
         events: { orderBy: { eventDate: "desc" } },
@@ -436,3 +436,60 @@ export async function getIncubatorMetrics(tenantId: string) {
   return { summary, performanceByIncubator, periodSeries };
 }
 
+/**
+ * Lista especies do tenant que tem grupos do Plantel ativos (filtra
+ * 'Chocada' e 'Recria' que sao estagios transitorios). Retorna o
+ * incubationDays cadastrado (ou null = usa fallback hardcoded).
+ */
+export async function listIncubationSpecies(tenantId: string) {
+  const species = await prisma.species.findMany({
+    where: {
+      tenantId,
+      groups: {
+        some: {
+          NOT: {
+            OR: [
+              { title: { startsWith: "Chocada " } },
+              { title: { startsWith: "Recria " } }
+            ]
+          }
+        }
+      }
+    },
+    select: {
+      id: true,
+      name: true,
+      incubationDays: true,
+      _count: { select: { groups: true } }
+    },
+    orderBy: { name: "asc" }
+  });
+  return species.map((s) => ({
+    id: s.id,
+    name: s.name,
+    incubationDays: s.incubationDays,
+    groupCount: s._count.groups
+  }));
+}
+
+/**
+ * Atualiza incubationDays de uma especie. Aceita null pra restaurar
+ * comportamento de fallback (tabela hardcoded por keyword).
+ */
+export async function updateSpeciesIncubationDays(
+  tenantId: string,
+  speciesId: string,
+  incubationDays: number | null
+) {
+  const existing = await prisma.species.findFirst({
+    where: { id: speciesId, tenantId },
+    select: { id: true }
+  });
+  if (!existing) return null;
+
+  return prisma.species.update({
+    where: { id: speciesId },
+    data: { incubationDays },
+    select: { id: true, name: true, incubationDays: true }
+  });
+}

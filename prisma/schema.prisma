@@ -242,6 +242,10 @@ model Species {
   id        String       @id @default(cuid())
   tenantId  String
   name      String
+  // Periodo de eclosao em dias (configuravel por criatorio).
+  // Quando null, o sistema usa a tabela hardcoded de fallback (galinha=21,
+  // marreco=28, etc) baseada em match por palavra-chave no nome.
+  incubationDays Int?
   createdAt DateTime     @default(now())
   tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   breeds    Breed[]

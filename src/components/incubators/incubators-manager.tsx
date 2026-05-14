@@ -45,7 +45,11 @@ type Batch = {
   notes: string | null;
   status: "ACTIVE" | "HATCHED" | "FAILED" | "CANCELED";
   incubator: { id: string; name: string; status: string };
-  flockGroup: { id: string; title: string; species?: { name: string } | null };
+  flockGroup: {
+    id: string;
+    title: string;
+    species?: { id: string; name: string; incubationDays: number | null } | null;
+  };
   events: BatchEvent[];
   sources?: BatchSource[];
   stats: {
@@ -184,6 +188,42 @@ function inferSpeciesRuleFromText(text: string) {
   return found ?? { label: "Especie nao informada", days: 21, keywords: [] };
 }
 
+/**
+ * Resolve o periodo de eclosao em dias pra uma batch.
+ * Prioridade:
+ *   1) species.incubationDays (configurado pelo usuario na Tabela)
+ *   2) Fallback hardcoded por keyword no nome da especie
+ */
+function resolveIncubationDays(
+  speciesIncubationDays: number | null | undefined,
+  speciesName: string | null | undefined,
+  fallbackText: string
+): { days: number; label: string } {
+  if (typeof speciesIncubationDays === "number" && speciesIncubationDays > 0) {
+    return { days: speciesIncubationDays, label: speciesName?.trim() || fallbackText };
+  }
+  const rule = inferSpeciesRuleFromText(speciesName || fallbackText);
+  return { days: rule.days, label: rule.label };
+}
+
+// Eventos disponiveis como icones inline em cada linha de countdown.
+// HATCHED ja dispara fluxo de finalizar lote (cria VitrineListing).
+// Ordem visual: nasceram, inferteis, parou, bicaram, outro.
+const EVENT_ICONS: ReadonlyArray<{
+  type: "HATCHED" | "INFERTILE" | "EMBRYO_LOSS" | "PIPPED_DIED" | "OTHER";
+  label: string;
+  emoji: string;
+  bg: string;
+  text: string;
+  hoverBg: string;
+}> = [
+  { type: "HATCHED", label: "Nasceram", emoji: "🐣", bg: "bg-emerald-100", text: "text-emerald-700", hoverBg: "hover:bg-emerald-200" },
+  { type: "INFERTILE", label: "Inferteis", emoji: "🚫", bg: "bg-slate-100", text: "text-slate-700", hoverBg: "hover:bg-slate-200" },
+  { type: "EMBRYO_LOSS", label: "Parou desenvolvimento", emoji: "🛑", bg: "bg-amber-100", text: "text-amber-700", hoverBg: "hover:bg-amber-200" },
+  { type: "PIPPED_DIED", label: "Bicaram e morreram", emoji: "💀", bg: "bg-rose-100", text: "text-rose-700", hoverBg: "hover:bg-rose-200" },
+  { type: "OTHER", label: "Outro", emoji: "📝", bg: "bg-sky-100", text: "text-sky-700", hoverBg: "hover:bg-sky-200" }
+];
+
 function toDateStart(value: string) {
   const parsed = new Date(value);
   return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
@@ -265,6 +305,18 @@ export function IncubatorsManager() {
   const [showEventModal, setShowEventModal] = useState(false);
   const [finalizeBatchOnSubmit, setFinalizeBatchOnSubmit] = useState(false);
   const [sourcesModal, setSourcesModal] = useState<{ title: string; sources: BatchSource[] } | null>(null);
+
+  // Tabela de eclosao por especie — modal e estado
+  type SpeciesRule = {
+    id: string;
+    name: string;
+    incubationDays: number | null;
+    groupCount: number;
+  };
+  const [speciesRulesModal, setSpeciesRulesModal] = useState(false);
+  const [speciesRules, setSpeciesRules] = useState<SpeciesRule[]>([]);
+  const [speciesRulesLoading, setSpeciesRulesLoading] = useState(false);
+  const [speciesRuleSaving, setSpeciesRuleSaving] = useState<string | null>(null);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
   const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
@@ -368,10 +420,14 @@ export function IncubatorsManager() {
       >();
       for (const batch of activeByDevice) {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
-        const rule = inferSpeciesRuleFromText(speciesName || batch.flockGroup.title);
-        const cardLabel = batch.flockGroup.title?.trim() || speciesName || rule.label;
+        const resolved = resolveIncubationDays(
+          batch.flockGroup.species?.incubationDays,
+          speciesName,
+          batch.flockGroup.title
+        );
+        const cardLabel = batch.flockGroup.title?.trim() || speciesName || resolved.label;
         const entryDate = toDateStart(batch.entryDate);
-        const hatchDate = addDaysToDate(entryDate, rule.days);
+        const hatchDate = addDaysToDate(entryDate, resolved.days);
         const remainingDays = getDaysUntil(hatchDate);
         const groupKey = `${batch.flockGroupId}|${entryDate.toISOString().slice(0, 10)}`;
         const existing = groupMap.get(groupKey);
@@ -387,7 +443,7 @@ export function IncubatorsManager() {
           remainingDays,
           hatchDate,
           lineCount: 1,
-          totalDays: rule.days,
+          totalDays: resolved.days,
           batchIds: [batch.id]
         });
       }
@@ -612,16 +668,72 @@ export function IncubatorsManager() {
     await loadData();
   }
 
-  function openEventModalForIncubator(incubatorId: string) {
-    const firstActiveBatch = activeBatches.find((batch) => batch.incubatorId === incubatorId) ?? null;
-    if (!firstActiveBatch) {
-      setError("Essa chocadeira nao tem lote ativo para registrar evento.");
+  // === Tabela de eclosao por especie ===
+  async function openSpeciesRulesModal() {
+    setSpeciesRulesModal(true);
+    setSpeciesRulesLoading(true);
+    try {
+      const res = await fetch("/api/incubators/species-rules", { cache: "no-store" });
+      if (!res.ok) throw new Error("Falha ao carregar especies.");
+      const data = (await res.json()) as { species: SpeciesRule[] };
+      setSpeciesRules(data.species);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar tabela.");
+    } finally {
+      setSpeciesRulesLoading(false);
+    }
+  }
+
+  async function saveSpeciesRule(speciesId: string, incubationDays: number | null) {
+    setSpeciesRuleSaving(speciesId);
+    try {
+      const res = await fetch(`/api/incubators/species-rules/${speciesId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ incubationDays })
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Erro ao salvar.");
+      }
+      const updated = (await res.json()) as { id: string; incubationDays: number | null };
+      setSpeciesRules((prev) =>
+        prev.map((r) => (r.id === updated.id ? { ...r, incubationDays: updated.incubationDays } : r))
+      );
+      // Recarrega contexto pra refletir novo countdown
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao salvar regra.");
+    } finally {
+      setSpeciesRuleSaving(null);
+    }
+  }
+
+  /**
+   * Abre modal de evento pre-preenchido com o tipo escolhido (icone na
+   * linha do countdown). Quantidade fica em 0 pra usuario preencher.
+   * Pra HATCHED, o modal já aciona o fluxo de finalizar lote (cria
+   * VitrineListing automaticamente via service).
+   */
+  function openEventModalForSpeciesType(
+    batchIds: string[],
+    type: EventForm["type"]
+  ) {
+    const targetBatch = activeBatches.find((batch) => batchIds.includes(batch.id));
+    if (!targetBatch) {
+      setError("Lote nao encontrado.");
       return;
     }
-    const firstGroupKey = `${firstActiveBatch.flockGroupId}|${toDateInput(firstActiveBatch.entryDate)}`;
+    const groupKey = `${targetBatch.flockGroupId}|${toDateInput(targetBatch.entryDate)}`;
     setError(null);
-    setFinalizeBatchOnSubmit(false);
-    setEventForm((prev) => ({ ...prev, batchId: firstGroupKey }));
+    setFinalizeBatchOnSubmit(type === "HATCHED");
+    setEventForm({
+      batchId: groupKey,
+      type,
+      quantity: 0,
+      eventDate: today,
+      notes: ""
+    });
     setShowEventModal(true);
   }
 
@@ -814,7 +926,7 @@ export function IncubatorsManager() {
           <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
             <Button type="button" className="w-full whitespace-nowrap !text-[11px] !px-2 sm:w-auto sm:!text-sm sm:!px-4" onClick={() => { setEditingDeviceId(null); setDeviceForm(emptyDevice); setShowDeviceModal(true); }}>+ Chocadeira</Button>
             <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingBatchId(null); setShowBatchModal(true); }}>+ Lote</Button>
-            <Button type="button" variant="subtle" className="w-full sm:w-auto" onClick={() => setShowEventModal(true)}>📝 Evento</Button>
+            <Button type="button" variant="subtle" className="w-full sm:w-auto" onClick={openSpeciesRulesModal}>📋 Tabela de eclosao</Button>
           </div>
         </div>
       </Card>
@@ -859,14 +971,6 @@ export function IncubatorsManager() {
                   }}
                 >
                   <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  type="button"
-                  disabled={device.active === 0}
-                  onClick={() => openEventModalForIncubator(device.id)}
-                >
-                  Evento
                 </Button>
                 <DeleteActionButton iconOnly onClick={() => removeDevice(device.id)} aria-label="Excluir chocadeira" />
               </div>
@@ -929,6 +1033,23 @@ export function IncubatorsManager() {
                           }`}
                           style={{ width: `${item.progressPercent}%` }}
                         />
+                      </div>
+                      {/* Acoes inline: 1 click pra registrar cada tipo de evento
+                          desse lote (sem precisar abrir menu separado). */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {EVENT_ICONS.map((icon) => (
+                          <button
+                            key={icon.type}
+                            type="button"
+                            onClick={() => openEventModalForSpeciesType(item.batchIds, icon.type)}
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold transition ${icon.bg} ${icon.text} ${icon.hoverBg}`}
+                            aria-label={icon.label}
+                            title={icon.label}
+                          >
+                            <span aria-hidden>{icon.emoji}</span>
+                            <span className="hidden sm:inline">{icon.label}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -1248,6 +1369,86 @@ export function IncubatorsManager() {
             </div>
           </div>
         ) : null}
+      </AppModal>
+
+      {/* Tabela de eclosao por especie — configura dias de incubacao
+          que alimentam a contagem regressiva dos cards de chocadeira. */}
+      <AppModal
+        open={speciesRulesModal}
+        title="📋 Tabela de eclosao por especie"
+        onClose={() => setSpeciesRulesModal(false)}
+      >
+        <p className="mb-3 text-sm text-zinc-600">
+          Configure quantos dias cada especie do seu Plantel demora pra eclodir.
+          Esse valor é a base da contagem regressiva. Deixe em branco pra usar a
+          referencia padrao (Galinha 21, Marreco 28, etc).
+        </p>
+        {speciesRulesLoading ? (
+          <p className="py-8 text-center text-sm text-zinc-500">Carregando especies...</p>
+        ) : speciesRules.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-10 text-center">
+            <p className="text-2xl">🦚</p>
+            <p className="mt-2 text-sm font-medium text-zinc-700">Nenhuma especie cadastrada</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              Crie grupos no Plantel pra aparecerem aqui.
+            </p>
+          </div>
+        ) : (
+          <ul className="grid gap-2">
+            {speciesRules.map((rule) => {
+              const fallback = inferSpeciesRuleFromText(rule.name);
+              return (
+                <li
+                  key={rule.id}
+                  className="flex flex-wrap items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-zinc-900">{rule.name}</p>
+                    <p className="text-[11px] text-zinc-500">
+                      {rule.groupCount} grupo{rule.groupCount === 1 ? "" : "s"} no Plantel
+                      {rule.incubationDays === null
+                        ? ` · usando padrao (${fallback.days} dias)`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={120}
+                      placeholder={`${fallback.days}`}
+                      value={rule.incubationDays ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        setSpeciesRules((prev) =>
+                          prev.map((r) =>
+                            r.id === rule.id
+                              ? { ...r, incubationDays: raw === "" ? null : Number(raw) }
+                              : r
+                          )
+                        );
+                      }}
+                      className="w-20"
+                    />
+                    <span className="text-xs text-zinc-500">dias</span>
+                    <Button
+                      type="button"
+                      onClick={() => saveSpeciesRule(rule.id, rule.incubationDays)}
+                      disabled={speciesRuleSaving === rule.id}
+                    >
+                      {speciesRuleSaving === rule.id ? "..." : "Salvar"}
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <div className="mt-4 flex justify-end">
+          <Button type="button" variant="outline" onClick={() => setSpeciesRulesModal(false)}>
+            Fechar
+          </Button>
+        </div>
       </AppModal>
     </main>
   );
