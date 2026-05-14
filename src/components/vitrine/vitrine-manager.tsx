@@ -392,6 +392,14 @@ export function VitrineManager() {
           </Button>
           <Button
             type="button"
+            variant="outline"
+            onClick={() => window.open("/exportar-vitrine", "_blank")}
+            title="Abrir lista de aves em pagina pronta para imprimir / salvar como PDF"
+          >
+            📄 Exportar PDF
+          </Button>
+          <Button
+            type="button"
             onClick={() => { setAvulsasError(null); setAvulsasOpen(true); }}
             disabled={!data || data.flockGroups.length === 0}
           >
