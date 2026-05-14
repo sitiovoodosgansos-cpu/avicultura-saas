@@ -93,7 +93,51 @@ export async function createTrayEntryFromCollection(
   });
 }
 
+/**
+ * Defesa contra coletas com goodEggs > 0 que ficaram SEM EggTrayEntry
+ * — bug raro mas observado: ex. falha na transacao apos criar a
+ * EggCollection mas antes do create do entry. Idempotente: roda em
+ * todo carregamento da Prateleira e cria as entradas faltantes.
+ */
+async function backfillMissingTrayEntries(tenantId: string) {
+  // Coletas com goodEggs > 0 que NAO tem trayEntry vinculado
+  const orphans = await prisma.eggCollection.findMany({
+    where: {
+      tenantId,
+      goodEggs: { gt: 0 },
+      trayEntry: { is: null }
+    },
+    select: {
+      id: true,
+      flockGroupId: true,
+      date: true,
+      goodEggs: true
+    }
+  });
+  if (orphans.length === 0) return;
+
+  for (const orphan of orphans) {
+    try {
+      await createTrayEntryFromCollection(
+        tenantId,
+        orphan.id,
+        orphan.flockGroupId,
+        orphan.date,
+        orphan.goodEggs
+      );
+    } catch (err) {
+      // Defensivo — se uma coleta especifica falhar no backfill (ex:
+      // labels nao resolveram), nao quebra o resto. Logs do server vao
+      // mostrar pra debug futuro.
+      console.error("backfillMissingTrayEntries falhou pra collection", orphan.id, err);
+    }
+  }
+}
+
 export async function listTrays(tenantId: string) {
+  // Re-cria entradas de tray perdidas antes de listar (idempotente).
+  await backfillMissingTrayEntries(tenantId);
+
   const trays = await prisma.eggTray.findMany({
     where: { tenantId, status: "ACTIVE" },
     include: {
