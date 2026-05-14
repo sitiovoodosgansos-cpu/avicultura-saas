@@ -322,6 +322,9 @@ export function IncubatorsManager() {
   const [historyModalBatchIds, setHistoryModalBatchIds] = useState<string[] | null>(null);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [editingEventBatchId, setEditingEventBatchId] = useState<string | null>(null);
+  // Edicao da data de entrada do lote (afeta toda a contagem regressiva)
+  const [entryDateEditValue, setEntryDateEditValue] = useState("");
+  const [entryDateSaving, setEntryDateSaving] = useState(false);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
   const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
@@ -747,6 +750,53 @@ export function IncubatorsManager() {
   // === Historico de eventos ===
   function openBatchHistoryModal(batchIds: string[]) {
     setHistoryModalBatchIds(batchIds);
+    // Inicializa o input de data com a entryDate do primeiro batch do
+    // grupo (batches agrupados por flockGroup+entryDate compartilham
+    // a mesma data por definicao do groupKey).
+    const firstBatch = batches.find((b) => batchIds.includes(b.id));
+    setEntryDateEditValue(firstBatch ? toDateInput(firstBatch.entryDate) : "");
+  }
+
+  /**
+   * Atualiza a data de entrada de TODOS os batches do grupo. Como os
+   * batches sao agrupados por flockGroup+entryDate na UI, eles
+   * compartilham a mesma data — atualizar um por um mantem a integridade
+   * do agrupamento.
+   */
+  async function saveBatchEntryDate() {
+    if (!historyModalBatchIds || !entryDateEditValue) return;
+    setEntryDateSaving(true);
+    setError(null);
+    try {
+      const groupBatches = batches.filter((b) => historyModalBatchIds.includes(b.id));
+      for (const batch of groupBatches) {
+        const res = await fetch(`/api/incubators/batches/${batch.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            incubatorId: batch.incubatorId,
+            flockGroupId: batch.flockGroupId,
+            entryDate: entryDateEditValue,
+            eggsSet: batch.eggsSet,
+            expectedHatchDate: batch.expectedHatchDate ? toDateInput(batch.expectedHatchDate) : "",
+            notes: batch.notes ?? "",
+            status: batch.status
+          })
+        });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(payload.error ?? "Falha ao atualizar data do lote.");
+        }
+      }
+      await loadData();
+      // Recalcula o grupo agora apontando pra nova data — fecha o modal
+      // (o groupKey antigo nao existe mais; reabrir e via outra linha).
+      setHistoryModalBatchIds(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao atualizar.");
+    } finally {
+      setEntryDateSaving(false);
+    }
   }
 
   function openEditEvent(batchId: string, ev: BatchEvent) {
@@ -1472,9 +1522,43 @@ export function IncubatorsManager() {
           eventos ja registrados (data errada, qty errada, etc). */}
       <AppModal
         open={historyModalBatchIds !== null}
-        title="📜 Eventos registrados"
+        title="✏️ Editar lote"
+        error={error}
         onClose={() => setHistoryModalBatchIds(null)}
       >
+        {/* Editor da data de entrada do lote — fix pra lancamento errado.
+            Mudar essa data altera toda a contagem regressiva. */}
+        {historyModalBatchIds ? (
+          <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+              Data de entrada na chocadeira
+            </p>
+            <p className="mt-1 text-[11px] text-amber-800">
+              Mudar essa data recalcula a previsao de eclosao. Use se voce
+              lancou o lote com a data errada.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Input
+                type="date"
+                value={entryDateEditValue}
+                onChange={(e) => setEntryDateEditValue(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                onClick={saveBatchEntryDate}
+                disabled={entryDateSaving || !entryDateEditValue}
+              >
+                {entryDateSaving ? "Salvando..." : "Salvar data"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Eventos registrados
+        </p>
+
         {(() => {
           if (!historyModalBatchIds) return null;
           // Coleta eventos de todos os batches selecionados, com referencia
