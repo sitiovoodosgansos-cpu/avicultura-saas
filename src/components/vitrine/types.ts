@@ -34,6 +34,14 @@ export type VitrineListingItem = {
   purchaseDate: string | null;
   purchaseCost: number | null;
   vendorName: string | null;
+  // Campos usados pra discriminar tipo de listing:
+  //  - sourceBirdId !== null → listing 1:1 (uma ave especifica do Plantel)
+  //  - sourceIncubatorBatchId !== null → veio de Chocada
+  //  - ambos null → 'Lote avulso' (agregado, criavel via 'Inserir aves')
+  // Front usa esses campos pra decidir se pode mesclar visualmente
+  // listings de mesma idade+preco (so faz sentido pra Lote avulso).
+  sourceBirdId: string | null;
+  sourceIncubatorBatchId: string | null;
 };
 
 export function formatBRL(value: number | null) {

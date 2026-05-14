@@ -47,7 +47,9 @@ export function VitrineManager() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [avulsasOpen, setAvulsasOpen] = useState(false);
   const [avulsasError, setAvulsasError] = useState<string | null>(null);
-  const [viewingBirdsListing, setViewingBirdsListing] = useState<VitrineListingItem | null>(null);
+  // Pode ser 1 listing (Ver aves de lote individual) ou multiplos
+  // (Ver aves de grupo mesclado por idade+preco no FlockGroupCard).
+  const [viewingBirdsListings, setViewingBirdsListings] = useState<VitrineListingItem[] | null>(null);
 
   // Filtros: busca livre + dropdown de grupo (mesmo padrao da Prateleira).
   const [searchQuery, setSearchQuery] = useState("");
@@ -497,7 +499,7 @@ export function VitrineManager() {
             listings={listings}
             onEdit={openEdit}
             onRemove={handleRemove}
-            onViewBirds={(listing) => setViewingBirdsListing(listing)}
+            onViewBirds={(grouped) => setViewingBirdsListings(grouped)}
           />
         ))}
       </div>
@@ -551,14 +553,25 @@ export function VitrineManager() {
       />
 
       <ListingBirdsModal
-        open={viewingBirdsListing !== null}
-        listingId={viewingBirdsListing?.id ?? null}
-        listingTitle={
-          viewingBirdsListing?.title?.trim() ||
-          viewingBirdsListing?.flockGroup?.title ||
-          null
-        }
-        onClose={() => setViewingBirdsListing(null)}
+        open={viewingBirdsListings !== null}
+        listingIds={viewingBirdsListings?.map((l) => l.id) ?? null}
+        listingTitle={(() => {
+          if (!viewingBirdsListings || viewingBirdsListings.length === 0) return null;
+          if (viewingBirdsListings.length === 1) {
+            const l = viewingBirdsListings[0];
+            return l.title?.trim() || l.flockGroup?.title || null;
+          }
+          // Grupo mesclado: usa nome da raca + composicao agregada
+          const first = viewingBirdsListings[0];
+          const totalAvailable = viewingBirdsListings.reduce(
+            (acc, l) => acc + l.availableQuantity,
+            0
+          );
+          const raca = first.flockGroup?.title ?? "Lote";
+          const idade = `${first.ageInMonths} ${first.ageInMonths === 1 ? "mês" : "meses"}`;
+          return `${raca} · ${totalAvailable} aves · ${idade}`;
+        })()}
+        onClose={() => setViewingBirdsListings(null)}
       />
 
       {/* Barra flutuante do carrinho da Vitrine — acumula listings em

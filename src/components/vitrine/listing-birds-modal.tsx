@@ -29,12 +29,13 @@ const iconBtn =
 
 export function ListingBirdsModal({
   open,
-  listingId,
+  listingIds,
   listingTitle,
   onClose
 }: {
   open: boolean;
-  listingId: string | null;
+  /** 1 listing = comportamento original. 2+ = agrupado (mesma raca+idade+preco). */
+  listingIds: string[] | null;
   listingTitle: string | null;
   onClose: () => void;
 }) {
@@ -44,19 +45,40 @@ export function ListingBirdsModal({
   const [historyByBird, setHistoryByBird] = useState<Record<string, BirdHistory[]>>({});
   const [pendingBirdId, setPendingBirdId] = useState<string | null>(null);
 
+  // Estavel atraves de renders pra usar como dep do useEffect sem
+  // causar refetch quando o array eh recriado com mesmo conteudo.
+  const idsKey = listingIds ? listingIds.join(",") : "";
+
   async function loadBirds() {
-    if (!listingId) return;
-    const res = await fetch(`/api/vitrine/${listingId}/birds`, { cache: "no-store" });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error ?? "Erro ao carregar aves.");
+    if (!listingIds || listingIds.length === 0) return;
+    // Fetch concorrente quando ha mais de 1 listing (grupo mesclado).
+    // Concatena e deduplica por bird.id pra defender contra possiveis
+    // sobreposicoes (Bird tem ringNumber unico por tenant, entao na
+    // pratica nao deve duplicar, mas ainda assim eh seguro).
+    const responses = await Promise.all(
+      listingIds.map((id) => fetch(`/api/vitrine/${id}/birds`, { cache: "no-store" }))
+    );
+    const allBirds: ListingBird[] = [];
+    const seen = new Set<string>();
+    for (const res of responses) {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Erro ao carregar aves.");
+      }
+      const data = (await res.json()) as { birds: ListingBird[] };
+      for (const bird of data.birds) {
+        if (seen.has(bird.id)) continue;
+        seen.add(bird.id);
+        allBirds.push(bird);
+      }
     }
-    const data = (await res.json()) as { birds: ListingBird[] };
-    setBirds(data.birds);
+    // Ordena por ringNumber pra apresentacao estavel
+    allBirds.sort((a, b) => a.ringNumber.localeCompare(b.ringNumber));
+    setBirds(allBirds);
   }
 
   useEffect(() => {
-    if (!open || !listingId) return;
+    if (!open || !idsKey) return;
     setLoading(true);
     setError(null);
     setBirds([]);
@@ -72,7 +94,7 @@ export function ListingBirdsModal({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, listingId]);
+  }, [open, idsKey]);
 
   async function applyBirdStatus(birdId: string, nextStatus: BirdStatus) {
     setPendingBirdId(birdId);
