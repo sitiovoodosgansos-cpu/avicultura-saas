@@ -9,7 +9,178 @@ function toDate(value: string) {
   return new Date(`${value}T12:00:00`);
 }
 
+// === LOTES (lot codes) ===
+// Definicao: 1 lote = todas as batches em (incubatorId + entryDate).
+// Multiplos species no mesmo dia / mesma chocadeira compartilham o
+// mesmo numero. Marcador armazenado como `[LOT:N]` no campo notes.
+
+const LOT_MARKER_REGEX = /\[LOT:(.+?)\]/i;
+
+function extractLotCode(notes: string | null | undefined): string | null {
+  if (!notes) return null;
+  const match = notes.match(LOT_MARKER_REGEX);
+  return match?.[1]?.trim() || null;
+}
+
+function stripLotMetadata(notes: string | null | undefined): string {
+  if (!notes) return "";
+  return notes.replace(LOT_MARKER_REGEX, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function withLotMetadata(notes: string | null | undefined, lotCode: string | null): string {
+  const clean = stripLotMetadata(notes);
+  if (!lotCode) return clean;
+  const marker = `[LOT:${lotCode}]`;
+  return clean ? `${clean} ${marker}` : marker;
+}
+
+// Chave canonica de agrupamento — entryDate normalizado pra YYYY-MM-DD
+// pra que diferencas de hora/timezone nao quebrem o grupo.
+function lotGroupKey(incubatorId: string, entryDate: Date): string {
+  const iso = entryDate.toISOString().slice(0, 10);
+  return `${incubatorId}|${iso}`;
+}
+
+/**
+ * Resolve o lotCode pra um (incubatorId, entryDate) ESPECIFICO. Se ja
+ * existe outro batch nesse grupo com lotCode, reusa. Senao, calcula
+ * o proximo sequencial global e retorna.
+ */
+async function resolveLotCodeForGroup(
+  tenantId: string,
+  incubatorId: string,
+  entryDate: Date
+): Promise<string> {
+  // Procura batches existentes no mesmo grupo
+  const startOfDay = new Date(entryDate);
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const endOfDay = new Date(entryDate);
+  endOfDay.setUTCHours(23, 59, 59, 999);
+
+  const sameDayBatches = await prisma.incubatorBatch.findMany({
+    where: {
+      tenantId,
+      incubatorId,
+      entryDate: { gte: startOfDay, lte: endOfDay }
+    },
+    select: { notes: true }
+  });
+
+  for (const batch of sameDayBatches) {
+    const existing = extractLotCode(batch.notes);
+    if (existing) return existing;
+  }
+
+  // Nenhum lotCode existente no grupo — gera o proximo sequencial global
+  const allBatches = await prisma.incubatorBatch.findMany({
+    where: { tenantId },
+    select: { notes: true }
+  });
+  const codes = allBatches
+    .map((b) => extractLotCode(b.notes))
+    .map((c) => (c ? Number(c) : NaN))
+    .filter((v) => Number.isFinite(v) && v > 0) as number[];
+  const next = codes.length ? Math.max(...codes) + 1 : 1;
+  return String(next);
+}
+
+/**
+ * Migracao idempotente: agrupa todos os batches do tenant por
+ * (incubatorId, entryDate) e garante que cada grupo tem UM unico
+ * lotCode compartilhado. Pega o menor codigo existente do grupo
+ * (preservando numeracao), ou gera um novo se nenhum tem.
+ *
+ * Chamado dentro de listIncubatorContext — toda leitura corrige o
+ * estado se ainda estiver inconsistente. Custo: 1 SELECT + N UPDATES
+ * apenas quando ha inconsistencia (idempotente apos primeira passagem).
+ */
+async function regroupBatchLots(tenantId: string): Promise<void> {
+  const batches = await prisma.incubatorBatch.findMany({
+    where: { tenantId },
+    select: { id: true, incubatorId: true, entryDate: true, notes: true }
+  });
+  if (batches.length === 0) return;
+
+  // Agrupa por (incubatorId + yyyy-MM-dd)
+  const groups = new Map<
+    string,
+    Array<{ id: string; notes: string | null; lotCode: string | null }>
+  >();
+  for (const b of batches) {
+    const key = lotGroupKey(b.incubatorId, b.entryDate);
+    const arr = groups.get(key) ?? [];
+    arr.push({ id: b.id, notes: b.notes, lotCode: extractLotCode(b.notes) });
+    groups.set(key, arr);
+  }
+
+  // Pra cada grupo, define o canonicCode e atualiza quem nao bate
+  const updates: Array<{ id: string; notes: string }> = [];
+  const usedCodes = new Set<string>();
+
+  // Primeiro pass: identifica todos os codigos ja em uso pra evitar
+  // colisao quando gerar novos
+  for (const arr of groups.values()) {
+    for (const item of arr) {
+      if (item.lotCode) usedCodes.add(item.lotCode);
+    }
+  }
+
+  // Segundo pass: resolve canonical code de cada grupo
+  function nextAvailableCode(): string {
+    const numeric = Array.from(usedCodes)
+      .map((c) => Number(c))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    const next = numeric.length ? Math.max(...numeric) + 1 : 1;
+    const result = String(next);
+    usedCodes.add(result);
+    return result;
+  }
+
+  for (const arr of groups.values()) {
+    const existingCodes = arr
+      .map((i) => i.lotCode)
+      .filter((c): c is string => c !== null);
+    // Canonico: menor codigo numerico existente OR novo se nao ha
+    let canonical: string;
+    if (existingCodes.length > 0) {
+      const sorted = [...existingCodes].sort(
+        (a, b) => (Number(a) || 0) - (Number(b) || 0)
+      );
+      canonical = sorted[0];
+    } else {
+      canonical = nextAvailableCode();
+    }
+
+    // Marca pra atualizar quem nao bate com canonical
+    for (const item of arr) {
+      if (item.lotCode !== canonical) {
+        updates.push({
+          id: item.id,
+          notes: withLotMetadata(item.notes, canonical)
+        });
+      }
+    }
+  }
+
+  if (updates.length === 0) return;
+
+  // Aplica as atualizacoes em transacao pra atomicidade
+  await prisma.$transaction(
+    updates.map((u) =>
+      prisma.incubatorBatch.update({
+        where: { id: u.id },
+        data: { notes: u.notes }
+      })
+    )
+  );
+}
+
 export async function listIncubatorContext(tenantId: string) {
+  // Garante consistencia dos lotCode antes de retornar (idempotente).
+  // Se algum batch foi criado sem lotCode (ex: via transfer da Prateleira
+  // antes desse fix), o agrupamento eh recalculado aqui.
+  await regroupBatchLots(tenantId);
+
   const [incubators, batches, flockGroups] = await Promise.all([
     prisma.incubator.findMany({
       where: { tenantId },
@@ -178,22 +349,34 @@ export async function createBatch(
 
   if (!incubator || !group) return null;
 
+  const entryDateParsed = toDate(input.entryDate);
+
+  // Lote = (incubatorId + entryDate). Reusa lotCode existente se ja
+  // tem outro batch no grupo; senao, gera o proximo sequencial.
+  // Notes do user passa por stripLotMetadata pra evitar duplicar marker.
+  const lotCode = await resolveLotCodeForGroup(
+    tenantId,
+    input.incubatorId,
+    entryDateParsed
+  );
+  const finalNotes = withLotMetadata(input.notes ?? "", lotCode);
+
   const created = await prisma.incubatorBatch.create({
     data: {
       tenantId,
       incubatorId: input.incubatorId,
       flockGroupId: input.flockGroupId,
-      entryDate: toDate(input.entryDate),
+      entryDate: entryDateParsed,
       eggsSet: input.eggsSet,
       expectedHatchDate: input.expectedHatchDate ? toDate(input.expectedHatchDate) : null,
-      notes: input.notes,
+      notes: finalNotes,
       status: input.status,
       events: {
         create: {
           tenantId,
           type: "IN_PROGRESS",
           quantity: input.eggsSet,
-          eventDate: toDate(input.entryDate),
+          eventDate: entryDateParsed,
           notes: "Lote iniciado"
         }
       }

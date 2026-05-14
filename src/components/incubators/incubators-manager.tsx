@@ -624,7 +624,9 @@ export function IncubatorsManager() {
           entryDate: batchForm.entryDate,
           eggsSet: line.eggsSet,
           expectedHatchDate: batchForm.expectedHatchDate,
-          notes: withLotMetadata(batchForm.notes, editingBatchLotCode),
+          // Notes sem lot marker — backend (regroupBatchLots) reaplica
+          // o codigo correto baseado em (incubatorId, entryDate) na proxima leitura.
+          notes: stripLotMetadata(batchForm.notes),
           status: batchForm.status
         })
       });
@@ -643,12 +645,9 @@ export function IncubatorsManager() {
         return;
       }
 
-      const numericLotCodes = batches
-        .map((batch) => extractLotCode(batch.notes))
-        .map((code) => (code ? Number(code) : NaN))
-        .filter((value) => Number.isFinite(value) && value > 0);
-      const nextLotCode = String(numericLotCodes.length ? Math.max(...numericLotCodes) + 1 : 1);
-
+      // Lot code agora eh resolvido no backend (resolveLotCodeForGroup):
+      // todos os batches com mesmo (incubatorId, entryDate) compartilham
+      // o mesmo lot. Frontend so envia notes do user sem marker.
       for (const line of lines) {
         const res = await fetch("/api/incubators/batches", {
           method: "POST",
@@ -659,7 +658,7 @@ export function IncubatorsManager() {
             entryDate: batchForm.entryDate,
             eggsSet: line.eggsSet,
             expectedHatchDate: batchForm.expectedHatchDate,
-            notes: withLotMetadata(batchForm.notes, nextLotCode),
+            notes: stripLotMetadata(batchForm.notes),
             status: batchForm.status
           })
         });
