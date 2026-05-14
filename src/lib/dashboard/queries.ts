@@ -231,7 +231,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     eggSalesLast12Months,
     vitrineSalesLast12Months,
     deadBirdsLast30,
-    vitrineDeathsLast30
+    vitrineDeathsLast30,
+    nonVitrineSaleEntriesAll
   ] = await Promise.all([
     prisma.flockGroup.findMany({
       where: { tenantId, ...visibleGroupFilter },
@@ -408,6 +409,21 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         listing: { sourceBirdId: null }
       },
       select: { occurredAt: true, quantity: true }
+    }),
+    // Receita por raca: lancamentos financeiros de venda NAO ligados a
+    // VitrineSale (essas ja sao contabilizadas via vitrineSalesAll com
+    // resolucao especial de Chocada→pai). Inclui:
+    //  - EggSale (cria FinancialEntry com item = flockGroup.title)
+    //  - Lancamentos manuais com categoria de venda
+    // O `item` carrega o label da raca (titulo do FlockGroup) ou texto
+    // livre pra vendas avulsas.
+    prisma.financialEntry.findMany({
+      where: {
+        tenantId,
+        category: { in: ["EGG_SALE", "CHICK_SALE", "ADULT_BIRD_SALE"] },
+        vitrineSales: { none: {} }
+      },
+      select: { item: true, amount: true }
     })
   ]);
 
@@ -692,7 +708,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         availableInVitrine: vitrineAvailableAgg._sum.availableQuantity ?? 0,
         soldAllTime: vitrineSalesAll.reduce((s, x) => s + x.quantitySold, 0)
       }),
-      revenueByGroup: buildRevenueByGroup(vitrineSalesAll),
+      revenueByGroup: buildRevenueByGroup(vitrineSalesAll, nonVitrineSaleEntriesAll),
       expensesByCategory: buildExpensesByCategory(expensesThisMonth)
     }
   };
@@ -824,12 +840,18 @@ function buildRevenueByGroup(
       flockGroup: { title: string } | null;
       sourceIncubatorBatch: { flockGroup: { title: string } | null } | null;
     } | null;
+  }>,
+  manualSaleEntries: Array<{
+    item: string;
+    amount: { toNumber: () => number } | number | null;
   }>
 ): Array<{ label: string; value: number }> {
-  // Receita por grupo da vitrine. Resolve grupo do PAI quando o listing
-  // aponta pra Chocada (sourceIncubatorBatch.flockGroup.title), assim a
-  // receita de filhotes vai pra raca do pai e nao pra "Chocada XX".
+  // Receita por grupo agregando 2 fontes:
+  //  1) Vitrine sales (com resolucao Chocada→pai)
+  //  2) FinancialEntry de venda NAO ligados a vitrine: cobre EggSale e
+  //     lancamentos manuais (item = titulo do FlockGroup ou texto avulso)
   const map = new Map<string, number>();
+
   for (const sale of sales) {
     const listingTitle = sale.listing?.flockGroup?.title ?? "Sem grupo";
     const isChild = listingTitle.startsWith("Chocada ");
@@ -838,6 +860,18 @@ function buildRevenueByGroup(
     const amount = decimalToNumber(sale.totalPrice);
     map.set(label, (map.get(label) ?? 0) + amount);
   }
+
+  for (const entry of manualSaleEntries) {
+    // EggSale escreve o titulo do FlockGroup direto em `item`. Lancamentos
+    // manuais (do form de Nova Entrada) tambem — o dropdown salva o
+    // titulo do grupo selecionado. Texto livre (venda avulsa) aparece
+    // com seu proprio label.
+    const label = entry.item?.trim() || "Sem grupo";
+    const amount = decimalToNumber(entry.amount);
+    if (amount <= 0) continue;
+    map.set(label, (map.get(label) ?? 0) + amount);
+  }
+
   return Array.from(map.entries())
     .map(([label, value]) => ({ label, value }))
     .filter((r) => r.value > 0)

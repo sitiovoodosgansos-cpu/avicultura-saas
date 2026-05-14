@@ -253,13 +253,13 @@ export async function DashboardContent({ tenantId }: { tenantId: string }) {
       <section className="grid gap-4 xl:grid-cols-2">
         <BarCard
           title="Receita por raça"
-          subtitle="Top grupos por valor vendido na vitrine"
+          subtitle="Top grupos por valor (Vitrine + Prateleira + lançamentos manuais)"
           data={data.charts.revenueByGroup}
           palette="violet"
           icon={<Emoji char="🏆" />}
           layout="horizontal"
           format="currency"
-          emptyMessage="As vendas da vitrine vão revelar quem rende mais."
+          emptyMessage="Registre vendas vinculando a um grupo do plantel para ver aqui."
         />
         <StackedHorizontalCard
           title="Despesas do mês por categoria"

@@ -84,6 +84,12 @@ const defaultEntryCategories: CategoryOption[] = [
   { value: "OTHER_INCOME", label: "Outras entradas" }
 ];
 
+// Categorias de venda — nessas, o campo 'item' vira dropdown de grupos
+// do Plantel pra alimentar o KPI 'Receita por raca' do Dashboard.
+const SALE_CATEGORIES = new Set(["EGG_SALE", "CHICK_SALE", "ADULT_BIRD_SALE"]);
+
+type FlockGroupOption = { id: string; title: string };
+
 const defaultExpenseCategories: CategoryOption[] = [
   { value: "FEED", label: "Racao" },
   { value: "MEDICATION", label: "Medicamentos" },
@@ -205,6 +211,84 @@ function ItemSelect({
   );
 }
 
+// Dropdown que troca entre "selecionar grupo do Plantel" e "digitar item
+// avulso". Default eh dropdown. Se o valor externo nao bate com nenhum
+// grupo conhecido (lancamento antigo, edicao, etc), entra em modo
+// avulso automaticamente.
+function FlockGroupItemSelect({
+  value,
+  flockGroups,
+  onChange
+}: {
+  value: string;
+  flockGroups: FlockGroupOption[];
+  onChange: (value: string) => void;
+}) {
+  const knownTitles = useMemo(
+    () => new Set(flockGroups.map((g) => g.title)),
+    [flockGroups]
+  );
+  const externalIsCustom = value !== "" && !knownTitles.has(value);
+  const [customManual, setCustomManual] = useState(false);
+  const showCustom = externalIsCustom || customManual;
+
+  // Sem grupos cadastrados → cai direto pro modo avulso (input livre)
+  if (flockGroups.length === 0) {
+    return (
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Item vendido (cadastre grupos em Plantel para usar lista)"
+      />
+    );
+  }
+
+  if (showCustom) {
+    return (
+      <div className="grid gap-2">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Item avulso (não está no Plantel)"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setCustomManual(false);
+            onChange("");
+          }}
+        >
+          ← Voltar para lista de grupos
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <select
+      className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === "__custom__") {
+          setCustomManual(true);
+          onChange("");
+          return;
+        }
+        onChange(e.target.value);
+      }}
+    >
+      <option value="">Selecione a raça/grupo vendido</option>
+      {flockGroups.map((g) => (
+        <option key={g.id} value={g.title}>
+          {g.title}
+        </option>
+      ))}
+      <option value="__custom__">+ Outro (venda avulsa)</option>
+    </select>
+  );
+}
+
 export function FinanceManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -226,6 +310,12 @@ export function FinanceManager() {
   const [filterTo, setFilterTo] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterQuery, setFilterQuery] = useState("");
+
+  // Grupos do Plantel pra hidratar dropdown de raca quando categoria
+  // de entrada eh venda (ovo/filhote/adulto). Carrega uma vez no mount —
+  // mudancas no Plantel raras o suficiente pra nao precisar refetch
+  // automatico.
+  const [flockGroups, setFlockGroups] = useState<FlockGroupOption[]>([]);
 
   const [customEntryCategories, setCustomEntryCategories] = useState<CategoryOption[]>([]);
   const [customExpenseCategories, setCustomExpenseCategories] = useState<CategoryOption[]>([]);
@@ -401,6 +491,25 @@ export function FinanceManager() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterFrom, filterTo, filterCategory, filterQuery, selectedMonth]);
+
+  // Carga inicial dos grupos do Plantel pra dropdown de raca.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/finance/flock-groups", { cache: "no-store" });
+        if (!res.ok || !mounted) return;
+        const data = (await res.json()) as { groups: FlockGroupOption[] };
+        if (mounted) setFlockGroups(data.groups);
+      } catch {
+        // Falha silenciosa — dropdown so esconde, form continua usavel
+        // via modo "avulso" (input livre).
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   function openCategoryModal(
     target: "entryCategory" | "expenseCategory" | "filterCategory" | "entryItem" | "expenseItem"
@@ -617,10 +726,18 @@ export function FinanceManager() {
                 onCreate={() => openCategoryModal("entryCategory")}
               />
             </div>
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
-              <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
-            </div>
+            {SALE_CATEGORIES.has(entryForm.category) ? (
+              <FlockGroupItemSelect
+                value={entryForm.item}
+                flockGroups={flockGroups}
+                onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))}
+              />
+            ) : (
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
+                <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
+              </div>
+            )}
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
               <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
@@ -1018,10 +1135,18 @@ export function FinanceManager() {
             <Input type="date" value={entryForm.date} onChange={(e) => setEntryForm((p) => ({ ...p, date: e.target.value }))} />
             <CategorySelect value={entryForm.category} options={entryCategoryOptions} onChange={(value) => setEntryForm((p) => ({ ...p, category: value }))} onCreate={() => openCategoryModal("entryCategory")} />
           </div>
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
-            <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
-          </div>
+          {SALE_CATEGORIES.has(entryForm.category) ? (
+            <FlockGroupItemSelect
+              value={entryForm.item}
+              flockGroups={flockGroups}
+              onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))}
+            />
+          ) : (
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
+              <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
+            </div>
+          )}
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
             <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
