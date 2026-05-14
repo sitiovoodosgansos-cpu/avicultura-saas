@@ -32,6 +32,22 @@ function isAggregatedAvulso(listing: VitrineListingItem) {
   return listing.sourceBirdId === null && listing.sourceIncubatorBatchId === null;
 }
 
+/**
+ * Gera o titulo do listing pra exibir.
+ * - Para Lote avulso: regenera dinamicamente usando a idade ATUAL
+ *   (recalculada toda vez que a pagina carrega via getCurrentPrice).
+ *   O titulo salvo no banco congela a idade da insercao, o que
+ *   confunde o usuario quando o tempo passa.
+ * - Para 1:1 ou chocadas: usa o titulo salvo (carrega identidade
+ *   especifica como nome ou numero da anilha).
+ */
+function displayTitle(listing: VitrineListingItem): string {
+  if (isAggregatedAvulso(listing)) {
+    return `Lote avulso · ${listing.availableQuantity} aves · ${formatAge(listing.ageInMonths)}`;
+  }
+  return listing.title?.trim() || `Lote ${listing.id.slice(-4).toUpperCase()}`;
+}
+
 type DisplayRow =
   | { kind: "single"; listing: VitrineListingItem }
   | { kind: "merged"; key: string; listings: VitrineListingItem[] };
@@ -201,6 +217,14 @@ export function FlockGroupCard({
                   <span className="rounded-lg bg-[color:var(--surface-soft)] px-2 py-1 font-semibold text-slate-900">
                     {formatBRL(first.currentPrice)}
                   </span>
+                  {!first.isOverride && !first.missingTier && first.currentPrice !== null ? (
+                    <span
+                      className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-emerald-700"
+                      title="O preço acompanha a tabela conforme a idade aumenta"
+                    >
+                      auto
+                    </span>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 gap-1.5">
                   <Button
@@ -297,7 +321,7 @@ function SingleListingRow({
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <p className="truncate text-sm font-semibold text-slate-900">
-                {listing.title?.trim() || `Lote ${listing.id.slice(-4).toUpperCase()}`}
+                {displayTitle(listing)}
               </p>
               <span
                 className={
@@ -342,7 +366,16 @@ function SingleListingRow({
             {formatBRL(listing.currentPrice)}
           </span>
           {listing.isOverride ? (
-            <span className="text-[9px] font-medium text-sky-700">próprio</span>
+            <span className="text-[9px] font-medium text-sky-700" title="Preço fixado manualmente nesse lote">
+              próprio
+            </span>
+          ) : !listing.missingTier && listing.currentPrice !== null ? (
+            <span
+              className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.05em] text-emerald-700"
+              title="O preço acompanha a tabela conforme a idade aumenta"
+            >
+              auto
+            </span>
           ) : null}
           {listing.missingTier ? (
             <span className="text-[9px] font-medium text-amber-600">sem tabela</span>
