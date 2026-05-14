@@ -325,6 +325,22 @@ export function IncubatorsManager() {
   // Edicao da data de entrada do lote (afeta toda a contagem regressiva)
   const [entryDateEditValue, setEntryDateEditValue] = useState("");
   const [entryDateSaving, setEntryDateSaving] = useState(false);
+
+  // Quais chocadeiras tem a lista de countdown expandida (>6 linhas)
+  const [expandedDeviceIds, setExpandedDeviceIds] = useState<Set<string>>(new Set());
+  function toggleDeviceExpanded(id: string) {
+    setExpandedDeviceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Quando o evento eh aberto via clique num icone especifico (Nasceram,
+  // Inferteis, etc), o tipo ja esta escolhido — o seletor de tipo no
+  // modal vira so um chip read-only ao inves de dropdown.
+  const [eventTypeLocked, setEventTypeLocked] = useState(false);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
   const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
@@ -719,7 +735,8 @@ export function IncubatorsManager() {
 
   /**
    * Abre modal de evento pre-preenchido com o tipo escolhido (icone na
-   * linha do countdown). Quantidade fica em 0 pra usuario preencher.
+   * linha do countdown). Tipo fica travado (chip read-only), quantidade
+   * pre-preenche com o maximo disponivel pra o usuario so decrementar.
    * Pra HATCHED, o modal já aciona o fluxo de finalizar lote (cria
    * VitrineListing automaticamente via service).
    */
@@ -733,14 +750,38 @@ export function IncubatorsManager() {
       return;
     }
     const groupKey = `${targetBatch.flockGroupId}|${toDateInput(targetBatch.entryDate)}`;
+
+    // Calcula maximo disponivel pra esse grupo de batches.
+    // Pra eventos 'consumidores' (HATCHED/INFERTILE/EMBRYO_LOSS/PIPPED_DIED)
+    // = ovos ainda nao classificados. Pra OTHER (nao-consumidor) = total
+    // de ovos do grupo (usuario tipicamente registra qty 0 ou descritiva).
+    const groupBatches = activeBatches.filter((b) =>
+      `${b.flockGroupId}|${toDateInput(b.entryDate)}` === groupKey
+    );
+    const totalEggs = groupBatches.reduce((s, b) => s + b.eggsSet, 0);
+    const totalConsumed = groupBatches.reduce(
+      (s, b) =>
+        s +
+        ((b.stats.hatched ?? 0) +
+          (b.stats.infertile ?? 0) +
+          (b.stats.embryoLoss ?? 0) +
+          (b.stats.pippedDied ?? 0)),
+      0
+    );
+    const remaining = Math.max(0, totalEggs - totalConsumed);
+    const consumingTypes = ["HATCHED", "INFERTILE", "EMBRYO_LOSS", "PIPPED_DIED"] as const;
+    const isConsuming = (consumingTypes as readonly string[]).includes(type);
+    const defaultQty = isConsuming ? remaining : 0;
+
     setError(null);
     setFinalizeBatchOnSubmit(type === "HATCHED");
     setEditingEventId(null);
     setEditingEventBatchId(null);
+    setEventTypeLocked(true);
     setEventForm({
       batchId: groupKey,
       type,
-      quantity: 0,
+      quantity: defaultQty,
       eventDate: today,
       notes: ""
     });
@@ -804,6 +845,8 @@ export function IncubatorsManager() {
     setEditingEventId(ev.id);
     setEditingEventBatchId(batchId);
     setFinalizeBatchOnSubmit(false);
+    // Modo edicao permite trocar tipo livremente — destrava
+    setEventTypeLocked(false);
     setEventForm({
       batchId: "", // nao usado em modo edicao (batchId real vem de editingEventBatchId)
       type: ev.type as EventForm["type"],
@@ -849,6 +892,7 @@ export function IncubatorsManager() {
     const remaining = Math.max(0, totalEggs - totalConsumed);
     setError(null);
     setFinalizeBatchOnSubmit(true);
+    setEventTypeLocked(true);
     setEventForm({
       batchId: groupKey,
       type: "HATCHED",
@@ -1111,9 +1155,16 @@ export function IncubatorsManager() {
             </div>
             {device.speciesCountdowns.length > 0 ? (
               <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-3">
-                <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">Contagem por especie</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">
+                    Contagem por especie ({device.speciesCountdowns.length})
+                  </p>
+                </div>
                 <div className="mt-2 space-y-2">
-                  {device.speciesCountdowns.slice(0, 6).map((item) => (
+                  {(expandedDeviceIds.has(device.id)
+                    ? device.speciesCountdowns
+                    : device.speciesCountdowns.slice(0, 6)
+                  ).map((item) => (
                     <div key={`${device.id}-${item.batchIds[0]}`} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate text-sm font-semibold text-zinc-800">{item.species}</p>
@@ -1193,6 +1244,17 @@ export function IncubatorsManager() {
                     </div>
                   ))}
                 </div>
+                {device.speciesCountdowns.length > 6 ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleDeviceExpanded(device.id)}
+                    className="mt-3 w-full rounded-lg border border-dashed border-zinc-300 px-3 py-2 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-50"
+                  >
+                    {expandedDeviceIds.has(device.id)
+                      ? "Mostrar menos"
+                      : `Mostrar mais ${device.speciesCountdowns.length - 6} espécies`}
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </Card>
@@ -1443,41 +1505,207 @@ export function IncubatorsManager() {
 
       <AppModal
         open={showEventModal}
-        title={editingEventId ? "Editar evento" : finalizeBatchOnSubmit ? "Finalizar lote" : "Registrar evento do lote"}
+        title={editingEventId ? "Editar evento" : finalizeBatchOnSubmit ? "Finalizar lote" : "Registrar evento"}
         error={error}
         onClose={() => {
           setShowEventModal(false);
           setFinalizeBatchOnSubmit(false);
           setEditingEventId(null);
           setEditingEventBatchId(null);
+          setEventTypeLocked(false);
         }}
       >
-        <form className="grid gap-3" onSubmit={createEvent}>
+        <form className="grid gap-4" onSubmit={createEvent}>
+          {/* === HERO do tipo de evento === */}
+          {(() => {
+            const currentMeta = EVENT_ICONS.find((i) => i.type === eventForm.type);
+            // Quando o tipo esta travado (abriu via clique no icone), mostra
+            // como chip grande read-only. Caso contrario (edicao, finalize
+            // generico), permite seleciona-lo via segmented control.
+            if (eventTypeLocked && currentMeta) {
+              return (
+                <div
+                  className={`flex items-center gap-3 rounded-2xl border p-3 ${currentMeta.bg.replace(
+                    "bg-",
+                    "border-"
+                  ).replace("100", "200")} ${currentMeta.bg}`}
+                >
+                  <span className="text-3xl" aria-hidden>
+                    {currentMeta.emoji}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                      Tipo do evento
+                    </p>
+                    <p className={`text-base font-semibold ${currentMeta.text}`}>
+                      {currentMeta.label}
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+            // Modo edicao / seletor: segmented control com os 5 tipos
+            // principais + opcao 'Em andamento' (pra correcao).
+            return (
+              <div>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                  Tipo do evento
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {EVENT_ICONS.map((icon) => {
+                    const active = eventForm.type === icon.type;
+                    return (
+                      <button
+                        key={icon.type}
+                        type="button"
+                        onClick={() => setEventForm((p) => ({ ...p, type: icon.type }))}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                          active
+                            ? `${icon.bg} ${icon.text} ring-2 ring-offset-1 ring-zinc-300`
+                            : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                        }`}
+                      >
+                        <span aria-hidden>{icon.emoji}</span>
+                        {icon.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {finalizeBatchOnSubmit ? (
-            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-              Ao confirmar, o evento sera registrado e o lote sera marcado como finalizado, saindo da lista de ativos. Ajuste a quantidade real de pintinhos nascidos antes de confirmar.
+            <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+              Ao confirmar, o lote sera marcado como finalizado e sair da lista de ativos. Ajuste a quantidade real antes de confirmar.
             </p>
           ) : null}
-          {/* No modo edicao, o lote ja foi resolvido — esconde o seletor */}
-          {!editingEventId ? (
-            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
-              <option value="">Selecione o lote</option>{eventBatchOptions.map((opt) => <option key={opt.groupKey} value={opt.groupKey}>{opt.label}</option>)}
-            </select>
+
+          {/* Seletor de lote — so aparece se NAO veio de um icone especifico
+              e nao esta em modo edicao */}
+          {!editingEventId && !eventTypeLocked ? (
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                Lote
+              </p>
+              <select
+                className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm"
+                value={eventForm.batchId}
+                onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}
+              >
+                <option value="">Selecione o lote</option>
+                {eventBatchOptions.map((opt) => (
+                  <option key={opt.groupKey} value={opt.groupKey}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           ) : null}
-          <div className="grid grid-cols-2 gap-3">
-            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.type} onChange={(e) => setEventForm((p) => ({ ...p, type: e.target.value as EventForm["type"] }))}>
-              <option value="HATCHED">Nasceram</option><option value="INFERTILE">Infertis</option><option value="EMBRYO_LOSS">Nao desenvolveram</option><option value="PIPPED_DIED">Bicaram e morreram</option><option value="IN_PROGRESS">Em andamento</option><option value="OTHER">Outro</option>
-            </select>
-            <Input type="number" min={0} max={editingEventId ? undefined : (maxEventQuantity || undefined)} value={eventForm.quantity || ""} onChange={(e) => setEventForm((p) => ({ ...p, quantity: editingEventId ? (Number(e.target.value) || 0) : Math.min(Number(e.target.value) || 0, maxEventQuantity || Number(e.target.value) || 0) }))} />
+
+          {/* Info do lote selecionado (quando veio via icone) — contexto visual */}
+          {eventTypeLocked && selectedEventBatchGroup ? (
+            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
+              <p>
+                <span className="font-semibold text-zinc-800">{selectedEventBatchGroup.label}</span>
+              </p>
+              {isConsumingEvent ? (
+                <p className="mt-1">
+                  Restam{" "}
+                  <span className="font-semibold text-emerald-700">{remainingEggsForBatch}</span> de{" "}
+                  {selectedEventBatchGroup.totalEggs} ovos para classificar
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Quantidade — input grande com +/- pra ajuste rapido */}
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500">
+              Quantidade de ovos
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setEventForm((p) => ({ ...p, quantity: Math.max(0, p.quantity - 1) }))
+                }
+                disabled={eventForm.quantity <= 0}
+                aria-label="Diminuir"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-300 bg-white text-lg font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-40"
+              >
+                −
+              </button>
+              <Input
+                type="number"
+                min={0}
+                max={editingEventId ? undefined : maxEventQuantity || undefined}
+                value={eventForm.quantity || ""}
+                onChange={(e) =>
+                  setEventForm((p) => ({
+                    ...p,
+                    quantity: editingEventId
+                      ? Number(e.target.value) || 0
+                      : Math.min(
+                          Number(e.target.value) || 0,
+                          maxEventQuantity || Number(e.target.value) || 0
+                        )
+                  }))
+                }
+                className="text-center text-lg font-semibold"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const max = editingEventId ? Infinity : maxEventQuantity || Infinity;
+                  setEventForm((p) => ({ ...p, quantity: Math.min(max, p.quantity + 1) }));
+                }}
+                disabled={!editingEventId && eventForm.quantity >= (maxEventQuantity || 0)}
+                aria-label="Aumentar"
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-zinc-300 bg-white text-lg font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
           </div>
-          {!editingEventId && selectedEventBatchGroup && isConsumingEvent ? (
-            <p className="text-xs text-zinc-500">
-              Ovos restantes para classificar: <span className="font-semibold text-zinc-700">{remainingEggsForBatch}</span> de {selectedEventBatchGroup.totalEggs}
-            </p>
-          ) : null}
-          <Input type="date" value={eventForm.eventDate} onChange={(e) => setEventForm((p) => ({ ...p, eventDate: e.target.value }))} />
-          <Input placeholder="Observacoes" value={eventForm.notes} onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))} />
-          <Button type="submit" disabled={saving}>{saving ? (editingEventId ? "Salvando..." : finalizeBatchOnSubmit ? "Finalizando..." : "Registrando...") : (editingEventId ? "Salvar alteracoes" : finalizeBatchOnSubmit ? "Confirmar e finalizar lote" : "Registrar evento")}</Button>
+
+          {/* Data + observacoes */}
+          <div className="grid gap-3">
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                Data do evento
+              </p>
+              <Input
+                type="date"
+                value={eventForm.eventDate}
+                onChange={(e) => setEventForm((p) => ({ ...p, eventDate: e.target.value }))}
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                Observações (opcional)
+              </p>
+              <Input
+                placeholder="Ex: ovo da matriz X, frio na chocadeira, etc."
+                value={eventForm.notes}
+                onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <Button type="submit" disabled={saving} className="w-full">
+            {saving
+              ? editingEventId
+                ? "Salvando..."
+                : finalizeBatchOnSubmit
+                  ? "Finalizando..."
+                  : "Registrando..."
+              : editingEventId
+                ? "Salvar alterações"
+                : finalizeBatchOnSubmit
+                  ? "Confirmar e finalizar lote"
+                  : "Registrar evento"}
+          </Button>
         </form>
       </AppModal>
 
