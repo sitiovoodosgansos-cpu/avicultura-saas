@@ -349,6 +349,117 @@ export async function addBatchEvent(
   return { ok: true, event: created };
 }
 
+/**
+ * Atualiza data/qty/notes de um evento existente. Reaproveita a checagem
+ * de capacidade do batch: a soma de eventos consumidores apos o update
+ * nao pode ultrapassar eggsSet (subtrai a qty atual do evento antes de
+ * comparar com a nova).
+ */
+export async function updateBatchEvent(
+  tenantId: string,
+  userId: string | null,
+  eventId: string,
+  input: {
+    type?: "HATCHED" | "INFERTILE" | "EMBRYO_LOSS" | "PIPPED_DIED" | "IN_PROGRESS" | "OTHER";
+    quantity?: number;
+    eventDate?: string;
+    notes?: string | null;
+  }
+): Promise<AddBatchEventResult> {
+  const existing = await prisma.incubatorBatchEvent.findFirst({
+    where: { id: eventId, tenantId },
+    include: { batch: { select: { id: true, eggsSet: true } } }
+  });
+  if (!existing) return { ok: false, reason: "NOT_FOUND" };
+
+  const newType = input.type ?? existing.type;
+  const newQuantity = input.quantity ?? existing.quantity;
+
+  // Se o evento atualizado for "consumidor" (consome ovos do batch),
+  // valida que a soma total nao excede o batch.eggsSet
+  if ((CONSUMING_EVENT_TYPES as readonly string[]).includes(newType)) {
+    const aggregate = await prisma.incubatorBatchEvent.aggregate({
+      _sum: { quantity: true },
+      where: {
+        batchId: existing.batchId,
+        type: { in: [...CONSUMING_EVENT_TYPES] },
+        id: { not: eventId } // exclui o proprio evento sendo editado
+      }
+    });
+    const othersConsumed = aggregate._sum.quantity ?? 0;
+    const available = Math.max(0, existing.batch.eggsSet - othersConsumed);
+    if (newQuantity > available) {
+      return {
+        ok: false,
+        reason: "EXCEEDS_EGGS",
+        message: `Quantidade excede os ovos disponiveis. Restam ${available} de ${existing.batch.eggsSet} ovos para classificar.`
+      };
+    }
+  }
+
+  const updated = await prisma.incubatorBatchEvent.update({
+    where: { id: eventId },
+    data: {
+      ...(input.type !== undefined ? { type: input.type } : {}),
+      ...(input.quantity !== undefined ? { quantity: input.quantity } : {}),
+      ...(input.eventDate !== undefined ? { eventDate: toDate(input.eventDate) } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {})
+    }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      tenantId,
+      userId: userId ?? undefined,
+      action: "BATCH_EVENT_UPDATE",
+      entity: "IncubatorBatchEvent",
+      entityId: eventId,
+      before: {
+        type: existing.type,
+        quantity: existing.quantity,
+        eventDate: existing.eventDate.toISOString()
+      },
+      after: {
+        type: updated.type,
+        quantity: updated.quantity,
+        eventDate: updated.eventDate.toISOString()
+      }
+    }
+  });
+
+  return { ok: true, event: updated };
+}
+
+export async function deleteBatchEvent(
+  tenantId: string,
+  userId: string | null,
+  eventId: string
+): Promise<boolean> {
+  const existing = await prisma.incubatorBatchEvent.findFirst({
+    where: { id: eventId, tenantId }
+  });
+  if (!existing) return false;
+
+  await prisma.incubatorBatchEvent.delete({ where: { id: eventId } });
+
+  await prisma.auditLog.create({
+    data: {
+      tenantId,
+      userId: userId ?? undefined,
+      action: "BATCH_EVENT_DELETE",
+      entity: "IncubatorBatchEvent",
+      entityId: eventId,
+      before: {
+        type: existing.type,
+        quantity: existing.quantity,
+        eventDate: existing.eventDate.toISOString()
+      }
+    }
+  });
+
+  return true;
+}
+
 export async function getIncubatorMetrics(tenantId: string) {
   const now = new Date();
   const from30 = new Date(now);

@@ -24,6 +24,14 @@ export const batchEventSchema = z.object({
   notes: z.string().trim().optional()
 });
 
+export const batchEventUpdateSchema = z.object({
+  type: z.enum(["HATCHED", "INFERTILE", "EMBRYO_LOSS", "PIPPED_DIED", "IN_PROGRESS", "OTHER"]).optional(),
+  quantity: z.coerce.number().int().min(0).optional(),
+  eventDate: z.string().min(1).optional(),
+  notes: z.string().trim().nullable().optional()
+});
+
 export type IncubatorInput = z.infer<typeof incubatorSchema>;
 export type BatchInput = z.infer<typeof batchSchema>;
 export type BatchEventInput = z.infer<typeof batchEventSchema>;
+export type BatchEventUpdateInput = z.infer<typeof batchEventUpdateSchema>;

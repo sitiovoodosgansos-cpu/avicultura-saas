@@ -317,6 +317,11 @@ export function IncubatorsManager() {
   const [speciesRules, setSpeciesRules] = useState<SpeciesRule[]>([]);
   const [speciesRulesLoading, setSpeciesRulesLoading] = useState(false);
   const [speciesRuleSaving, setSpeciesRuleSaving] = useState<string | null>(null);
+
+  // Historico de eventos por grupo de lote (modal)
+  const [historyModalBatchIds, setHistoryModalBatchIds] = useState<string[] | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingEventBatchId, setEditingEventBatchId] = useState<string | null>(null);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
   const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
@@ -727,6 +732,8 @@ export function IncubatorsManager() {
     const groupKey = `${targetBatch.flockGroupId}|${toDateInput(targetBatch.entryDate)}`;
     setError(null);
     setFinalizeBatchOnSubmit(type === "HATCHED");
+    setEditingEventId(null);
+    setEditingEventBatchId(null);
     setEventForm({
       batchId: groupKey,
       type,
@@ -735,6 +742,43 @@ export function IncubatorsManager() {
       notes: ""
     });
     setShowEventModal(true);
+  }
+
+  // === Historico de eventos ===
+  function openBatchHistoryModal(batchIds: string[]) {
+    setHistoryModalBatchIds(batchIds);
+  }
+
+  function openEditEvent(batchId: string, ev: BatchEvent) {
+    setError(null);
+    setEditingEventId(ev.id);
+    setEditingEventBatchId(batchId);
+    setFinalizeBatchOnSubmit(false);
+    setEventForm({
+      batchId: "", // nao usado em modo edicao (batchId real vem de editingEventBatchId)
+      type: ev.type as EventForm["type"],
+      quantity: ev.quantity,
+      eventDate: toDateInput(ev.eventDate),
+      notes: ev.notes ?? ""
+    });
+    setHistoryModalBatchIds(null);
+    setShowEventModal(true);
+  }
+
+  async function deleteEvent(batchId: string, eventId: string) {
+    if (!window.confirm("Excluir este evento?")) return;
+    try {
+      const res = await fetch(`/api/incubators/batches/${batchId}/events/${eventId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Erro ao excluir.");
+      }
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao excluir.");
+    }
   }
 
   function openFinalizeForSpecies(batchIds: string[]) {
@@ -769,6 +813,41 @@ export function IncubatorsManager() {
     event.preventDefault();
     setSaving(true);
     setError(null);
+
+    // === Modo edicao: PATCH no evento existente ===
+    if (editingEventId && editingEventBatchId) {
+      try {
+        const res = await fetch(
+          `/api/incubators/batches/${editingEventBatchId}/events/${editingEventId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: eventForm.type,
+              quantity: eventForm.quantity,
+              eventDate: eventForm.eventDate,
+              notes: eventForm.notes || null
+            })
+          }
+        );
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => ({}))) as { error?: string };
+          setError(payload.error ?? "Falha ao atualizar evento.");
+          setSaving(false);
+          return;
+        }
+        setEditingEventId(null);
+        setEditingEventBatchId(null);
+        setShowEventModal(false);
+        setEventForm((prev) => ({ ...emptyEvent, batchId: prev.batchId }));
+        setSaving(false);
+        await loadData();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao atualizar.");
+        setSaving(false);
+      }
+      return;
+    }
 
     if (!selectedEventBatchGroup) {
       setError("Selecione o lote.");
@@ -1034,22 +1113,32 @@ export function IncubatorsManager() {
                           style={{ width: `${item.progressPercent}%` }}
                         />
                       </div>
-                      {/* Acoes inline: 1 click pra registrar cada tipo de evento
-                          desse lote (sem precisar abrir menu separado). */}
-                      <div className="mt-2 flex flex-wrap gap-1">
+                      {/* Acoes inline: 1 click pra registrar cada tipo de evento.
+                          Tooltip (title) revela o nome ao passar mouse / focar. */}
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {EVENT_ICONS.map((icon) => (
                           <button
                             key={icon.type}
                             type="button"
                             onClick={() => openEventModalForSpeciesType(item.batchIds, icon.type)}
-                            className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold transition ${icon.bg} ${icon.text} ${icon.hoverBg}`}
+                            className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-base transition ${icon.bg} ${icon.hoverBg}`}
                             aria-label={icon.label}
                             title={icon.label}
                           >
                             <span aria-hidden>{icon.emoji}</span>
-                            <span className="hidden sm:inline">{icon.label}</span>
                           </button>
                         ))}
+                        {/* Botao historico: lista eventos registrados deste
+                            grupo de lotes com opcao de editar/excluir cada um. */}
+                        <button
+                          type="button"
+                          onClick={() => openBatchHistoryModal(item.batchIds)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-zinc-600 transition hover:bg-zinc-200"
+                          aria-label="Editar eventos registrados"
+                          title="Editar eventos registrados"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1304,9 +1393,14 @@ export function IncubatorsManager() {
 
       <AppModal
         open={showEventModal}
-        title={finalizeBatchOnSubmit ? "Finalizar lote" : "Registrar evento do lote"}
+        title={editingEventId ? "Editar evento" : finalizeBatchOnSubmit ? "Finalizar lote" : "Registrar evento do lote"}
         error={error}
-        onClose={() => { setShowEventModal(false); setFinalizeBatchOnSubmit(false); }}
+        onClose={() => {
+          setShowEventModal(false);
+          setFinalizeBatchOnSubmit(false);
+          setEditingEventId(null);
+          setEditingEventBatchId(null);
+        }}
       >
         <form className="grid gap-3" onSubmit={createEvent}>
           {finalizeBatchOnSubmit ? (
@@ -1314,23 +1408,26 @@ export function IncubatorsManager() {
               Ao confirmar, o evento sera registrado e o lote sera marcado como finalizado, saindo da lista de ativos. Ajuste a quantidade real de pintinhos nascidos antes de confirmar.
             </p>
           ) : null}
-          <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
-            <option value="">Selecione o lote</option>{eventBatchOptions.map((opt) => <option key={opt.groupKey} value={opt.groupKey}>{opt.label}</option>)}
-          </select>
+          {/* No modo edicao, o lote ja foi resolvido — esconde o seletor */}
+          {!editingEventId ? (
+            <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.batchId} onChange={(e) => setEventForm((p) => ({ ...p, batchId: e.target.value }))}>
+              <option value="">Selecione o lote</option>{eventBatchOptions.map((opt) => <option key={opt.groupKey} value={opt.groupKey}>{opt.label}</option>)}
+            </select>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <select className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm" value={eventForm.type} onChange={(e) => setEventForm((p) => ({ ...p, type: e.target.value as EventForm["type"] }))}>
               <option value="HATCHED">Nasceram</option><option value="INFERTILE">Infertis</option><option value="EMBRYO_LOSS">Nao desenvolveram</option><option value="PIPPED_DIED">Bicaram e morreram</option><option value="IN_PROGRESS">Em andamento</option><option value="OTHER">Outro</option>
             </select>
-            <Input type="number" min={0} max={maxEventQuantity || undefined} value={eventForm.quantity || ""} onChange={(e) => setEventForm((p) => ({ ...p, quantity: Math.min(Number(e.target.value) || 0, maxEventQuantity || Number(e.target.value) || 0) }))} />
+            <Input type="number" min={0} max={editingEventId ? undefined : (maxEventQuantity || undefined)} value={eventForm.quantity || ""} onChange={(e) => setEventForm((p) => ({ ...p, quantity: editingEventId ? (Number(e.target.value) || 0) : Math.min(Number(e.target.value) || 0, maxEventQuantity || Number(e.target.value) || 0) }))} />
           </div>
-          {selectedEventBatchGroup && isConsumingEvent ? (
+          {!editingEventId && selectedEventBatchGroup && isConsumingEvent ? (
             <p className="text-xs text-zinc-500">
               Ovos restantes para classificar: <span className="font-semibold text-zinc-700">{remainingEggsForBatch}</span> de {selectedEventBatchGroup.totalEggs}
             </p>
           ) : null}
           <Input type="date" value={eventForm.eventDate} onChange={(e) => setEventForm((p) => ({ ...p, eventDate: e.target.value }))} />
           <Input placeholder="Observacoes" value={eventForm.notes} onChange={(e) => setEventForm((p) => ({ ...p, notes: e.target.value }))} />
-          <Button type="submit" disabled={saving}>{saving ? (finalizeBatchOnSubmit ? "Finalizando..." : "Registrando...") : (finalizeBatchOnSubmit ? "Confirmar e finalizar lote" : "Registrar evento")}</Button>
+          <Button type="submit" disabled={saving}>{saving ? (editingEventId ? "Salvando..." : finalizeBatchOnSubmit ? "Finalizando..." : "Registrando...") : (editingEventId ? "Salvar alteracoes" : finalizeBatchOnSubmit ? "Confirmar e finalizar lote" : "Registrar evento")}</Button>
         </form>
       </AppModal>
 
@@ -1369,6 +1466,98 @@ export function IncubatorsManager() {
             </div>
           </div>
         ) : null}
+      </AppModal>
+
+      {/* Historico de eventos do grupo de lotes — permite editar/excluir
+          eventos ja registrados (data errada, qty errada, etc). */}
+      <AppModal
+        open={historyModalBatchIds !== null}
+        title="📜 Eventos registrados"
+        onClose={() => setHistoryModalBatchIds(null)}
+      >
+        {(() => {
+          if (!historyModalBatchIds) return null;
+          // Coleta eventos de todos os batches selecionados, com referencia
+          // ao batchId original (precisa pra editar/deletar)
+          const rows: Array<{ batchId: string; ev: BatchEvent }> = [];
+          for (const batchId of historyModalBatchIds) {
+            const batch = batches.find((b) => b.id === batchId);
+            if (!batch) continue;
+            for (const ev of batch.events) {
+              // Pula eventos IN_PROGRESS auto-criados na criacao do lote
+              if (ev.type === "IN_PROGRESS") continue;
+              rows.push({ batchId, ev });
+            }
+          }
+          rows.sort((a, b) => new Date(b.ev.eventDate).getTime() - new Date(a.ev.eventDate).getTime());
+
+          if (rows.length === 0) {
+            return (
+              <div className="rounded-2xl border border-dashed border-zinc-300 bg-white py-10 text-center">
+                <p className="text-2xl">📭</p>
+                <p className="mt-2 text-sm font-medium text-zinc-700">
+                  Nenhum evento registrado ainda
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Use os icones na linha da especie pra registrar.
+                </p>
+              </div>
+            );
+          }
+
+          const typeMeta = (type: string) =>
+            EVENT_ICONS.find((i) => i.type === type) ?? { emoji: "❓", label: type, bg: "bg-zinc-100", text: "text-zinc-700", hoverBg: "" };
+
+          return (
+            <ul className="grid gap-2">
+              {rows.map(({ batchId, ev }) => {
+                const meta = typeMeta(ev.type);
+                return (
+                  <li
+                    key={ev.id}
+                    className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-3"
+                  >
+                    <span
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-base ${meta.bg}`}
+                      aria-hidden
+                    >
+                      {meta.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-zinc-900">
+                        {meta.label} · {ev.quantity} ovo{ev.quantity === 1 ? "" : "s"}
+                      </p>
+                      <p className="text-[11px] text-zinc-500">
+                        {new Date(ev.eventDate).toLocaleDateString("pt-BR")}
+                        {ev.notes ? ` · ${ev.notes}` : ""}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => openEditEvent(batchId, ev)}
+                      aria-label="Editar evento"
+                      title="Editar evento"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <DeleteActionButton
+                      iconOnly
+                      onClick={() => deleteEvent(batchId, ev.id)}
+                      aria-label="Excluir evento"
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        })()}
+        <div className="mt-4 flex justify-end">
+          <Button type="button" variant="outline" onClick={() => setHistoryModalBatchIds(null)}>
+            Fechar
+          </Button>
+        </div>
       </AppModal>
 
       {/* Tabela de eclosao por especie — configura dias de incubacao
