@@ -69,6 +69,7 @@ export type DashboardData = {
     funnelStages: Array<{ label: string; value: number }>;
     revenueByGroup: Array<{ label: string; value: number }>;
     expensesByCategory: Array<{ label: string; value: number }>;
+    deathCauses: Array<{ label: string; value: number }>;
   };
   warning?: string;
 };
@@ -703,6 +704,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const sales30 = await salesForRange(tenantId, days30);
   const sales365 = await salesForRange(tenantId, days365);
 
+  const deathCauses = await buildDeathCauses(tenantId);
+
   return {
     kpis: {
       totalBirds,
@@ -761,7 +764,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         soldAllTime: vitrineSalesAll.reduce((s, x) => s + x.quantitySold, 0)
       }),
       revenueByGroup: buildRevenueByGroup(vitrineSalesAll, eggSaleItemsAll, manualSaleEntriesAll),
-      expensesByCategory: buildExpensesByCategory(expensesThisMonth)
+      expensesByCategory: buildExpensesByCategory(expensesThisMonth),
+      deathCauses
     }
   };
 }
@@ -977,6 +981,35 @@ function decimalToNumber(v: { toNumber: () => number } | number | null | undefin
   return v.toNumber();
 }
 
+/**
+ * Causas de morte: agrega BirdStatusHistory.toStatus = DEAD agrupando
+ * pelo deathReason.name. Birds mortas sem causa cadastrada caem em
+ * 'Sem causa especificada'. Considera apenas transicoes pra DEAD
+ * (preserva direcao temporal — uma ave que voltou de DEAD pra ACTIVE
+ * gerou um historico DEAD que deve continuar contando como morte
+ * registrada).
+ */
+async function buildDeathCauses(
+  tenantId: string
+): Promise<Array<{ label: string; value: number }>> {
+  const deaths = await prisma.birdStatusHistory.findMany({
+    where: { tenantId, toStatus: BirdStatus.DEAD },
+    select: { deathReason: { select: { name: true } } }
+  });
+
+  const map = new Map<string, number>();
+  for (const death of deaths) {
+    const label = death.deathReason?.name?.trim() || "Sem causa especificada";
+    map.set(label, (map.get(label) ?? 0) + 1);
+  }
+
+  return Array.from(map.entries())
+    .map(([label, value]) => ({ label, value }))
+    .filter((r) => r.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+}
+
 export async function getDashboardDataSafe(tenantId: string): Promise<DashboardData> {
   try {
     return await getDashboardData(tenantId);
@@ -1029,7 +1062,8 @@ export async function getDashboardDataSafe(tenantId: string): Promise<DashboardD
         batchResultsByMonth: [],
         funnelStages: [],
         revenueByGroup: [],
-        expensesByCategory: []
+        expensesByCategory: [],
+        deathCauses: []
       },
       warning: "Não foi possível carregar dados do banco. Verifique a conexão com PostgreSQL."
     };

@@ -827,7 +827,8 @@ export async function changeBirdStatus(
   userId: string | null,
   id: string,
   status: BirdStatus,
-  reason?: string
+  reason?: string,
+  deathReasonId?: string | null
 ) {
   const bird = await prisma.bird.findFirst({ where: { id, tenantId } });
   if (!bird) return null;
@@ -838,13 +839,25 @@ export async function changeBirdStatus(
     data: { status }
   });
 
+  // Valida deathReasonId quando informado: precisa pertencer ao mesmo
+  // tenant pra evitar referencia cross-tenant.
+  let validatedDeathReasonId: string | null = null;
+  if (deathReasonId && status === "DEAD") {
+    const reasonExists = await prisma.deathReason.findFirst({
+      where: { id: deathReasonId, tenantId },
+      select: { id: true }
+    });
+    if (reasonExists) validatedDeathReasonId = reasonExists.id;
+  }
+
   await prisma.birdStatusHistory.create({
     data: {
       tenantId,
       birdId: id,
       fromStatus: bird.status,
       toStatus: status,
-      reason
+      reason,
+      deathReasonId: validatedDeathReasonId
     }
   });
 

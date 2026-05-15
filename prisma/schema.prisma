@@ -335,15 +335,20 @@ model Bird {
 }
 
 model BirdStatusHistory {
-  id         String      @id @default(cuid())
-  tenantId   String
-  birdId     String
-  fromStatus BirdStatus?
-  toStatus   BirdStatus
-  reason     String?
-  createdAt  DateTime    @default(now())
-  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  bird       Bird        @relation(fields: [birdId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  tenantId      String
+  birdId        String
+  fromStatus    BirdStatus?
+  toStatus      BirdStatus
+  reason        String?
+  // Quando toStatus = DEAD, opcionalmente liga a uma DeathReason
+  // do catalogo do tenant — viabiliza grafico 'Causas de morte' no
+  // dashboard. Pra outras transicoes fica null.
+  deathReasonId String?
+  createdAt     DateTime     @default(now())
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bird          Bird         @relation(fields: [birdId], references: [id], onDelete: Cascade)
+  deathReason   DeathReason? @relation(fields: [deathReasonId], references: [id], onDelete: SetNull)
 }
 
 model EggCollection {
@@ -934,6 +939,7 @@ model DeathReason {
   tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   cases         InfirmaryCase[]
   vitrineDeaths VitrineDeathRecord[]
+  birdStatusHistories BirdStatusHistory[]
 
   @@unique([tenantId, name])
 }

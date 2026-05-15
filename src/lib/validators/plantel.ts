@@ -32,7 +32,11 @@ export const birdSchema = z.object({
 
 export const birdStatusSchema = z.object({
   status: z.enum(["ACTIVE", "SICK", "DEAD", "BROODY"]),
-  reason: z.string().trim().optional()
+  reason: z.string().trim().optional(),
+  // Quando status=DEAD, opcionalmente liga a uma causa do catalogo
+  // (alimenta o grafico 'Causas de morte' do dashboard). Pra outros
+  // status fica null/ignorado pelo service.
+  deathReasonId: z.string().cuid().nullable().optional()
 });
 
 export type FlockGroupInput = z.infer<typeof flockGroupSchema>;

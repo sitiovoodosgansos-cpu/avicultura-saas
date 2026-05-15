@@ -25,7 +25,8 @@ export async function POST(
     auth.session.user.id,
     id,
     parsed.data.status,
-    parsed.data.reason
+    parsed.data.reason,
+    parsed.data.deathReasonId ?? null
   );
 
   if (!updated) {

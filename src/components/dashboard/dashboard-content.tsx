@@ -270,6 +270,15 @@ export async function DashboardContent({ tenantId }: { tenantId: string }) {
           format="currency"
           emptyMessage="Ainda não há despesas registradas neste mês."
         />
+        <BarCard
+          title="Causas de morte"
+          subtitle="Histórico total das aves marcadas como mortas no Plantel"
+          data={data.charts.deathCauses}
+          palette="rose"
+          icon={<Emoji char="🪦" />}
+          layout="horizontal"
+          emptyMessage="Sem óbitos registrados. Quando marcar uma ave como morta, a causa aparece aqui."
+        />
       </section>
 
       <section className="grid gap-4 xl:grid-cols-2">

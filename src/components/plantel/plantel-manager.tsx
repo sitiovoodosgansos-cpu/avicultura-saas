@@ -348,9 +348,102 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     await loadData();
   }
 
+  // === Modal de causa de morte ===
+  type DeathReasonOption = { id: string; name: string };
+  const [deathModalBirdId, setDeathModalBirdId] = useState<string | null>(null);
+  const [deathReasonOptions, setDeathReasonOptions] = useState<DeathReasonOption[]>([]);
+  const [selectedDeathReasonId, setSelectedDeathReasonId] = useState<string>("");
+  const [newDeathReasonName, setNewDeathReasonName] = useState("");
+  const [deathReasonMode, setDeathReasonMode] = useState<"select" | "new">("select");
+  const [deathNotes, setDeathNotes] = useState("");
+  const [deathSaving, setDeathSaving] = useState(false);
+
+  async function openDeathModal(birdId: string) {
+    setDeathModalBirdId(birdId);
+    setSelectedDeathReasonId("");
+    setNewDeathReasonName("");
+    setDeathReasonMode("select");
+    setDeathNotes("");
+    setError(null);
+    // Carrega catalogo de causas (cache leve — recarrega toda abertura
+    // pra capturar causas novas criadas em outro lugar)
+    try {
+      const res = await fetch("/api/plantel/death-reasons", { cache: "no-store" });
+      if (res.ok) {
+        const data = (await res.json()) as { items: DeathReasonOption[] };
+        setDeathReasonOptions(data.items);
+      }
+    } catch {
+      // Silencia — dropdown so fica vazio. Usuario ainda pode usar 'Nova causa'.
+    }
+  }
+
+  function closeDeathModal() {
+    setDeathModalBirdId(null);
+    setDeathReasonMode("select");
+    setSelectedDeathReasonId("");
+    setNewDeathReasonName("");
+    setDeathNotes("");
+  }
+
+  async function saveDeath() {
+    if (!deathModalBirdId) return;
+    setDeathSaving(true);
+    setError(null);
+    try {
+      let deathReasonId: string | null = null;
+
+      if (deathReasonMode === "new" && newDeathReasonName.trim()) {
+        // Cria nova causa primeiro, depois usa o id
+        const createRes = await fetch("/api/plantel/death-reasons", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: newDeathReasonName.trim() })
+        });
+        if (!createRes.ok) {
+          const body = (await createRes.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? "Erro ao criar causa.");
+        }
+        const created = (await createRes.json()) as { id: string };
+        deathReasonId = created.id;
+      } else if (deathReasonMode === "select" && selectedDeathReasonId) {
+        deathReasonId = selectedDeathReasonId;
+      }
+
+      const response = await fetch(`/api/plantel/birds/${deathModalBirdId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "DEAD",
+          reason: deathNotes.trim() || null,
+          deathReasonId
+        })
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "Erro ao registrar obito.");
+      }
+
+      closeDeathModal();
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao registrar obito.");
+    } finally {
+      setDeathSaving(false);
+    }
+  }
+
   async function applyBirdStatus(id: string, override?: BirdStatus) {
     const nextStatus = override ?? statusDraftByBird[id];
     if (!nextStatus) return;
+
+    // DEAD abre o modal especifico (dropdown de causas + observacoes).
+    // Resto continua com prompt simples (mudancas comuns nao precisam
+    // de fluxo elaborado).
+    if (nextStatus === "DEAD") {
+      await openDeathModal(id);
+      return;
+    }
 
     const reason = window.prompt("Motivo da alteracao de status (opcional):") ?? "";
 
@@ -1490,6 +1583,105 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
           <Button type="button" variant="outline" onClick={() => setRevenueModal(null)}>
             Fechar
           </Button>
+        </div>
+      </AppModal>
+
+      {/* Modal de registro de óbito — abre ao clicar 💀 numa ave.
+          Dropdown de causas + opção '+ Nova causa' que cria no catálogo
+          do tenant. Reason eh observacao livre (campo notes). */}
+      <AppModal
+        open={deathModalBirdId !== null}
+        title="💀 Registrar óbito"
+        error={error}
+        onClose={closeDeathModal}
+      >
+        <div className="grid gap-4">
+          <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+            A ave sera marcada como morta. Selecione a causa para gerar estatísticas
+            no dashboard.
+          </p>
+
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+              Causa da morte
+            </p>
+            {deathReasonMode === "select" ? (
+              <div className="grid gap-2">
+                <select
+                  className="h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm"
+                  value={selectedDeathReasonId}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setDeathReasonMode("new");
+                      setSelectedDeathReasonId("");
+                      return;
+                    }
+                    setSelectedDeathReasonId(e.target.value);
+                  }}
+                >
+                  <option value="">Sem causa especificada</option>
+                  {deathReasonOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.name}
+                    </option>
+                  ))}
+                  <option value="__new__">+ Inserir nova causa…</option>
+                </select>
+                {deathReasonOptions.length === 0 ? (
+                  <p className="text-[11px] text-slate-500">
+                    Nenhuma causa cadastrada ainda. Use &quot;Inserir nova causa&quot; pra começar.
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="grid gap-2">
+                <Input
+                  placeholder="Ex: Doença respiratória, Predador, Acidente..."
+                  value={newDeathReasonName}
+                  onChange={(e) => setNewDeathReasonName(e.target.value)}
+                  autoFocus
+                  maxLength={120}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDeathReasonMode("select");
+                    setNewDeathReasonName("");
+                  }}
+                >
+                  ← Escolher da lista existente
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+              Observações (opcional)
+            </p>
+            <Input
+              placeholder="Ex: Encontrada de manhã, sintomas há 3 dias..."
+              value={deathNotes}
+              onChange={(e) => setDeathNotes(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={closeDeathModal} disabled={deathSaving}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={saveDeath}
+              disabled={
+                deathSaving ||
+                (deathReasonMode === "new" && !newDeathReasonName.trim())
+              }
+            >
+              {deathSaving ? "Salvando..." : "Registrar óbito"}
+            </Button>
+          </div>
         </div>
       </AppModal>
 
