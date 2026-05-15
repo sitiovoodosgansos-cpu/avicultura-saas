@@ -17,7 +17,10 @@ const birdInVisibleGroupFilter = {
   flockGroup: visibleGroupFilter,
   // Aves arquivadas (soft-archive em /plantel) saiem das contagens
   // do dashboard pra ficar consistente com o card do Plantel.
-  archivedAt: null
+  archivedAt: null,
+  // Aves criadas via 'aves avulsas' da Vitrine (aggregatedListingId)
+  // tambem ficam de fora — nao sao aves do criatorio, sao revenda.
+  aggregatedListingId: null
 } satisfies Prisma.BirdWhereInput;
 
 export type DashboardData = {
@@ -278,12 +281,19 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         title: true,
         matrixCount: true,
         reproducerCount: true,
-        // Conta apenas aves vivas (status != DEAD) e nao arquivadas pra
-        // alimentar o totalBirds do dashboard. Bate com a regra do
-        // Plantel: Total = vivas (inclui doentes/chocas), Mortas separadas.
+        // Conta apenas aves vivas (status != DEAD), nao arquivadas e que
+        // pertencem ao plantel real (sem aggregatedListingId — Vitrine
+        // 'avulsas' nao contam). Bate com a regra do Plantel: Total =
+        // vivas no criatorio (inclui doentes/chocas), Mortas separadas.
         _count: {
           select: {
-            birds: { where: { status: { not: BirdStatus.DEAD }, archivedAt: null } }
+            birds: {
+              where: {
+                status: { not: BirdStatus.DEAD },
+                archivedAt: null,
+                aggregatedListingId: null
+              }
+            }
           }
         }
       }

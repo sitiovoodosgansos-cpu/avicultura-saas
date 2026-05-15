@@ -159,10 +159,15 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
   // Aves arquivadas (soft-archive) somem da listagem do Plantel — saiem
   // do Total, Matrizes, Reprodutores e Mortas. Continuam no DB pra nao
   // perder historico de vacinas/status/vendas.
+  //
+  // Aves criadas via 'aves avulsas' da Vitrine (aggregatedListingId != null)
+  // tambem ficam fora do Plantel — sao aves de revenda/passagem que nunca
+  // foram do criatorio. So contam pra Vitrine.
   const birdWhere: Prisma.BirdWhereInput = {
     tenantId,
     flockGroupId: { in: groupIds },
-    archivedAt: null
+    archivedAt: null,
+    aggregatedListingId: null
   };
 
   const allBirds = await prisma.bird.findMany({
