@@ -215,6 +215,19 @@ function ItemSelect({
 // avulso". Default eh dropdown. Se o valor externo nao bate com nenhum
 // grupo conhecido (lancamento antigo, edicao, etc), entra em modo
 // avulso automaticamente.
+/**
+ * Seletor de item pra categorias de venda. Tem 2 modos explicitos via
+ * tabs no topo:
+ *  - DENTRO DO PLANTEL: dropdown com grupos do plantel. Venda eh
+ *    atribuida ao FlockGroup correspondente e conta no faturamento
+ *    da raca (dashboard 'Receita por raça' + tile do Plantel).
+ *  - FORA DO PLANTEL: input livre. Pra revendas, comissoes ou aves
+ *    que o user nao cria. Conta na receita TOTAL do criatorio mas
+ *    NAO eh atribuida a nenhuma raca especifica.
+ *
+ * Mode eh auto-detectado quando edita lancamento existente: se o
+ * value bate com algum group.title, comeca em 'in'; senao 'out'.
+ */
 function FlockGroupItemSelect({
   value,
   flockGroups,
@@ -228,64 +241,90 @@ function FlockGroupItemSelect({
     () => new Set(flockGroups.map((g) => g.title)),
     [flockGroups]
   );
-  const externalIsCustom = value !== "" && !knownTitles.has(value);
-  const [customManual, setCustomManual] = useState(false);
-  const showCustom = externalIsCustom || customManual;
+  // Mode inicial: se value bate com grupo → 'in'; se eh string nao-vazia
+  // que nao bate → 'out'; se vazio (nova entrada) → 'in' por default.
+  const initialMode: "in" | "out" =
+    value !== "" && !knownTitles.has(value) ? "out" : "in";
+  const [mode, setMode] = useState<"in" | "out">(initialMode);
 
-  // Sem grupos cadastrados → cai direto pro modo avulso (input livre)
+  // Quando user troca de aba, limpa o valor pra forcar nova selecao
+  function switchMode(next: "in" | "out") {
+    if (next === mode) return;
+    setMode(next);
+    onChange("");
+  }
+
+  // Sem grupos cadastrados → so mode 'out' faz sentido. Forca e
+  // esconde o tab pra nao confundir.
   if (flockGroups.length === 0) {
     return (
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Item vendido (cadastre grupos em Plantel para usar lista)"
+        placeholder="Item vendido (cadastre grupos em Plantel para usar a lista)"
       />
     );
   }
 
-  if (showCustom) {
-    return (
-      <div className="grid gap-2">
-        <Input
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Item avulso (não está no Plantel)"
-        />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setCustomManual(false);
-            onChange("");
-          }}
-        >
-          ← Voltar para lista de grupos
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <select
-      className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
-      value={value}
-      onChange={(e) => {
-        if (e.target.value === "__custom__") {
-          setCustomManual(true);
-          onChange("");
-          return;
-        }
-        onChange(e.target.value);
-      }}
-    >
-      <option value="">Selecione a raça/grupo vendido</option>
-      {flockGroups.map((g) => (
-        <option key={g.id} value={g.title}>
-          {g.title}
-        </option>
-      ))}
-      <option value="__custom__">+ Outro (venda avulsa)</option>
-    </select>
+    <div className="grid gap-2">
+      {/* Tabs DENTRO/FORA — segmented control pequeno */}
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-100 p-1">
+        <button
+          type="button"
+          onClick={() => switchMode("in")}
+          className={`rounded-lg px-2 py-1.5 text-xs font-semibold transition ${
+            mode === "in"
+              ? "bg-white text-emerald-700 shadow-sm"
+              : "text-zinc-600 hover:bg-white/50"
+          }`}
+        >
+          🦚 Dentro do Plantel
+        </button>
+        <button
+          type="button"
+          onClick={() => switchMode("out")}
+          className={`rounded-lg px-2 py-1.5 text-xs font-semibold transition ${
+            mode === "out"
+              ? "bg-white text-sky-700 shadow-sm"
+              : "text-zinc-600 hover:bg-white/50"
+          }`}
+        >
+          🌐 Fora do Plantel
+        </button>
+      </div>
+
+      {mode === "in" ? (
+        <>
+          <select
+            className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm"
+            value={knownTitles.has(value) ? value : ""}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            <option value="">Selecione a raça/grupo vendido</option>
+            {flockGroups.map((g) => (
+              <option key={g.id} value={g.title}>
+                {g.title}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-emerald-700">
+            ✓ Esta venda conta no faturamento da raça (dashboard e card do Plantel).
+          </p>
+        </>
+      ) : (
+        <>
+          <Input
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Ex: Ganso Sinaleiro (revenda), Comissão, etc."
+          />
+          <p className="text-[11px] text-sky-700">
+            ℹ️ Esta venda conta na receita total mas NÃO é atribuída a nenhuma raça do plantel.
+          </p>
+        </>
+      )}
+    </div>
   );
 }
 

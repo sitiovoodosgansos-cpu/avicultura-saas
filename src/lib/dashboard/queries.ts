@@ -763,7 +763,12 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         availableInVitrine: vitrineAvailableAgg._sum.availableQuantity ?? 0,
         soldAllTime: vitrineSalesAll.reduce((s, x) => s + x.quantitySold, 0)
       }),
-      revenueByGroup: buildRevenueByGroup(vitrineSalesAll, eggSaleItemsAll, manualSaleEntriesAll),
+      revenueByGroup: buildRevenueByGroup(
+        vitrineSalesAll,
+        eggSaleItemsAll,
+        manualSaleEntriesAll,
+        new Set(flockGroupsForTotal.map((g) => g.title))
+      ),
       expensesByCategory: buildExpensesByCategory(expensesThisMonth),
       deathCauses
     }
@@ -908,18 +913,18 @@ function buildRevenueByGroup(
   manualSaleEntries: Array<{
     item: string;
     amount: { toNumber: () => number } | number | null;
-  }>
+  }>,
+  knownGroupTitles: Set<string>
 ): Array<{ label: string; value: number }> {
   // Receita por raca agregando 3 fontes (uma barra por flockGroup):
   //  1) VitrineSale — 1 sale = 1 listing = 1 flockGroup (com resolucao
   //     Chocada→pai quando o listing eh de filhote derivado de chocada)
   //  2) EggSaleItem — granular POR ITEM da venda, cada um com sua
-  //     propria raca via trayEntry.tray.flockGroup. Substitui o uso
-  //     antigo do FinancialEntry.item que concatenava varios racas
-  //     quando uma venda continha ovos de especies diferentes.
-  //  3) FinancialEntry manuais — lancamentos do usuario na tela
-  //     /financeiro, com `item` ja sendo o titulo de UMA raca (o
-  //     dropdown la salva uma raca por linha).
+  //     propria raca via trayEntry.tray.flockGroup.
+  //  3) FinancialEntry manuais — APENAS quando item bate com algum
+  //     group.title do plantel. Lancamentos 'Fora do Plantel' (revenda,
+  //     comissao, etc) ficam de fora desse grafico (continuam contando
+  //     na receita total mas nao em raca especifica).
   const map = new Map<string, number>();
 
   for (const sale of vitrineSales) {
@@ -940,7 +945,11 @@ function buildRevenueByGroup(
   }
 
   for (const entry of manualSaleEntries) {
-    const label = entry.item?.trim() || "Sem grupo";
+    const label = entry.item?.trim();
+    if (!label) continue;
+    // Filtro: so contabiliza no grafico se o label bate com algum grupo
+    // ativo do plantel. Itens 'Fora do Plantel' (revenda etc) ficam fora.
+    if (!knownGroupTitles.has(label)) continue;
     const amount = decimalToNumber(entry.amount);
     if (amount <= 0) continue;
     map.set(label, (map.get(label) ?? 0) + amount);
