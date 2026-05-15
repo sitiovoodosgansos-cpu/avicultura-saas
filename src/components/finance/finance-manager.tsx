@@ -84,10 +84,6 @@ const defaultEntryCategories: CategoryOption[] = [
   { value: "OTHER_INCOME", label: "Outras entradas" }
 ];
 
-// Categorias de venda — nessas, o campo 'item' vira dropdown de grupos
-// do Plantel pra alimentar o KPI 'Receita por raca' do Dashboard.
-const SALE_CATEGORIES = new Set(["EGG_SALE", "CHICK_SALE", "ADULT_BIRD_SALE"]);
-
 type FlockGroupOption = { id: string; title: string };
 
 const defaultExpenseCategories: CategoryOption[] = [
@@ -765,18 +761,11 @@ export function FinanceManager() {
                 onCreate={() => openCategoryModal("entryCategory")}
               />
             </div>
-            {SALE_CATEGORIES.has(entryForm.category) ? (
-              <FlockGroupItemSelect
-                value={entryForm.item}
-                flockGroups={flockGroups}
-                onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))}
-              />
-            ) : (
-              <div className="grid grid-cols-[1fr_auto] gap-2">
-                <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
-                <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
-              </div>
-            )}
+            <FlockGroupItemSelect
+              value={entryForm.item}
+              flockGroups={flockGroups}
+              onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))}
+            />
             <div className="relative">
               <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
               <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
@@ -1174,18 +1163,11 @@ export function FinanceManager() {
             <Input type="date" value={entryForm.date} onChange={(e) => setEntryForm((p) => ({ ...p, date: e.target.value }))} />
             <CategorySelect value={entryForm.category} options={entryCategoryOptions} onChange={(value) => setEntryForm((p) => ({ ...p, category: value }))} onCreate={() => openCategoryModal("entryCategory")} />
           </div>
-          {SALE_CATEGORIES.has(entryForm.category) ? (
-            <FlockGroupItemSelect
-              value={entryForm.item}
-              flockGroups={flockGroups}
-              onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))}
-            />
-          ) : (
-            <div className="grid grid-cols-[1fr_auto] gap-2">
-              <ItemSelect value={entryForm.item} options={entryItemOptions} onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))} onCreate={() => openCategoryModal("entryItem")} />
-              <Button type="button" variant="outline" onClick={() => removeCustomEntryItem(entryForm.item)} title="Excluir item selecionado">{"🗑️"}</Button>
-            </div>
-          )}
+          <FlockGroupItemSelect
+            value={entryForm.item}
+            flockGroups={flockGroups}
+            onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))}
+          />
           <div className="relative">
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
             <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
