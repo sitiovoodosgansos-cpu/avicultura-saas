@@ -405,6 +405,12 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
         BROODY: groupAllBirds.filter((bird) => bird.status === "BROODY").length
       };
 
+      // Aves vivas = todas exceto mortas. Eh oque entra no 'Total' do
+      // card — a diferenca pra 'Ativas' eh justamente doentes + chocas.
+      // Mortas saem do Total automaticamente ao mudar o status; arquivar
+      // (botao) tira tambem da contagem de 'Mortas'.
+      const aliveBirds = groupAllBirds.filter((bird) => bird.status !== "DEAD").length;
+
       // Matrizes = somente FEMEAS ATIVAS (status=ACTIVE). Doentes, chocas
       // e mortas saem da contagem porque a tile mede 'matrizes produtivas
       // pra postura'. Mesmo criterio pra reprodutores.
@@ -428,7 +434,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
       return {
         ...group,
         summary: {
-          totalBirds: Math.max(groupAllBirds.length, configuredTotal),
+          totalBirds: Math.max(aliveBirds, configuredTotal),
           females,
           males,
           daughters: daughtersFor(group.id),

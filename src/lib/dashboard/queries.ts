@@ -278,7 +278,14 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         title: true,
         matrixCount: true,
         reproducerCount: true,
-        _count: { select: { birds: true } }
+        // Conta apenas aves vivas (status != DEAD) e nao arquivadas pra
+        // alimentar o totalBirds do dashboard. Bate com a regra do
+        // Plantel: Total = vivas (inclui doentes/chocas), Mortas separadas.
+        _count: {
+          select: {
+            birds: { where: { status: { not: BirdStatus.DEAD }, archivedAt: null } }
+          }
+        }
       }
     }),
     prisma.bird.count({ where: { tenantId, status: BirdStatus.ACTIVE, ...birdInVisibleGroupFilter } }),
