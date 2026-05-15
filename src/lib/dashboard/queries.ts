@@ -14,7 +14,10 @@ const visibleGroupFilter = {
 } satisfies Prisma.FlockGroupWhereInput;
 
 const birdInVisibleGroupFilter = {
-  flockGroup: visibleGroupFilter
+  flockGroup: visibleGroupFilter,
+  // Aves arquivadas (soft-archive em /plantel) saiem das contagens
+  // do dashboard pra ficar consistente com o card do Plantel.
+  archivedAt: null
 } satisfies Prisma.BirdWhereInput;
 
 export type DashboardData = {

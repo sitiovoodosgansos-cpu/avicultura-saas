@@ -316,6 +316,11 @@ model Bird {
   purchaseValue   Decimal?            @db.Decimal(12, 2)
   origin          String?
   status          BirdStatus          @default(ACTIVE)
+  // Soft archive — usado pelo botao 'Arquivar' do card de aves mortas.
+  // Aves arquivadas saem da contagem de Total/Matrizes/Reprodutores no
+  // Plantel, mas continuam no banco pra preservar historico (vacinas,
+  // status history, vendas etc.). Diferente do hard delete (trash).
+  archivedAt      DateTime?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   // Vinculo com listing agregado da vitrine (aves avulsas em lote).

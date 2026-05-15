@@ -156,9 +156,13 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
   }
 
   const groupIds = groups.map((group) => group.id);
+  // Aves arquivadas (soft-archive) somem da listagem do Plantel — saiem
+  // do Total, Matrizes, Reprodutores e Mortas. Continuam no DB pra nao
+  // perder historico de vacinas/status/vendas.
   const birdWhere: Prisma.BirdWhereInput = {
     tenantId,
-    flockGroupId: { in: groupIds }
+    flockGroupId: { in: groupIds },
+    archivedAt: null
   };
 
   const allBirds = await prisma.bird.findMany({
@@ -401,8 +405,15 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
         BROODY: groupAllBirds.filter((bird) => bird.status === "BROODY").length
       };
 
-      const females = groupAllBirds.filter((bird) => bird.sex === "FEMALE").length;
-      const males = groupAllBirds.filter((bird) => bird.sex === "MALE").length;
+      // Matrizes = somente FEMEAS ATIVAS (status=ACTIVE). Doentes, chocas
+      // e mortas saem da contagem porque a tile mede 'matrizes produtivas
+      // pra postura'. Mesmo criterio pra reprodutores.
+      const females = groupAllBirds.filter(
+        (bird) => bird.sex === "FEMALE" && bird.status === "ACTIVE"
+      ).length;
+      const males = groupAllBirds.filter(
+        (bird) => bird.sex === "MALE" && bird.status === "ACTIVE"
+      ).length;
 
       const visible = filters.status || filters.ring ? groupFilteredBirds.length > 0 : true;
       if (!visible) return null;
@@ -825,6 +836,47 @@ export async function deleteBird(tenantId: string, userId: string | null, id: st
   });
 
   return true;
+}
+
+/**
+ * Soft-archive de uma ave morta. Diferente do deleteBird (hard delete),
+ * mantem a linha no DB pra preservar historico (vacinas, status history,
+ * vendas). Apenas tira da listagem do Plantel — sai do Total, Matrizes,
+ * Reprodutores e Mortas.
+ *
+ * Retorno:
+ * - null se ave nao existe
+ * - { ok: false, message } se nao for status=DEAD (so morta arquiva)
+ * - bird atualizado se sucesso
+ */
+export async function archiveBird(tenantId: string, userId: string | null, id: string) {
+  const bird = await prisma.bird.findFirst({ where: { id, tenantId } });
+  if (!bird) return null;
+  if (bird.status !== "DEAD") {
+    return {
+      ok: false as const,
+      message: "So da pra arquivar aves marcadas como mortas."
+    };
+  }
+  if (bird.archivedAt) return bird; // ja arquivada (idempotente)
+
+  const updated = await prisma.bird.update({
+    where: { id },
+    data: { archivedAt: new Date() }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      tenantId,
+      userId: userId ?? undefined,
+      action: "BIRD_ARCHIVE",
+      entity: "Bird",
+      entityId: id,
+      after: { ringNumber: bird.ringNumber, archivedAt: updated.archivedAt }
+    }
+  });
+
+  return updated;
 }
 
 export async function changeBirdStatus(

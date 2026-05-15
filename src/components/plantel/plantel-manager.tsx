@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BirdStatus } from "@prisma/client";
-import { History, Pencil, Plus } from "lucide-react";
+import { Archive, History, Pencil, Plus } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -343,6 +343,21 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     const response = await fetch(`/api/plantel/birds/${id}`, { method: "DELETE" });
     if (!response.ok) {
       setError("Nao foi possivel excluir a ave.");
+      return;
+    }
+    await loadData();
+  }
+
+  async function archiveDeadBird(id: string, ringNumber: string) {
+    const ok = window.confirm(
+      `Arquivar a ave ${ringNumber}? Ela sai da contagem de Total e Mortas no card, mas o historico (vacinas, status) fica preservado.`
+    );
+    if (!ok) return;
+
+    const response = await fetch(`/api/plantel/birds/${id}/archive`, { method: "POST" });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      setError(payload?.error ?? "Nao foi possivel arquivar a ave.");
       return;
     }
     await loadData();
@@ -1135,6 +1150,17 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                         >
                           <History className="h-4 w-4" aria-hidden />
                         </button>
+                        {bird.status === "DEAD" ? (
+                          <button
+                            type="button"
+                            aria-label="Arquivar ave morta"
+                            title="Arquivar (tira da contagem do card sem apagar do banco)"
+                            className={`${iconBtn} text-amber-700 hover:bg-amber-50`}
+                            onClick={() => archiveDeadBird(bird.id, bird.ringNumber)}
+                          >
+                            <Archive className="h-4 w-4" aria-hidden />
+                          </button>
+                        ) : null}
                         <DeleteActionButton
                           iconOnly
                           onClick={() => removeBird(bird.id)}
