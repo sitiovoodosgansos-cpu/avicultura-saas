@@ -136,6 +136,7 @@ function monthKeyFromDate(date: Date) {
 
 export function EggCollectionManager() {
   const [saving, setSaving] = useState(false);
+  const [deletingDay, setDeletingDay] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [dayRows, setDayRows] = useState<CollectionRow[]>([]);
@@ -304,6 +305,61 @@ export function EggCollectionManager() {
       setError(err instanceof Error ? err.message : "Falha ao salvar as coletas do dia.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteDayCollections() {
+    if (dayRows.length === 0) {
+      setError("Nao ha coletas registradas nesse dia para apagar.");
+      return;
+    }
+
+    const dateLabel = new Date(`${selectedDate}T12:00:00`).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric"
+    });
+    const confirmed = window.confirm(
+      `Apagar TODAS as coletas de ${dateLabel}? As bandejas correspondentes na Prateleira tambem serao removidas e os graficos serao atualizados. Esta acao nao pode ser desfeita.`
+    );
+    if (!confirmed) return;
+
+    setDeletingDay(true);
+    setError(null);
+
+    try {
+      const blockedTitles: string[] = [];
+      for (const row of dayRows) {
+        const response = await fetch(`/api/eggs/collections/${row.id}`, { method: "DELETE" });
+        if (!response.ok) {
+          // 409 = bandeja ja teve ovo vendido/transferido/descartado
+          if (response.status === 409) {
+            blockedTitles.push(row.flockGroup?.title ?? "grupo sem titulo");
+            continue;
+          }
+          throw new Error(`Falha ao apagar a coleta do grupo ${row.flockGroup?.title ?? ""}.`);
+        }
+      }
+
+      if (blockedTitles.length > 0) {
+        setError(
+          `Algumas coletas nao foram apagadas porque ja tem ovos vendidos/enviados/descartados na Prateleira: ${blockedTitles.join(", ")}. Reverta essas acoes antes.`
+        );
+      }
+
+      setDayDraftByGroup(
+        Object.fromEntries(groups.map((group) => [group.groupId, { totalEggs: 0, crackedEggs: 0 }]))
+      );
+      await loadDayRows(selectedDate);
+      await loadData();
+
+      if (blockedTitles.length === 0) {
+        setShowDayModal(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao apagar as coletas do dia.");
+    } finally {
+      setDeletingDay(false);
     }
   }
 
@@ -664,12 +720,27 @@ export function EggCollectionManager() {
               )}
 
               <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={saveDayCollections} disabled={saving || loadingDay}>
+                <Button type="button" onClick={saveDayCollections} disabled={saving || loadingDay || deletingDay}>
                   {saving ? "Salvando..." : "Salvar coleta do dia"}
                 </Button>
-                <Button type="button" variant="outline" onClick={() => loadDayRows(selectedDate)} disabled={loadingDay || saving}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => loadDayRows(selectedDate)}
+                  disabled={loadingDay || saving || deletingDay}
+                >
                   Recarregar
                 </Button>
+                {dayRows.length > 0 ? (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={deleteDayCollections}
+                    disabled={saving || loadingDay || deletingDay}
+                  >
+                    {deletingDay ? "Apagando..." : "Apagar coletas do dia"}
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
