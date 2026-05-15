@@ -345,6 +345,11 @@ model BirdStatusHistory {
   // do catalogo do tenant — viabiliza grafico 'Causas de morte' no
   // dashboard. Pra outras transicoes fica null.
   deathReasonId String?
+  // Data REAL em que o evento aconteceu (ex: data do obito quando
+  // toStatus=DEAD). Permite registrar mortes retroativas sem
+  // mentir o createdAt. Quando null, considerar createdAt como
+  // fallback (rows antigos antes desse campo).
+  occurredAt    DateTime?
   createdAt     DateTime     @default(now())
   tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   bird          Bird         @relation(fields: [birdId], references: [id], onDelete: Cascade)

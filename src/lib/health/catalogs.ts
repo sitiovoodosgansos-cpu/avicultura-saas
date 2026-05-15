@@ -145,11 +145,25 @@ export function listDeathReasons(tenantId: string) {
   });
 }
 
-export function createDeathReason(tenantId: string, input: DeathReasonInput) {
+export async function createDeathReason(tenantId: string, input: DeathReasonInput) {
+  // Upsert por (tenantId, name) — se ja existe causa com esse nome,
+  // retorna a existente (idempotente). Antes lancava 'Unique
+  // constraint failed' quando o usuario digitava manualmente um
+  // nome ja cadastrado no catalogo (cenario comum quando ele nao
+  // viu a opcao no dropdown).
+  const trimmedName = input.name.trim();
+  const existing = await prisma.deathReason.findFirst({
+    where: {
+      tenantId,
+      name: { equals: trimmedName, mode: "insensitive" }
+    }
+  });
+  if (existing) return existing;
+
   return prisma.deathReason.create({
     data: {
       tenantId,
-      name: input.name,
+      name: trimmedName,
       notes: input.notes?.trim() || null
     }
   });

@@ -26,7 +26,8 @@ export async function POST(
     id,
     parsed.data.status,
     parsed.data.reason,
-    parsed.data.deathReasonId ?? null
+    parsed.data.deathReasonId ?? null,
+    parsed.data.occurredAt ?? null
   );
 
   if (!updated) {

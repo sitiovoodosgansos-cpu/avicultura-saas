@@ -356,6 +356,11 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [newDeathReasonName, setNewDeathReasonName] = useState("");
   const [deathReasonMode, setDeathReasonMode] = useState<"select" | "new">("select");
   const [deathNotes, setDeathNotes] = useState("");
+  const [deathOccurredAt, setDeathOccurredAt] = useState(() => {
+    // Default = hoje em formato YYYY-MM-DD (local timezone do browser)
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
   const [deathSaving, setDeathSaving] = useState(false);
 
   async function openDeathModal(birdId: string) {
@@ -364,6 +369,11 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     setNewDeathReasonName("");
     setDeathReasonMode("select");
     setDeathNotes("");
+    // Reseta data pra hoje quando reabre o modal
+    const d = new Date();
+    setDeathOccurredAt(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+    );
     setError(null);
     // Carrega catalogo de causas (cache leve — recarrega toda abertura
     // pra capturar causas novas criadas em outro lugar)
@@ -416,7 +426,8 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         body: JSON.stringify({
           status: "DEAD",
           reason: deathNotes.trim() || null,
-          deathReasonId
+          deathReasonId,
+          occurredAt: deathOccurredAt || null
         })
       });
       if (!response.ok) {
@@ -1654,6 +1665,20 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                 </Button>
               </div>
             )}
+          </div>
+
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+              Data do óbito
+            </p>
+            <Input
+              type="date"
+              value={deathOccurredAt}
+              onChange={(e) => setDeathOccurredAt(e.target.value)}
+            />
+            <p className="mt-1 text-[10px] text-slate-500">
+              Padrão = hoje. Ajuste se o óbito aconteceu em data passada.
+            </p>
           </div>
 
           <div>

@@ -828,7 +828,8 @@ export async function changeBirdStatus(
   id: string,
   status: BirdStatus,
   reason?: string,
-  deathReasonId?: string | null
+  deathReasonId?: string | null,
+  occurredAt?: string | null
 ) {
   const bird = await prisma.bird.findFirst({ where: { id, tenantId } });
   if (!bird) return null;
@@ -850,6 +851,12 @@ export async function changeBirdStatus(
     if (reasonExists) validatedDeathReasonId = reasonExists.id;
   }
 
+  // Parse occurredAt — formato YYYY-MM-DD vira data com hora 12:00
+  // (meio-dia local) pra evitar problemas de timezone com data pura.
+  const parsedOccurredAt = occurredAt
+    ? new Date(`${occurredAt}T12:00:00`)
+    : null;
+
   await prisma.birdStatusHistory.create({
     data: {
       tenantId,
@@ -857,7 +864,8 @@ export async function changeBirdStatus(
       fromStatus: bird.status,
       toStatus: status,
       reason,
-      deathReasonId: validatedDeathReasonId
+      deathReasonId: validatedDeathReasonId,
+      occurredAt: parsedOccurredAt
     }
   });
 

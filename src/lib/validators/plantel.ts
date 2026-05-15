@@ -36,7 +36,10 @@ export const birdStatusSchema = z.object({
   // Quando status=DEAD, opcionalmente liga a uma causa do catalogo
   // (alimenta o grafico 'Causas de morte' do dashboard). Pra outros
   // status fica null/ignorado pelo service.
-  deathReasonId: z.string().cuid().nullable().optional()
+  deathReasonId: z.string().cuid().nullable().optional(),
+  // Data real em que o evento aconteceu (YYYY-MM-DD). Pra obito
+  // permite registrar retroativo. Quando null, service usa now().
+  occurredAt: z.string().min(1).optional()
 });
 
 export type FlockGroupInput = z.infer<typeof flockGroupSchema>;
