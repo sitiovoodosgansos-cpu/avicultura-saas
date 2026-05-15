@@ -36,6 +36,20 @@ import type {
   WorkerLink
 } from "@/components/plantel/_shared";
 
+// Formata valores em R$ de forma compacta pra caber num tile pequeno.
+// Ex: 1234 → "R$ 1,2 mil"; 12 → "R$ 12"; 0 → "R$ 0"; 1500000 → "R$ 1,5 mi".
+function formatRevenueShort(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return "R$ 0";
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `R$ ${(value / 1_000_000).toFixed(1).replace(".", ",")} mi`;
+  }
+  if (abs >= 1_000) {
+    return `R$ ${(value / 1_000).toFixed(1).replace(".", ",")}k`;
+  }
+  return `R$ ${Math.round(value)}`;
+}
+
 export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1465,14 +1479,10 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     }
                   />
                   <CompactStatChip
-                    emoji={"🗑️"}
-                    label="Mortas"
-                    value={group.summary.DEAD}
-                    onClick={
-                      group.summary.DEAD > 0
-                        ? () => toggleExpandedTile(group.id, "dead")
-                        : undefined
-                    }
+                    emoji={"💰"}
+                    label="Faturamento"
+                    value={Math.round(group.summary.revenue)}
+                    textValue={formatRevenueShort(group.summary.revenue)}
                   />
                   <CompactStatChip
                     emoji={"🐣"}

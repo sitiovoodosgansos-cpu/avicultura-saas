@@ -39,6 +39,7 @@ export type PlantelGroup = {
     SICK: number;
     DEAD: number;
     BROODY: number;
+    revenue: number;
   };
   birds: PlantelBird[];
   lastVaccination: { vaccineName: string; appliedAt: string } | null;
@@ -211,21 +212,29 @@ export function CompactStatChip({
   emoji,
   label,
   value,
-  onClick
+  onClick,
+  // Permite valores nao-numericos (ex: 'R$ 1,2k' pra faturamento) — quando
+  // textual, reduz font-size pra caber sem truncar.
+  textValue
 }: {
   emoji: string;
   label: string;
   value: number;
   onClick?: () => void;
+  textValue?: string;
 }) {
   const baseClass =
     "flex h-full min-h-[84px] w-full min-w-0 flex-col items-center justify-center rounded-xl bg-slate-50 px-2 py-2 text-center sm:min-h-[92px]";
+  const display = textValue ?? value;
+  const valueClass = textValue
+    ? "mt-1 text-[16px] font-semibold leading-tight text-slate-900 sm:text-[18px]"
+    : "mt-1 text-[28px] font-semibold leading-none text-slate-900 sm:text-[30px]";
   const content = (
     <>
       <p className="max-w-full truncate text-[11px] leading-tight text-slate-500 sm:text-[12px]">
         {emoji} {label}
       </p>
-      <p className="mt-1 text-[28px] font-semibold leading-none text-slate-900 sm:text-[30px]">{value}</p>
+      <p className={valueClass}>{display}</p>
     </>
   );
 

@@ -302,6 +302,82 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
     }
   }
 
+  // ===== FATURAMENTO POR GRUPO =====
+  // Soma de 3 fontes (mesma logica do KPI 'Receita por raca' do dashboard):
+  // - VitrineSale com Chocada→parent resolution
+  // - EggSaleItem (granular por tray.flockGroup)
+  // - FinancialEntry manual (item = titulo do grupo) NAO ligado a Vitrine/EggSale
+  const groupTitleById = new Map(groups.map((g) => [g.id, g.title]));
+
+  const [revenueVitrine, revenueEggItems, revenueManual] = await Promise.all([
+    prisma.vitrineSale.findMany({
+      where: { tenantId },
+      select: {
+        totalPrice: true,
+        listing: {
+          select: {
+            flockGroupId: true,
+            sourceIncubatorBatch: { select: { flockGroupId: true } }
+          }
+        }
+      }
+    }),
+    prisma.eggSaleItem.findMany({
+      where: { tenantId },
+      select: {
+        subtotal: true,
+        trayEntry: { select: { tray: { select: { flockGroupId: true } } } }
+      }
+    }),
+    prisma.financialEntry.findMany({
+      where: {
+        tenantId,
+        category: { in: ["EGG_SALE", "CHICK_SALE", "ADULT_BIRD_SALE"] },
+        vitrineSales: { none: {} },
+        eggSale: { is: null }
+      },
+      select: { item: true, amount: true }
+    })
+  ]);
+
+  function toNumber(v: { toNumber: () => number } | number | null | undefined): number {
+    if (v === null || v === undefined) return 0;
+    if (typeof v === "number") return v;
+    return v.toNumber();
+  }
+
+  // Mapa: flockGroupId (pai/raca) -> total em R$
+  const revenueByGroupId = new Map<string, number>();
+  const titleToGroupId = new Map<string, string>();
+  for (const g of groups) titleToGroupId.set(g.title, g.id);
+
+  for (const sale of revenueVitrine) {
+    // Se o listing eh de filhote (Chocada), atribui ao FlockGroup PAI da chocada.
+    // Caso contrario, usa o flockGroupId direto.
+    const parentId = sale.listing?.sourceIncubatorBatch?.flockGroupId;
+    const targetId = parentId ?? sale.listing?.flockGroupId;
+    if (!targetId) continue;
+    if (!groupTitleById.has(targetId)) continue;
+    const amount = toNumber(sale.totalPrice);
+    revenueByGroupId.set(targetId, (revenueByGroupId.get(targetId) ?? 0) + amount);
+  }
+
+  for (const item of revenueEggItems) {
+    const targetId = item.trayEntry.tray.flockGroupId;
+    if (!targetId) continue;
+    if (!groupTitleById.has(targetId)) continue;
+    const amount = toNumber(item.subtotal);
+    revenueByGroupId.set(targetId, (revenueByGroupId.get(targetId) ?? 0) + amount);
+  }
+
+  for (const entry of revenueManual) {
+    // Manual entries usam item = titulo do FlockGroup. Match exato.
+    const targetId = titleToGroupId.get(entry.item?.trim() ?? "");
+    if (!targetId) continue;
+    const amount = toNumber(entry.amount);
+    revenueByGroupId.set(targetId, (revenueByGroupId.get(targetId) ?? 0) + amount);
+  }
+
   const mappedGroups = groups
     .filter(
       (group) =>
@@ -341,6 +417,7 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
           males,
           daughters: daughtersFor(group.id),
           daughtersAlive: daughtersAliveFor(group.id),
+          revenue: revenueByGroupId.get(group.id) ?? 0,
           ...countByStatus
         },
         birds: birdsWithVitrine,

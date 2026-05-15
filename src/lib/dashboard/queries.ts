@@ -264,7 +264,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     vitrineSalesLast12Months,
     deadBirdsLast30,
     vitrineDeathsLast30,
-    nonVitrineSaleEntriesAll
+    eggSaleItemsAll,
+    manualSaleEntriesAll
   ] = await Promise.all([
     prisma.flockGroup.findMany({
       where: { tenantId, ...visibleGroupFilter },
@@ -442,18 +443,37 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       },
       select: { occurredAt: true, quantity: true }
     }),
-    // Receita por raca: lancamentos financeiros de venda NAO ligados a
-    // VitrineSale (essas ja sao contabilizadas via vitrineSalesAll com
-    // resolucao especial de Chocada→pai). Inclui:
-    //  - EggSale (cria FinancialEntry com item = flockGroup.title)
-    //  - Lancamentos manuais com categoria de venda
-    // O `item` carrega o label da raca (titulo do FlockGroup) ou texto
-    // livre pra vendas avulsas.
+    // Receita por raca — 2 fontes complementares:
+    //
+    // (a) EggSaleItem: cada item carrega trayEntry → tray → flockGroup,
+    //     entao mesmo quando uma EggSale contem ovos de varias racas no
+    //     mesmo carrinho, conseguimos contar subtotal POR raca. Antes
+    //     usavamos FinancialEntry.item (concatenado tipo 'Race1, Race2
+    //     +3'), o que misturava varias racas numa barra so.
+    prisma.eggSaleItem.findMany({
+      where: { tenantId },
+      select: {
+        subtotal: true,
+        trayEntry: {
+          select: {
+            tray: {
+              select: {
+                flockGroup: { select: { title: true } }
+              }
+            }
+          }
+        }
+      }
+    }),
+    // (b) FinancialEntry manuais — lancamentos do usuario na tela
+    //     /financeiro com categoria de venda, NAO ligados a EggSale nem
+    //     a VitrineSale (essas ja sao cobertas em (a) e via vitrineSalesAll).
     prisma.financialEntry.findMany({
       where: {
         tenantId,
         category: { in: ["EGG_SALE", "CHICK_SALE", "ADULT_BIRD_SALE"] },
-        vitrineSales: { none: {} }
+        vitrineSales: { none: {} },
+        eggSale: { is: null }
       },
       select: { item: true, amount: true }
     })
@@ -740,7 +760,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         availableInVitrine: vitrineAvailableAgg._sum.availableQuantity ?? 0,
         soldAllTime: vitrineSalesAll.reduce((s, x) => s + x.quantitySold, 0)
       }),
-      revenueByGroup: buildRevenueByGroup(vitrineSalesAll, nonVitrineSaleEntriesAll),
+      revenueByGroup: buildRevenueByGroup(vitrineSalesAll, eggSaleItemsAll, manualSaleEntriesAll),
       expensesByCategory: buildExpensesByCategory(expensesThisMonth)
     }
   };
@@ -866,38 +886,56 @@ function buildFunnelStages(input: {
 }
 
 function buildRevenueByGroup(
-  sales: Array<{
+  vitrineSales: Array<{
     totalPrice: { toNumber: () => number } | number | null;
     listing: {
       flockGroup: { title: string } | null;
       sourceIncubatorBatch: { flockGroup: { title: string } | null } | null;
     } | null;
   }>,
+  eggSaleItems: Array<{
+    subtotal: { toNumber: () => number } | number | null;
+    trayEntry: {
+      tray: {
+        flockGroup: { title: string } | null;
+      };
+    };
+  }>,
   manualSaleEntries: Array<{
     item: string;
     amount: { toNumber: () => number } | number | null;
   }>
 ): Array<{ label: string; value: number }> {
-  // Receita por grupo agregando 2 fontes:
-  //  1) Vitrine sales (com resolucao Chocada→pai)
-  //  2) FinancialEntry de venda NAO ligados a vitrine: cobre EggSale e
-  //     lancamentos manuais (item = titulo do FlockGroup ou texto avulso)
+  // Receita por raca agregando 3 fontes (uma barra por flockGroup):
+  //  1) VitrineSale — 1 sale = 1 listing = 1 flockGroup (com resolucao
+  //     Chocada→pai quando o listing eh de filhote derivado de chocada)
+  //  2) EggSaleItem — granular POR ITEM da venda, cada um com sua
+  //     propria raca via trayEntry.tray.flockGroup. Substitui o uso
+  //     antigo do FinancialEntry.item que concatenava varios racas
+  //     quando uma venda continha ovos de especies diferentes.
+  //  3) FinancialEntry manuais — lancamentos do usuario na tela
+  //     /financeiro, com `item` ja sendo o titulo de UMA raca (o
+  //     dropdown la salva uma raca por linha).
   const map = new Map<string, number>();
 
-  for (const sale of sales) {
+  for (const sale of vitrineSales) {
     const listingTitle = sale.listing?.flockGroup?.title ?? "Sem grupo";
     const isChild = listingTitle.startsWith("Chocada ");
     const parentTitle = sale.listing?.sourceIncubatorBatch?.flockGroup?.title;
     const label = isChild && parentTitle ? parentTitle : listingTitle;
     const amount = decimalToNumber(sale.totalPrice);
+    if (amount <= 0) continue;
+    map.set(label, (map.get(label) ?? 0) + amount);
+  }
+
+  for (const item of eggSaleItems) {
+    const label = item.trayEntry.tray.flockGroup?.title?.trim() || "Bandeja sem grupo";
+    const amount = decimalToNumber(item.subtotal);
+    if (amount <= 0) continue;
     map.set(label, (map.get(label) ?? 0) + amount);
   }
 
   for (const entry of manualSaleEntries) {
-    // EggSale escreve o titulo do FlockGroup direto em `item`. Lancamentos
-    // manuais (do form de Nova Entrada) tambem — o dropdown salva o
-    // titulo do grupo selecionado. Texto livre (venda avulsa) aparece
-    // com seu proprio label.
     const label = entry.item?.trim() || "Sem grupo";
     const amount = decimalToNumber(entry.amount);
     if (amount <= 0) continue;
