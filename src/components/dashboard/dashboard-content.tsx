@@ -253,7 +253,7 @@ export async function DashboardContent({ tenantId }: { tenantId: string }) {
       <section className="grid gap-4 xl:grid-cols-2">
         <BarCard
           title="Receita por raça"
-          subtitle="Top grupos por valor (Vitrine + Prateleira + lançamentos manuais)"
+          subtitle="Top 12 grupos por valor (Vitrine + Prateleira + lançamentos manuais)"
           data={data.charts.revenueByGroup}
           palette="violet"
           icon={<Emoji char="🏆" />}
@@ -269,15 +269,6 @@ export async function DashboardContent({ tenantId }: { tenantId: string }) {
           icon={<Emoji char="🧾" />}
           format="currency"
           emptyMessage="Ainda não há despesas registradas neste mês."
-        />
-        <BarCard
-          title="Causas de morte"
-          subtitle="Histórico total das aves marcadas como mortas no Plantel"
-          data={data.charts.deathCauses}
-          palette="rose"
-          icon={<Emoji char="🪦" />}
-          layout="horizontal"
-          emptyMessage="Sem óbitos registrados. Quando marcar uma ave como morta, a causa aparece aqui."
         />
       </section>
 
@@ -326,6 +317,15 @@ export async function DashboardContent({ tenantId }: { tenantId: string }) {
           palette="rose"
           icon={<Emoji char="🪦" />}
           emptyMessage="Nenhum óbito nesse período — ótima notícia!"
+        />
+        <BarCard
+          title="Causas de morte"
+          subtitle="Histórico total das aves marcadas como mortas no Plantel"
+          data={data.charts.deathCauses}
+          palette="rose"
+          icon={<Emoji char="🪦" />}
+          layout="horizontal"
+          emptyMessage="Sem óbitos registrados. Quando marcar uma ave como morta, a causa aparece aqui."
         />
       </section>
 

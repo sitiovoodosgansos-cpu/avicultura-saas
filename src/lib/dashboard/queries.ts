@@ -959,7 +959,7 @@ function buildRevenueByGroup(
     .map(([label, value]) => ({ label, value }))
     .filter((r) => r.value > 0)
     .sort((a, b) => b.value - a.value)
-    .slice(0, 8);
+    .slice(0, 12);
 }
 
 function buildExpensesByCategory(

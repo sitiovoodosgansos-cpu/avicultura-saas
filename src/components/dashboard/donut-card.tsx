@@ -92,7 +92,7 @@ export function DonutCard({
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                 {centerLabel}
               </p>
-              <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-slate-900">
+              <p className="mt-1 text-lg font-semibold tabular-nums tracking-tight text-slate-900 sm:text-xl">
                 {centerValue}
               </p>
               {centerHint ? (
