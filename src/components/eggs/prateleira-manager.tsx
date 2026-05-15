@@ -278,11 +278,12 @@ export function PrateleiraManager() {
     setSelectionMode(null);
   }
 
-  // Carrinho persistente: cada clique no icone TOGGLE o item na selecao,
-  // sem abrir o modal. O usuario clica varios itens (venda, transfer ou
-  // descarte) e finaliza pela barra flutuante de baixo. Isso evita criar
-  // varias vendas separadas pra o mesmo cliente quando ele compra ovos
-  // de varias datas.
+  // Carrinho incremental: cada clique no icone ADICIONA 1 ovo na selecao.
+  // Antes adicionava TODOS os ovos disponiveis e o user tinha que abrir o
+  // modal pra subtrair — fluxo dificil de lembrar quando tem muitos ovos.
+  // Agora cliques sucessivos no mesmo icone incrementam +1 (ate o
+  // available). O botao [-] na celula -/+/numero (ou no balde lateral)
+  // decrementa. Mode locking continua: so 1 modo ativo por vez.
   function handleEntryAction(entry: TrayEntry, tray: Tray, mode: NonNullable<SelectionMode>) {
     if (entry.available <= 0) return;
 
@@ -292,8 +293,11 @@ export function PrateleiraManager() {
 
     setSelection((prev) => {
       const next = new Map(prev);
-      if (next.has(entry.id)) {
-        next.delete(entry.id);
+      const existing = next.get(entry.id);
+      if (existing) {
+        // Incrementa +1, capado em available
+        const newQty = Math.min(existing.available, existing.quantity + 1);
+        next.set(entry.id, { ...existing, quantity: newQty });
       } else {
         // Pre-preenche unitPrice da tabela de precos por raca (modo "sale").
         // Pra outros modos (transfer/discard) deixa 0 — campo nao eh usado.
@@ -306,18 +310,46 @@ export function PrateleiraManager() {
           trayId: tray.id,
           trayLabel: trayHeader(tray),
           trayHasFlockGroup: Boolean(tray.flockGroupId),
-          quantity: entry.available,
+          quantity: 1,
           available: entry.available,
           unitPrice: presetPrice
         });
       }
-      // Se esvaziou o carrinho, libera o modo
-      if (next.size === 0) setSelectionMode(null);
       return next;
     });
 
     if (selectionMode !== mode) setSelectionMode(mode);
     setError(null);
+  }
+
+  // Decrementa 1 ovo da selecao. Quando chega a 0, remove o entry inteiro.
+  // Se foi o ultimo entry da selecao, libera o mode tambem.
+  function decrementEntry(entryId: string) {
+    setSelection((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(entryId);
+      if (!existing) return next;
+      if (existing.quantity <= 1) {
+        next.delete(entryId);
+      } else {
+        next.set(entryId, { ...existing, quantity: existing.quantity - 1 });
+      }
+      if (next.size === 0) setSelectionMode(null);
+      return next;
+    });
+  }
+
+  // Incrementa 1 ovo direto pelo balde lateral (sem precisar voltar pra
+  // celula da bandeja). Usado nos botoes + do panel suspenso.
+  function incrementEntry(entryId: string) {
+    setSelection((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(entryId);
+      if (!existing) return next;
+      const newQty = Math.min(existing.available, existing.quantity + 1);
+      next.set(entryId, { ...existing, quantity: newQty });
+      return next;
+    });
   }
 
   // Abre o modal de finalizacao com os campos default preenchidos.
@@ -558,7 +590,7 @@ export function PrateleiraManager() {
       <PageTitle
         icon="🪺"
         title="Prateleira"
-        description="Ovos coletados aguardando destino: venda ou chocadeira. Vá clicando 🛒 / 🐣 / 🗑️ pra montar o carrinho e finalize tudo numa única operação no rodapé."
+        description="Ovos coletados aguardando destino: venda ou chocadeira. Toque 🛒 / 🐣 / 🗑️ pra adicionar 1 ovo ao balde lateral; use − e + pra ajustar a quantidade. Finalize tudo numa operação só."
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -720,48 +752,81 @@ export function PrateleiraManager() {
                           </span>
                         </div>
                         <div className="flex shrink-0 items-center gap-0.5">
-                          <ActionIcon
-                            mode="sale"
-                            selected={selectionMode === "sale" && selection.has(entry.id)}
-                            disabled={
-                              entry.available <= 0 ||
-                              (selectionMode !== null && selectionMode !== "sale")
+                          {(() => {
+                            const selectedItem = selection.get(entry.id);
+                            const inBasket = Boolean(selectedItem);
+                            // Quando esta no carrinho, troca os 3 icones por
+                            // um controle compacto [- N +] na cor do modo.
+                            if (inBasket && selectionMode) {
+                              const modeColor =
+                                selectionMode === "sale"
+                                  ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                  : selectionMode === "transfer"
+                                    ? "bg-amber-100 text-amber-800 border-amber-300"
+                                    : "bg-rose-100 text-rose-800 border-rose-300";
+                              const btnBase =
+                                "inline-flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40";
+                              const atMax = selectedItem!.quantity >= entry.available;
+                              return (
+                                <div className={`inline-flex items-center gap-0.5 rounded-lg border px-1 py-0.5 ${modeColor}`}>
+                                  <button
+                                    type="button"
+                                    aria-label="Remover 1 ovo"
+                                    onClick={() => decrementEntry(entry.id)}
+                                    className={btnBase}
+                                  >
+                                    −
+                                  </button>
+                                  <span className="min-w-[1.5rem] text-center text-xs font-semibold">
+                                    {selectedItem!.quantity}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    aria-label="Adicionar 1 ovo"
+                                    onClick={() => handleEntryAction(entry, tray, selectionMode)}
+                                    disabled={atMax}
+                                    className={btnBase}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              );
                             }
-                            onClick={() => handleEntryAction(entry, tray, "sale")}
-                            title={
-                              selectionMode === "sale" && selection.has(entry.id)
-                                ? "Remover do carrinho"
-                                : "Adicionar ao carrinho de venda"
-                            }
-                          />
-                          <ActionIcon
-                            mode="transfer"
-                            selected={selectionMode === "transfer" && selection.has(entry.id)}
-                            disabled={
-                              entry.available <= 0 ||
-                              (selectionMode !== null && selectionMode !== "transfer")
-                            }
-                            onClick={() => handleEntryAction(entry, tray, "transfer")}
-                            title={
-                              selectionMode === "transfer" && selection.has(entry.id)
-                                ? "Remover da seleção"
-                                : "Adicionar para envio à chocadeira"
-                            }
-                          />
-                          <ActionIcon
-                            mode="discard"
-                            selected={selectionMode === "discard" && selection.has(entry.id)}
-                            disabled={
-                              entry.available <= 0 ||
-                              (selectionMode !== null && selectionMode !== "discard")
-                            }
-                            onClick={() => handleEntryAction(entry, tray, "discard")}
-                            title={
-                              selectionMode === "discard" && selection.has(entry.id)
-                                ? "Remover da seleção"
-                                : "Adicionar à lista de descarte"
-                            }
-                          />
+                            return (
+                              <>
+                                <ActionIcon
+                                  mode="sale"
+                                  selected={false}
+                                  disabled={
+                                    entry.available <= 0 ||
+                                    (selectionMode !== null && selectionMode !== "sale")
+                                  }
+                                  onClick={() => handleEntryAction(entry, tray, "sale")}
+                                  title="Adicionar 1 ovo ao carrinho de venda"
+                                />
+                                <ActionIcon
+                                  mode="transfer"
+                                  selected={false}
+                                  disabled={
+                                    entry.available <= 0 ||
+                                    (selectionMode !== null && selectionMode !== "transfer")
+                                  }
+                                  onClick={() => handleEntryAction(entry, tray, "transfer")}
+                                  title="Adicionar 1 ovo pra chocadeira"
+                                />
+                                <ActionIcon
+                                  mode="discard"
+                                  selected={false}
+                                  disabled={
+                                    entry.available <= 0 ||
+                                    (selectionMode !== null && selectionMode !== "discard")
+                                  }
+                                  onClick={() => handleEntryAction(entry, tray, "discard")}
+                                  title="Adicionar 1 ovo ao descarte"
+                                />
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div className="mt-1 flex items-center justify-between text-[10px] text-zinc-500">
@@ -1083,39 +1148,111 @@ export function PrateleiraManager() {
         </form>
       </AppModal>
 
-      {/* Barra flutuante do carrinho — aparece quando ha algo selecionado.
-          Substitui o comportamento antigo de abrir modal por clique e
-          permite acumular varias datas/bandejas numa unica venda. */}
+      {/* Balde suspenso lateral — substitui a barra de baixo. No mobile fica
+          no rodape (drawer compacto), no desktop ancora no canto direito
+          como painel vertical. Cada item tem -/+ proprios pra refinar a
+          quantidade sem voltar pra celula da bandeja. */}
       {selection.size > 0 && selectionMode ? (
-        <div className="cart-floating-bar fixed inset-x-3 mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.18)]">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="text-xl" aria-hidden>
-              {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🐣" : "🗑️"}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-zinc-900">
-                {selection.size} {selection.size === 1 ? "item" : "itens"} ·{" "}
-                {Array.from(selection.values()).reduce((s, it) => s + it.quantity, 0)} ovos
-              </p>
-              <p className="truncate text-[11px] text-zinc-500">
-                {selectionMode === "sale"
-                  ? "Tudo será gerado como uma única venda"
-                  : selectionMode === "transfer"
-                    ? "Tudo será enviado pra mesma chocadeira"
-                    : "Tudo será descartado de uma vez"}
-              </p>
+        <div
+          className={
+            "cart-floating-bar fixed bottom-3 left-3 right-3 z-40 flex max-h-[70vh] flex-col rounded-2xl border border-zinc-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.18)] " +
+            "md:bottom-auto md:left-auto md:right-3 md:top-1/2 md:w-80 md:-translate-y-1/2 md:max-h-[80vh]"
+          }
+        >
+          {/* Cabecalho do balde */}
+          <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="text-2xl" aria-hidden>
+                {selectionMode === "sale" ? "🛒" : selectionMode === "transfer" ? "🐣" : "🗑️"}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-zinc-900">
+                  {selectionMode === "sale"
+                    ? "Venda"
+                    : selectionMode === "transfer"
+                      ? "Chocadeira"
+                      : "Descarte"}
+                </p>
+                <p className="truncate text-[11px] text-zinc-500">
+                  {Array.from(selection.values()).reduce((s, it) => s + it.quantity, 0)} ovo
+                  {Array.from(selection.values()).reduce((s, it) => s + it.quantity, 0) === 1 ? "" : "s"}
+                  {" · "}
+                  {selection.size} {selection.size === 1 ? "item" : "itens"}
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+            >
+              Limpar
+            </button>
           </div>
-          <Button type="button" variant="outline" onClick={clearSelection}>
-            Limpar
-          </Button>
-          <Button type="button" onClick={openFinalizeModal}>
-            {selectionMode === "sale"
-              ? "Finalizar venda"
-              : selectionMode === "transfer"
-                ? "Enviar"
-                : "Descartar"}
-          </Button>
+
+          {/* Lista de itens com -/+ por entry (so visivel no desktop;
+              no mobile ficaria muito alto, ai ficamos so com totals
+              + botao de finalizar) */}
+          <div className="hidden flex-1 overflow-y-auto px-3 py-2 md:block">
+            <ul className="space-y-1.5">
+              {Array.from(selection.values()).map((item) => {
+                const modeColor =
+                  selectionMode === "sale"
+                    ? "border-emerald-200 bg-emerald-50/40"
+                    : selectionMode === "transfer"
+                      ? "border-amber-200 bg-amber-50/40"
+                      : "border-rose-200 bg-rose-50/40";
+                return (
+                  <li
+                    key={item.entryId}
+                    className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 ${modeColor}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-zinc-800">
+                        {item.trayLabel}
+                      </p>
+                      <p className="text-[10px] text-zinc-500">
+                        {item.quantity}/{item.available}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-zinc-200 bg-white px-1 py-0.5">
+                      <button
+                        type="button"
+                        aria-label="Remover 1"
+                        onClick={() => decrementEntry(item.entryId)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-bold text-zinc-700 hover:bg-zinc-100"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[1.25rem] text-center text-xs font-semibold">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Adicionar 1"
+                        onClick={() => incrementEntry(item.entryId)}
+                        disabled={item.quantity >= item.available}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* Rodape com botao de finalizar */}
+          <div className="border-t border-zinc-100 px-3 py-2">
+            <Button type="button" onClick={openFinalizeModal} className="w-full">
+              {selectionMode === "sale"
+                ? "Finalizar venda"
+                : selectionMode === "transfer"
+                  ? "Enviar para chocadeira"
+                  : "Descartar"}
+            </Button>
+          </div>
         </div>
       ) : null}
 
