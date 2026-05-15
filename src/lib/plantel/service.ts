@@ -873,3 +873,114 @@ export async function listBirdHistory(tenantId: string, birdId: string) {
   });
 }
 
+export type RevenueSale = {
+  source: "egg" | "vitrine" | "manual";
+  date: string;
+  description: string;
+  quantity: number | null;
+  unitPrice: number | null;
+  amount: number;
+  customer: string | null;
+};
+
+/**
+ * Lista detalhada de todas as vendas atribuiveis a um FlockGroup.
+ * Fontes:
+ *  - EggSaleItem (subtotal de ovos vendidos da bandeja desse grupo)
+ *  - VitrineSale (vendas direto da vitrine, com Chocada→pai resolution)
+ *  - FinancialEntry manuais (lancamentos da tela /financeiro com
+ *    item = titulo do grupo, NAO ligados a EggSale ou VitrineSale)
+ */
+export async function listRevenueSales(
+  tenantId: string,
+  flockGroupId: string
+): Promise<{ sales: RevenueSale[]; total: number } | null> {
+  const group = await prisma.flockGroup.findFirst({
+    where: { id: flockGroupId, tenantId },
+    select: { id: true, title: true }
+  });
+  if (!group) return null;
+
+  const [eggItems, vitrineSales, manualEntries] = await Promise.all([
+    prisma.eggSaleItem.findMany({
+      where: { tenantId, trayEntry: { tray: { flockGroupId } } },
+      include: {
+        sale: { select: { soldAt: true, customer: true } },
+        trayEntry: { select: { tray: { select: { speciesLabel: true, breedLabel: true } } } }
+      }
+    }),
+    prisma.vitrineSale.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { listing: { flockGroupId } },
+          { listing: { sourceIncubatorBatch: { flockGroupId } } }
+        ]
+      },
+      include: {
+        listing: { select: { title: true, flockGroup: { select: { title: true } } } }
+      }
+    }),
+    prisma.financialEntry.findMany({
+      where: {
+        tenantId,
+        category: { in: ["EGG_SALE", "CHICK_SALE", "ADULT_BIRD_SALE"] },
+        item: group.title,
+        vitrineSales: { none: {} },
+        eggSale: { is: null }
+      },
+      select: { id: true, date: true, item: true, amount: true, customer: true, description: true }
+    })
+  ]);
+
+  function toNumber(v: { toNumber: () => number } | number | null | undefined): number {
+    if (v === null || v === undefined) return 0;
+    if (typeof v === "number") return v;
+    return v.toNumber();
+  }
+
+  const sales: RevenueSale[] = [];
+
+  for (const item of eggItems) {
+    sales.push({
+      source: "egg",
+      date: item.sale.soldAt.toISOString(),
+      description: `🥚 ${item.trayEntry.tray.speciesLabel} ${item.trayEntry.tray.breedLabel}`,
+      quantity: item.quantity,
+      unitPrice: toNumber(item.unitPrice),
+      amount: toNumber(item.subtotal),
+      customer: item.sale.customer ?? null
+    });
+  }
+
+  for (const sale of vitrineSales) {
+    sales.push({
+      source: "vitrine",
+      date: sale.soldAt.toISOString(),
+      description: `🏪 ${sale.listing?.title?.trim() || sale.listing?.flockGroup?.title || "Vitrine"}`,
+      quantity: sale.quantitySold,
+      unitPrice: toNumber(sale.unitPrice),
+      amount: toNumber(sale.totalPrice),
+      customer: sale.customer ?? null
+    });
+  }
+
+  for (const entry of manualEntries) {
+    sales.push({
+      source: "manual",
+      date: entry.date.toISOString(),
+      description: `📝 ${entry.description?.trim() || entry.item}`,
+      quantity: null,
+      unitPrice: null,
+      amount: toNumber(entry.amount),
+      customer: entry.customer ?? null
+    });
+  }
+
+  // Mais recentes primeiro
+  sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const total = sales.reduce((sum, s) => sum + s.amount, 0);
+  return { sales, total };
+}
+

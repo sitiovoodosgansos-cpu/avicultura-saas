@@ -36,19 +36,26 @@ import type {
   WorkerLink
 } from "@/components/plantel/_shared";
 
-// Formata valores em R$ de forma compacta pra caber num tile pequeno.
-// Ex: 1234 → "R$ 1,2 mil"; 12 → "R$ 12"; 0 → "R$ 0"; 1500000 → "R$ 1,5 mi".
-function formatRevenueShort(value: number): string {
-  if (!Number.isFinite(value) || value === 0) return "R$ 0";
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) {
-    return `R$ ${(value / 1_000_000).toFixed(1).replace(".", ",")} mi`;
-  }
-  if (abs >= 1_000) {
-    return `R$ ${(value / 1_000).toFixed(1).replace(".", ",")}k`;
-  }
-  return `R$ ${Math.round(value)}`;
+// Formata valor BRL completo (R$ X.XXX,XX) pra exibir na linha de
+// Faturamento do card (espaco maior que o tile, pode ser exato).
+function formatRevenueBRL(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(Math.max(0, value));
 }
+
+type RevenueSaleRow = {
+  source: "egg" | "vitrine" | "manual";
+  date: string;
+  description: string;
+  quantity: number | null;
+  unitPrice: number | null;
+  amount: number;
+  customer: string | null;
+};
 
 export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: boolean }) {
   const [loading, setLoading] = useState(true);
@@ -69,6 +76,34 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     }
     setExpandedGroupId(groupId);
     setExpandedFilter(filter);
+  }
+
+  // Modal de detalhamento de vendas (Faturamento)
+  const [revenueModal, setRevenueModal] = useState<{
+    groupTitle: string;
+    sales: RevenueSaleRow[];
+    total: number;
+  } | null>(null);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+
+  async function openRevenueDetail(groupId: string, groupTitle: string) {
+    setRevenueLoading(true);
+    setRevenueModal({ groupTitle, sales: [], total: 0 });
+    try {
+      const res = await fetch(`/api/plantel/groups/${groupId}/revenue`, { cache: "no-store" });
+      if (!res.ok) {
+        setError("Nao foi possivel carregar o detalhe de vendas.");
+        setRevenueModal(null);
+        return;
+      }
+      const data = (await res.json()) as { sales: RevenueSaleRow[]; total: number };
+      setRevenueModal({ groupTitle, sales: data.sales, total: data.total });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao carregar vendas.");
+      setRevenueModal(null);
+    } finally {
+      setRevenueLoading(false);
+    }
   }
   const [historyByBird, setHistoryByBird] = useState<Record<string, BirdHistory[]>>({});
   const [statusDraftByBird, setStatusDraftByBird] = useState<Record<string, BirdStatus>>({});
@@ -1393,6 +1428,71 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
         </div>
       </AppModal>
 
+      {/* Modal de detalhamento de Faturamento — abre ao clicar na linha
+          'Faturamento' do card do grupo. Lista venda por venda (ovos +
+          vitrine + lancamentos manuais) com data, descricao, qty e valor. */}
+      <AppModal
+        open={revenueModal !== null}
+        title={revenueModal ? `Vendas — ${revenueModal.groupTitle}` : "Vendas"}
+        onClose={() => setRevenueModal(null)}
+      >
+        {revenueLoading ? (
+          <p className="py-8 text-center text-sm text-slate-500">Carregando vendas...</p>
+        ) : revenueModal && revenueModal.sales.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-10 text-center">
+            <p className="text-3xl">🪺</p>
+            <p className="mt-2 text-sm font-medium text-slate-700">Nenhuma venda registrada</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Vendas de ovos (Prateleira), aves (Vitrine) ou lançamentos manuais aparecem aqui.
+            </p>
+          </div>
+        ) : revenueModal ? (
+          <div className="grid gap-3">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-700">
+                Total acumulado
+              </p>
+              <p className="mt-1 text-2xl font-bold text-amber-900">
+                {formatRevenueBRL(revenueModal.total)}
+              </p>
+              <p className="mt-1 text-[11px] text-amber-700">
+                {revenueModal.sales.length} venda{revenueModal.sales.length === 1 ? "" : "s"}
+              </p>
+            </div>
+
+            <ul className="grid gap-2">
+              {revenueModal.sales.map((sale, idx) => (
+                <li
+                  key={`${sale.source}-${sale.date}-${idx}`}
+                  className="rounded-2xl border border-zinc-200 bg-white p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-900">{sale.description}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {new Date(sale.date).toLocaleDateString("pt-BR")}
+                        {sale.customer ? ` · ${sale.customer}` : ""}
+                        {sale.quantity !== null
+                          ? ` · ${sale.quantity}${sale.unitPrice !== null ? ` × ${formatRevenueBRL(sale.unitPrice)}` : ""}`
+                          : ""}
+                      </p>
+                    </div>
+                    <p className="text-base font-bold text-emerald-700">
+                      {formatRevenueBRL(sale.amount)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        <div className="mt-4 flex justify-end">
+          <Button type="button" variant="outline" onClick={() => setRevenueModal(null)}>
+            Fechar
+          </Button>
+        </div>
+      </AppModal>
+
       {loading ? <p className="text-sm text-[color:var(--ink-soft)]">Carregando plantel...</p> : null}
       {!loading && groups.length === 0 ? (
         <Card>
@@ -1479,10 +1579,14 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     }
                   />
                   <CompactStatChip
-                    emoji={"💰"}
-                    label="Faturamento"
-                    value={Math.round(group.summary.revenue)}
-                    textValue={formatRevenueShort(group.summary.revenue)}
+                    emoji={"🗑️"}
+                    label="Mortas"
+                    value={group.summary.DEAD}
+                    onClick={
+                      group.summary.DEAD > 0
+                        ? () => toggleExpandedTile(group.id, "dead")
+                        : undefined
+                    }
                   />
                   <CompactStatChip
                     emoji={"🐣"}
@@ -1527,6 +1631,42 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
                     }`}
                   >
                     {group.summary.daughtersAlive}
+                  </span>
+                </button>
+
+                {/* Faturamento: linha clicavel pra abrir modal com lista
+                    detalhada de vendas (ovos + aves). Habilitado se houver
+                    receita, desabilitado em cinza caso contrario. */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    group.summary.revenue > 0
+                      ? openRevenueDetail(group.id, group.title)
+                      : undefined
+                  }
+                  disabled={group.summary.revenue === 0}
+                  className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 text-left transition ${
+                    group.summary.revenue > 0
+                      ? "border-amber-200 bg-amber-50 hover:bg-amber-100"
+                      : "border-slate-200 bg-slate-50 opacity-70"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">💰</span>
+                    <span
+                      className={`text-sm font-semibold ${
+                        group.summary.revenue > 0 ? "text-amber-800" : "text-slate-500"
+                      }`}
+                    >
+                      Faturamento
+                    </span>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-sm font-semibold ${
+                      group.summary.revenue > 0 ? "bg-white text-amber-700" : "bg-white/60 text-slate-500"
+                    }`}
+                  >
+                    {formatRevenueBRL(group.summary.revenue)}
                   </span>
                 </button>
 
