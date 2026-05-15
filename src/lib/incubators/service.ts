@@ -34,11 +34,38 @@ function withLotMetadata(notes: string | null | undefined, lotCode: string | nul
   return clean ? `${clean} ${marker}` : marker;
 }
 
-// Chave canonica de agrupamento — entryDate normalizado pra YYYY-MM-DD
-// pra que diferencas de hora/timezone nao quebrem o grupo.
+// Brasil opera em UTC-3 (sem horario de verao desde 2019). Vercel roda
+// em UTC, entao precisamos converter o dia em BRT antes de agrupar —
+// sem isso, batch criado as 22h BRT (= 01h UTC do dia seguinte) cai
+// num grupo diferente do mesmo dia BRT visualmente.
+const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function toBrtDayString(date: Date): string {
+  // Subtrai 3h pra que getUTC* leia o dia/mes/ano em horario BRT
+  const asBrt = new Date(date.getTime() - BRT_OFFSET_MS);
+  const y = asBrt.getUTCFullYear();
+  const m = String(asBrt.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(asBrt.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function brtDayBounds(date: Date): { start: Date; end: Date } {
+  // Le componentes do dia em BRT
+  const asBrt = new Date(date.getTime() - BRT_OFFSET_MS);
+  const year = asBrt.getUTCFullYear();
+  const month = asBrt.getUTCMonth();
+  const day = asBrt.getUTCDate();
+  // BRT midnight = UTC 03:00 mesmo dia
+  const start = new Date(Date.UTC(year, month, day, 3, 0, 0, 0));
+  // BRT 23:59:59.999 = UTC 02:59:59.999 do dia seguinte
+  const end = new Date(Date.UTC(year, month, day + 1, 2, 59, 59, 999));
+  return { start, end };
+}
+
+// Chave canonica de agrupamento — entryDate em BRT pra que insercoes
+// em horarios diferentes do mesmo dia BRT caiam no mesmo grupo.
 function lotGroupKey(incubatorId: string, entryDate: Date): string {
-  const iso = entryDate.toISOString().slice(0, 10);
-  return `${incubatorId}|${iso}`;
+  return `${incubatorId}|${toBrtDayString(entryDate)}`;
 }
 
 /**
@@ -51,17 +78,14 @@ async function resolveLotCodeForGroup(
   incubatorId: string,
   entryDate: Date
 ): Promise<string> {
-  // Procura batches existentes no mesmo grupo
-  const startOfDay = new Date(entryDate);
-  startOfDay.setUTCHours(0, 0, 0, 0);
-  const endOfDay = new Date(entryDate);
-  endOfDay.setUTCHours(23, 59, 59, 999);
+  // Procura batches existentes no mesmo dia BRT
+  const { start, end } = brtDayBounds(entryDate);
 
   const sameDayBatches = await prisma.incubatorBatch.findMany({
     where: {
       tenantId,
       incubatorId,
-      entryDate: { gte: startOfDay, lte: endOfDay }
+      entryDate: { gte: start, lte: end }
     },
     select: { notes: true }
   });

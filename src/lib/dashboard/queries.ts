@@ -73,28 +73,45 @@ export type DashboardData = {
   warning?: string;
 };
 
+// Brasil opera em UTC-3 (sem horario de verao desde 2019). Como o
+// Vercel roda em UTC, todas as funcoes de data abaixo trabalham com
+// 'BRT shifted UTC': representam meia-noite/start-of-month NO HORARIO
+// DE BRASILIA, salvas como Date em UTC. Sem isso, depois das 21h BRT
+// o sistema ja considerava o dia seguinte (UTC virou).
+const BRT_TO_UTC_HOURS = 3;
+const BRT_OFFSET_MS = BRT_TO_UTC_HOURS * 3600 * 1000;
+
 function startOfDay(date: Date) {
-  const next = new Date(date);
-  next.setHours(0, 0, 0, 0);
-  return next;
+  // 1. Subtrai 3h: getUTC* agora le os componentes em horario BRT
+  const asBrt = new Date(date.getTime() - BRT_OFFSET_MS);
+  // 2. Zera o relogio (BRT midnight)
+  asBrt.setUTCHours(0, 0, 0, 0);
+  // 3. Adiciona 3h: volta pro UTC real (BRT midnight = UTC 03:00 do mesmo dia)
+  return new Date(asBrt.getTime() + BRT_OFFSET_MS);
 }
 
 function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
+  const next = new Date(date.getTime() + days * 86400 * 1000);
   return next;
 }
 
 function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
+  const asBrt = new Date(date.getTime() - BRT_OFFSET_MS);
+  const year = asBrt.getUTCFullYear();
+  const month = asBrt.getUTCMonth();
+  // BRT dia 1 00:00 = UTC dia 1 03:00 do mesmo mes
+  return new Date(Date.UTC(year, month, 1, BRT_TO_UTC_HOURS, 0, 0, 0));
 }
 
 function formatDayLabel(date: Date) {
-  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`;
+  // Le componentes em BRT (subtraindo o offset antes de getUTC*)
+  const asBrt = new Date(date.getTime() - BRT_OFFSET_MS);
+  return `${String(asBrt.getUTCDate()).padStart(2, "0")}/${String(asBrt.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 function formatMonthLabel(date: Date) {
-  return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getFullYear()).slice(-2)}`;
+  const asBrt = new Date(date.getTime() - BRT_OFFSET_MS);
+  return `${String(asBrt.getUTCMonth() + 1).padStart(2, "0")}/${String(asBrt.getUTCFullYear()).slice(-2)}`;
 }
 
 function toNumber(decimal: Prisma.Decimal | number | null | undefined) {
@@ -182,8 +199,23 @@ function dateBucketLastDays(days: number) {
 
 function monthBucketLastMonths(months: number) {
   const now = new Date();
+  // Pega o mes atual em BRT primeiro
+  const currentMonthBrt = startOfMonth(now);
   return Array.from({ length: months }, (_, index) => {
-    const monthDate = new Date(now.getFullYear(), now.getMonth() - (months - 1) + index, 1);
+    // Recua N meses a partir do mes atual (operacao via Date.UTC pra
+    // nao depender de timezone local)
+    const offset = index - (months - 1);
+    const monthDate = new Date(
+      Date.UTC(
+        currentMonthBrt.getUTCFullYear(),
+        currentMonthBrt.getUTCMonth() + offset,
+        1,
+        BRT_TO_UTC_HOURS,
+        0,
+        0,
+        0
+      )
+    );
     const key = monthDate.toISOString();
     return { key, date: monthDate, label: formatMonthLabel(monthDate) };
   });
@@ -477,7 +509,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const financialMap = new Map<string, { income: number; expenses: number }>();
 
   for (const row of entriesLast12) {
-    const keyDate = new Date(row.date.getFullYear(), row.date.getMonth(), 1).toISOString();
+    const keyDate = startOfMonth(row.date).toISOString();
     const prev = financialMap.get(keyDate) ?? { income: 0, expenses: 0 };
     financialMap.set(keyDate, {
       income: prev.income + toNumber(row.amount),
@@ -486,7 +518,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   }
 
   for (const row of expensesLast12) {
-    const keyDate = new Date(row.date.getFullYear(), row.date.getMonth(), 1).toISOString();
+    const keyDate = startOfMonth(row.date).toISOString();
     const prev = financialMap.get(keyDate) ?? { income: 0, expenses: 0 };
     financialMap.set(keyDate, {
       income: prev.income,
@@ -508,14 +540,14 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const healthMap = new Map<string, { openCases: number; curedCases: number }>();
 
   for (const row of healthOpenLast12) {
-    const keyDate = new Date(row.openedAt.getFullYear(), row.openedAt.getMonth(), 1).toISOString();
+    const keyDate = startOfMonth(row.openedAt).toISOString();
     const prev = healthMap.get(keyDate) ?? { openCases: 0, curedCases: 0 };
     healthMap.set(keyDate, { openCases: prev.openCases + 1, curedCases: prev.curedCases });
   }
 
   for (const row of healthCuredLast12) {
     if (!row.closedAt) continue;
-    const keyDate = new Date(row.closedAt.getFullYear(), row.closedAt.getMonth(), 1).toISOString();
+    const keyDate = startOfMonth(row.closedAt).toISOString();
     const prev = healthMap.get(keyDate) ?? { openCases: 0, curedCases: 0 };
     healthMap.set(keyDate, { openCases: prev.openCases, curedCases: prev.curedCases + 1 });
   }
@@ -539,7 +571,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   const birdsArrivalsMap = new Map<string, number>();
   for (const row of birdsLast12Rows) {
     const baseDate = row.acquisitionDate ?? row.createdAt;
-    const keyDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1).toISOString();
+    const keyDate = startOfMonth(baseDate).toISOString();
     birdsArrivalsMap.set(keyDate, (birdsArrivalsMap.get(keyDate) ?? 0) + 1);
   }
 
@@ -553,7 +585,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   for (const event of batchEvents) {
     if (event.type !== "HATCHED") continue;
     const d = event.eventDate;
-    const keyDate = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+    const keyDate = startOfMonth(d).toISOString();
     hatchMap.set(keyDate, (hatchMap.get(keyDate) ?? 0) + (event.quantity ?? 0));
   }
   const hatchByMonth = monthBuckets.map((bucket) => ({
@@ -564,7 +596,7 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
   // Vendas por mes (somente entradas, sum amount)
   const salesMap = new Map<string, number>();
   for (const row of entriesLast12) {
-    const keyDate = new Date(row.date.getFullYear(), row.date.getMonth(), 1).toISOString();
+    const keyDate = startOfMonth(row.date).toISOString();
     salesMap.set(keyDate, (salesMap.get(keyDate) ?? 0) + toNumber(row.amount));
   }
   const salesByMonth = monthBuckets.map((bucket) => ({
