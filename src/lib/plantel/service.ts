@@ -329,10 +329,15 @@ export async function listPlantel(tenantId: string, filters: PlantelFilters) {
         trayEntry: { select: { tray: { select: { flockGroupId: true } } } }
       }
     }),
+    // Sem filtro por category: FinancialEntry inteira eh receita (despesas
+    // vivem em FinancialExpense). Agora que o toggle 'Dentro/Fora do
+    // Plantel' aparece em TODAS as categorias de entrada (Revenda etc.),
+    // qualquer entry cujo item bate com um titulo de grupo vira receita
+    // daquele grupo, independente de ser EGG_SALE/CHICK_SALE/ADULT_BIRD_SALE
+    // ou categoria custom.
     prisma.financialEntry.findMany({
       where: {
         tenantId,
-        category: { in: ["EGG_SALE", "CHICK_SALE", "ADULT_BIRD_SALE"] },
         vitrineSales: { none: {} },
         eggSale: { is: null }
       },

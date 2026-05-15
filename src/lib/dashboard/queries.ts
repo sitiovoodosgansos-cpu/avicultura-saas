@@ -467,12 +467,13 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
       }
     }),
     // (b) FinancialEntry manuais — lancamentos do usuario na tela
-    //     /financeiro com categoria de venda, NAO ligados a EggSale nem
-    //     a VitrineSale (essas ja sao cobertas em (a) e via vitrineSalesAll).
+    //     /financeiro, NAO ligados a EggSale nem a VitrineSale (essas ja
+    //     sao cobertas em (a) e via vitrineSalesAll). Sem filtro de
+    //     category: FinancialEntry inteira eh receita, e o toggle
+    //     'Dentro/Fora do Plantel' aparece pra todas as categorias.
     prisma.financialEntry.findMany({
       where: {
         tenantId,
-        category: { in: ["EGG_SALE", "CHICK_SALE", "ADULT_BIRD_SALE"] },
         vitrineSales: { none: {} },
         eggSale: { is: null }
       },
