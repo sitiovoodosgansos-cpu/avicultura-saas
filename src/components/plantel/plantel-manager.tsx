@@ -107,20 +107,16 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   }
   const [historyByBird, setHistoryByBird] = useState<Record<string, BirdHistory[]>>({});
   const [statusDraftByBird, setStatusDraftByBird] = useState<Record<string, BirdStatus>>({});
-  const [filterSpecies, setFilterSpecies] = useState("");
-  const [filterBreed, setFilterBreed] = useState("");
-  const [filterVariety, setFilterVariety] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  // Pre-popula busca por anilha via query param ?ring=A0480 (deeplink do
-  // botao "Ver aves do lote" na vitrine). Roda so no mount.
-  const [ringSearch, setRingSearch] = useState(() => {
+  // Busca unificada (estilo Vitrine): matcha titulo, especie, raca,
+  // variedade e qualquer anilha das aves do grupo. Pre-popula via
+  // ?ring=A0480 (deeplink do botao 'Ver aves do lote' na vitrine).
+  const [searchQuery, setSearchQuery] = useState(() => {
     if (typeof window === "undefined") return "";
     return new URLSearchParams(window.location.search).get("ring") ?? "";
   });
   const [workerLinks, setWorkerLinks] = useState<WorkerLink[]>([]);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showBirdModal, setShowBirdModal] = useState(false);
-  const [showFilterModal, setShowFilterModal] = useState(false);
   const [showWorkerLinkModal, setShowWorkerLinkModal] = useState(false);
   const [workerLinkForm, setWorkerLinkForm] = useState<{
     label: string;
@@ -166,6 +162,29 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   const [hatchBatchesLoading, setHatchBatchesLoading] = useState(false);
 
   const canSubmitBird = useMemo(() => Boolean(birdForm.flockGroupId), [birdForm.flockGroupId]);
+
+  // Busca client-side estilo Vitrine: matcha titulo do grupo, especie,
+  // raca, variedade, baia e tambem qualquer anilha das aves do grupo.
+  // Quando vazio, mostra todos.
+  const visibleGroups = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return groups;
+    return groups.filter((group) => {
+      const haystack = [
+        group.title,
+        group.species?.name,
+        group.breed?.name,
+        group.variety?.name,
+        `baia ${group.bayNumber}`
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      if (haystack.includes(q)) return true;
+      // Tambem matcha por anilha de qualquer ave do grupo
+      return group.birds.some((bird) => bird.ringNumber.toLowerCase().includes(q));
+    });
+  }, [groups, searchQuery]);
 
   async function openDaughters(parentGroupId: string) {
     setDaughtersLoading(true);
@@ -222,12 +241,11 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
     setLoading(true);
     setError(null);
 
+    // Sem filtros no servidor — a busca eh feita client-side via
+    // searchQuery (memo visibleGroups abaixo). Mantemos so o ring como
+    // param caso ele venha de deeplink ?ring=A0480 e ja queira pre-filtrar
+    // no servidor antes do client renderizar.
     const params = new URLSearchParams();
-    if (filterSpecies) params.set("species", filterSpecies);
-    if (filterBreed) params.set("breed", filterBreed);
-    if (filterVariety) params.set("variety", filterVariety);
-    if (filterStatus) params.set("status", filterStatus);
-    if (ringSearch) params.set("ring", ringSearch);
 
     const requests: Promise<Response>[] = [fetch(`/api/plantel/groups?${params.toString()}`, { cache: "no-store" })];
     if (showWorkerLinks) {
@@ -264,7 +282,7 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterSpecies, filterBreed, filterVariety, filterStatus, ringSearch]);
+  }, []);
 
   async function submitGroup(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -685,16 +703,35 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
             >
               + Ave
             </Button>
-            <Button
-              type="button"
-              variant="subtle"
-              className="w-full sm:w-auto"
-              onClick={() => setShowFilterModal(true)}
-            >
-              🔍 Filtros
-            </Button>
           </div>
         </div>
+        {/* Busca unificada — Vitrine-style. Substitui o modal de Filtros
+            com 5 campos separados por uma barra que casa em qualquer
+            atributo do grupo + anilha das aves. */}
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex-1">
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="🔎 Buscar por raça, espécie, variedade, baia ou anilha..."
+            />
+          </div>
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="rounded-2xl border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-50"
+            >
+              Limpar
+            </button>
+          ) : null}
+        </div>
+        {searchQuery ? (
+          <p className="mt-2 text-xs text-zinc-500">
+            Mostrando <span className="font-semibold text-zinc-800">{visibleGroups.length}</span> de{" "}
+            {groups.length} grupos.
+          </p>
+        ) : null}
       </Card>
       <AppModal
         open={showGroupModal}
@@ -1434,59 +1471,6 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       ) : null}
 
       <AppModal
-        open={showFilterModal}
-        title="🔍 Filtros do plantel"
-        onClose={() => setShowFilterModal(false)}
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Espécie</span>
-            <Input placeholder="Filtrar por espécie" value={filterSpecies} onChange={(event) => setFilterSpecies(event.target.value)} />
-          </label>
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Raça</span>
-            <Input placeholder="Filtrar por raça" value={filterBreed} onChange={(event) => setFilterBreed(event.target.value)} />
-          </label>
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Variedade</span>
-            <Input placeholder="Filtrar por variedade" value={filterVariety} onChange={(event) => setFilterVariety(event.target.value)} />
-          </label>
-          <label className="grid gap-1.5">
-            <span className="text-sm font-semibold text-slate-800">Status</span>
-            <select className={selectClass} value={filterStatus} onChange={(event) => setFilterStatus(event.target.value)}>
-              <option value="">Todos os status</option>
-              <option value="ACTIVE">Ativa</option>
-              <option value="SICK">Doente</option>
-              <option value="DEAD">Morta</option>
-              <option value="BROODY">Choca</option>
-            </select>
-          </label>
-          <label className="grid gap-1.5 sm:col-span-2">
-            <span className="text-sm font-semibold text-slate-800">Anilha</span>
-            <Input placeholder="Buscar por anilha" value={ringSearch} onChange={(event) => setRingSearch(event.target.value)} />
-          </label>
-        </div>
-        <div className="mt-4 flex justify-between gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setFilterSpecies("");
-              setFilterBreed("");
-              setFilterVariety("");
-              setFilterStatus("");
-              setRingSearch("");
-            }}
-          >
-            Limpar
-          </Button>
-          <Button type="button" onClick={() => setShowFilterModal(false)}>
-            Aplicar
-          </Button>
-        </div>
-      </AppModal>
-
-      <AppModal
         open={showWorkerLinkModal}
         title="🔗 Novo link da equipe"
         onClose={() => setShowWorkerLinkModal(false)}
@@ -1739,12 +1723,19 @@ export function PlantelManager({ showWorkerLinks = false }: { showWorkerLinks?: 
       {loading ? <p className="text-sm text-[color:var(--ink-soft)]">Carregando plantel...</p> : null}
       {!loading && groups.length === 0 ? (
         <Card>
-          <p className="text-sm text-[color:var(--ink-soft)]">Nenhum grupo encontrado com os filtros atuais.</p>
+          <p className="text-sm text-[color:var(--ink-soft)]">Nenhum grupo cadastrado ainda. Clique em + Grupo pra começar.</p>
+        </Card>
+      ) : null}
+      {!loading && groups.length > 0 && visibleGroups.length === 0 ? (
+        <Card>
+          <p className="text-sm text-[color:var(--ink-soft)]">
+            Nenhum grupo bate com a busca. Tente outro termo ou limpe a busca.
+          </p>
         </Card>
       ) : null}
 
       <section className="grid items-start gap-4 lg:grid-cols-2">
-        {groups.map((group) => {
+        {visibleGroups.map((group) => {
           return (
             <Card key={group.id} className="h-fit overflow-hidden">
               <div className="flex flex-col gap-4">
