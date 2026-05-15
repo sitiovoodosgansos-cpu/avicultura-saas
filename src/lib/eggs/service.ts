@@ -137,10 +137,18 @@ export async function updateEggCollection(
     }
   });
 
-  // Sincroniza a bandeja correspondente: se o usuario corrigiu o numero
-  // de ovos coletados, o initialCount na prateleira tambem precisa
-  // refletir. So mexe se nao tiver consumido nada (vendido/transferido/
-  // descartado) — nesse caso assume que ainda da pra reescrever.
+  // Sincroniza a bandeja correspondente. Tres cenarios:
+  //
+  // 1) Sem entry ainda + agora tem ovo bom → cria entry novo (caso normal).
+  // 2) Tem entry, consumed === 0 → atualiza initialCount (ou deleta se 0).
+  // 3) Tem entry, consumed > 0 → entry original ja tem ovo vendido/
+  //    transferido/descartado. Nao da pra mexer no initialCount sem
+  //    quebrar contabilidade. Se o user AUMENTOU os ovos da coleta
+  //    (delta > 0), criamos um SEGUNDO entry no mesmo tray pra contar
+  //    o acrescimo — eggCollectionId NULL porque a @unique impede 2
+  //    entries linkados na mesma coleta. Esse foi o bug reportado:
+  //    user adicionava mais ovos numa coleta cujos ovos ja tinham ido
+  //    pra chocadeira e nada aparecia na prateleira.
   const trayEntry = await prisma.eggTrayEntry.findFirst({
     where: { eggCollectionId: id, tenantId }
   });
@@ -156,9 +164,23 @@ export async function updateEggCollection(
           data: { initialCount: goodEggs, entryDate: new Date(`${input.date}T12:00:00`) }
         });
       }
+    } else {
+      // Consumed > 0: cria entry adicional pra o delta de aumento.
+      // Decremento nao da pra fazer sem reverter na prateleira primeiro.
+      const delta = goodEggs - existing.goodEggs;
+      if (delta > 0) {
+        await prisma.eggTrayEntry.create({
+          data: {
+            tenantId,
+            trayId: trayEntry.trayId,
+            source: "COLLECTION",
+            entryDate: new Date(`${input.date}T12:00:00`),
+            initialCount: delta,
+            notes: `Acrescimo pos-consumo (entry original ${trayEntry.id} ja tinha ovo vendido/transferido/descartado)`
+          }
+        });
+      }
     }
-    // Se consumed > 0, mantem a bandeja como esta — o usuario teria
-    // que reverter as acoes na prateleira pra mexer na quantidade.
   } else if (goodEggs > 0) {
     // Coleta nao tinha bandeja (talvez goodEggs era 0 antes) e agora tem.
     await createTrayEntryFromCollection(tenantId, id, input.flockGroupId, updated.date, goodEggs);
