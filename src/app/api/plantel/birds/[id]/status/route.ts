@@ -25,7 +25,9 @@ export async function POST(
     auth.session.user.id,
     id,
     parsed.data.status,
-    parsed.data.reason,
+    // Schema agora aceita null pra reason/occurredAt — convertemos pra
+    // undefined aqui pra casar com a assinatura do service.
+    parsed.data.reason ?? undefined,
     parsed.data.deathReasonId ?? null,
     parsed.data.occurredAt ?? null
   );

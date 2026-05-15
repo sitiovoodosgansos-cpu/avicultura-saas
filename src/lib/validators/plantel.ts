@@ -32,14 +32,16 @@ export const birdSchema = z.object({
 
 export const birdStatusSchema = z.object({
   status: z.enum(["ACTIVE", "SICK", "DEAD", "BROODY"]),
-  reason: z.string().trim().optional(),
+  // Accept null pra deixar o cliente mandar `reason: null` quando o
+  // textarea esta vazio sem quebrar a validacao (antes 400 silencioso).
+  reason: z.string().trim().nullable().optional(),
   // Quando status=DEAD, opcionalmente liga a uma causa do catalogo
   // (alimenta o grafico 'Causas de morte' do dashboard). Pra outros
   // status fica null/ignorado pelo service.
   deathReasonId: z.string().cuid().nullable().optional(),
   // Data real em que o evento aconteceu (YYYY-MM-DD). Pra obito
   // permite registrar retroativo. Quando null, service usa now().
-  occurredAt: z.string().min(1).optional()
+  occurredAt: z.string().min(1).nullable().optional()
 });
 
 export type FlockGroupInput = z.infer<typeof flockGroupSchema>;
