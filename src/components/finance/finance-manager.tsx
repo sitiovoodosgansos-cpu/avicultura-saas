@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import { PageTitle } from "@/components/layout/page-title";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -337,6 +337,11 @@ export function FinanceManager() {
   const [selectedMonth, setSelectedMonth] = useState(today.slice(0, 7));
 
   const [entryForm, setEntryForm] = useState<EntryForm>(emptyEntry);
+  // Linhas adicionais (alem da primeira que vive em entryForm.item/amount)
+  // pra cadastrar varias aves/grupos numa unica venda. Cada linha cria
+  // uma FinancialEntry separada compartilhando data/categoria/cliente/etc.
+  // So usado no fluxo de criacao — editar continua single-line.
+  const [extraEntryLines, setExtraEntryLines] = useState<Array<{ item: string; amount: number }>>([]);
   const [expenseForm, setExpenseForm] = useState<ExpenseForm>(emptyExpense);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
@@ -614,23 +619,62 @@ export function FinanceManager() {
     setSaving(true);
     setError(null);
 
-    const endpoint = editingEntryId ? `/api/finance/entries/${editingEntryId}` : "/api/finance/entries";
-    const method = editingEntryId ? "PUT" : "POST";
+    // EDIT: single PUT — entry edit nunca tem extra lines.
+    if (editingEntryId) {
+      const res = await fetch(`/api/finance/entries/${editingEntryId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entryForm)
+      });
+      if (!res.ok) {
+        const payload = (await res.json()) as { error?: string };
+        setError(payload.error ?? "Falha ao salvar entrada.");
+        setSaving(false);
+        return;
+      }
+      setEntryForm(emptyEntry);
+      setExtraEntryLines([]);
+      setEditingEntryId(null);
+      setShowEntryModal(false);
+      setSaving(false);
+      await loadData();
+      return;
+    }
 
-    const res = await fetch(endpoint, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(entryForm)
-    });
+    // CREATE: 1 POST por linha (1a linha em entryForm.item/amount,
+    // extras em extraEntryLines). Compartilha data/categoria/cliente/etc.
+    const allLines = [
+      { item: entryForm.item, amount: entryForm.amount },
+      ...extraEntryLines
+    ].filter((line) => line.item.trim().length > 0 && Number(line.amount) > 0);
 
-    if (!res.ok) {
-      const payload = (await res.json()) as { error?: string };
-      setError(payload.error ?? "Falha ao salvar entrada.");
+    if (allLines.length === 0) {
+      setError("Adicione ao menos uma linha com item selecionado e valor > 0.");
       setSaving(false);
       return;
     }
 
+    for (let i = 0; i < allLines.length; i += 1) {
+      const line = allLines[i];
+      const payload = { ...entryForm, item: line.item, amount: line.amount };
+      const res = await fetch("/api/finance/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const errPayload = (await res.json()) as { error?: string };
+        setError(
+          `Linha ${i + 1} (${line.item}) falhou: ${errPayload.error ?? "erro desconhecido"}. As linhas anteriores ja foram salvas.`
+        );
+        setSaving(false);
+        await loadData();
+        return;
+      }
+    }
+
     setEntryForm(emptyEntry);
+    setExtraEntryLines([]);
     setEditingEntryId(null);
     setShowEntryModal(false);
     setSaving(false);
@@ -731,7 +775,7 @@ export function FinanceManager() {
 
       <Card>
         <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
-          <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingEntryId(null); setEntryForm(emptyEntry); setShowEntryModal(true); }}>
+          <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingEntryId(null); setEntryForm(emptyEntry); setExtraEntryLines([]); setShowEntryModal(true); }}>
             + Entrada
           </Button>
           <Button type="button" className="w-full sm:w-auto" onClick={() => { setEditingExpenseId(null); setExpenseForm(emptyExpense); setShowExpenseModal(true); }}>
@@ -951,6 +995,7 @@ export function FinanceManager() {
                           customer: row.customer ?? "",
                           notes: row.notes ?? ""
                         });
+                        setExtraEntryLines([]);
                         setShowEntryModal(true);
                       }}
                       className="inline-flex size-8 items-center justify-center rounded-lg border border-[color:var(--line)] bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
@@ -1151,6 +1196,7 @@ export function FinanceManager() {
           setShowEntryModal(false);
           setEditingEntryId(null);
           setEntryForm(emptyEntry);
+          setExtraEntryLines([]);
         }}
       >
         <div className="mb-3">
@@ -1163,21 +1209,99 @@ export function FinanceManager() {
             <Input type="date" value={entryForm.date} onChange={(e) => setEntryForm((p) => ({ ...p, date: e.target.value }))} />
             <CategorySelect value={entryForm.category} options={entryCategoryOptions} onChange={(value) => setEntryForm((p) => ({ ...p, category: value }))} onCreate={() => openCategoryModal("entryCategory")} />
           </div>
-          <FlockGroupItemSelect
-            value={entryForm.item}
-            flockGroups={flockGroups}
-            onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))}
-          />
-          <div className="relative">
-            <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
-            <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+
+          {/* Primeira linha — sempre visivel */}
+          <div className="grid gap-2 rounded-xl border border-zinc-200 bg-white p-2">
+            <FlockGroupItemSelect
+              value={entryForm.item}
+              flockGroups={flockGroups}
+              onChange={(value) => setEntryForm((p) => ({ ...p, item: value }))}
+            />
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
+              <Input className="pl-10 sm:pl-10" type="number" min={0} step="0.01" placeholder="0,00" value={entryForm.amount || ""} onChange={(e) => setEntryForm((p) => ({ ...p, amount: Number(e.target.value) }))} />
+            </div>
           </div>
+
+          {/* Linhas adicionais — so em modo CRIACAO */}
+          {!editingEntryId
+            ? extraEntryLines.map((line, idx) => (
+                <div key={idx} className="grid gap-2 rounded-xl border border-emerald-200 bg-emerald-50/30 p-2">
+                  <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+                    <span>Ave/grupo #{idx + 2}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remover linha ${idx + 2}`}
+                      onClick={() =>
+                        setExtraEntryLines((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="inline-flex size-6 items-center justify-center rounded-md text-rose-600 hover:bg-rose-100"
+                    >
+                      <X className="size-4" aria-hidden />
+                    </button>
+                  </div>
+                  <FlockGroupItemSelect
+                    value={line.item}
+                    flockGroups={flockGroups}
+                    onChange={(value) =>
+                      setExtraEntryLines((prev) =>
+                        prev.map((l, i) => (i === idx ? { ...l, item: value } : l))
+                      )
+                    }
+                  />
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-500">R$</span>
+                    <Input
+                      className="pl-10 sm:pl-10"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0,00"
+                      value={line.amount || ""}
+                      onChange={(e) =>
+                        setExtraEntryLines((prev) =>
+                          prev.map((l, i) =>
+                            i === idx ? { ...l, amount: Number(e.target.value) } : l
+                          )
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              ))
+            : null}
+
+          {/* Botao adicionar linha + total — so em modo CRIACAO */}
+          {!editingEntryId ? (
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setExtraEntryLines((prev) => [...prev, { item: "", amount: 0 }])
+                }
+              >
+                <Plus className="mr-1 size-4" aria-hidden />
+                Adicionar outra ave/grupo
+              </Button>
+              {extraEntryLines.length > 0 ? (
+                <span className="text-sm font-semibold text-emerald-700">
+                  Total:{" "}
+                  {formatMoney(
+                    (entryForm.amount || 0) +
+                      extraEntryLines.reduce((s, l) => s + (l.amount || 0), 0)
+                  )}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           <Input placeholder="Descricao" value={entryForm.description} onChange={(e) => setEntryForm((p) => ({ ...p, description: e.target.value }))} />
           <Input placeholder="Cliente (opcional)" value={entryForm.customer} onChange={(e) => setEntryForm((p) => ({ ...p, customer: e.target.value }))} />
           <Input placeholder="Observacoes" value={entryForm.notes} onChange={(e) => setEntryForm((p) => ({ ...p, notes: e.target.value }))} />
           <div className="flex gap-2">
             <Button type="submit" disabled={saving}>{saving ? "Salvando..." : editingEntryId ? "Atualizar" : "Cadastrar"}</Button>
-            <Button type="button" variant="outline" onClick={() => { setShowEntryModal(false); setEditingEntryId(null); setEntryForm(emptyEntry); }}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowEntryModal(false); setEditingEntryId(null); setEntryForm(emptyEntry); setExtraEntryLines([]); }}>Cancelar</Button>
           </div>
         </form>
       </AppModal>
