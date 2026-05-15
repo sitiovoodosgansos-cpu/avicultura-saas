@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmployeesManager } from "@/components/employees/employees-manager";
 import { TenantProfileEditor } from "@/components/profile/tenant-profile-editor";
+import { DangerZone } from "@/components/billing/danger-zone";
 import { completeOpenInTab, openUrlWithNativeFallback, preOpenBlankTab } from "@/lib/mobile/open-url";
 
 type BillingStatus = {
@@ -718,6 +719,8 @@ export function BillingProfileManager() {
         <p className="mt-1 text-sm text-zinc-700">Fim do trial: {data?.tenant.trialEndsAt ? new Date(data.tenant.trialEndsAt).toLocaleDateString("pt-BR") : "-"}</p>
         <p className="mt-1 text-sm text-zinc-700">Acesso liberado: {data?.isAccessAllowed ? "Sim" : "Não"}</p>
       </Card>
+
+      <DangerZone />
     </main>
   );
 }
