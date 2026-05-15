@@ -241,6 +241,15 @@ function getDaysUntil(targetDate: Date) {
   return Math.ceil((targetDate.getTime() - todayStart.getTime()) / (24 * 60 * 60 * 1000));
 }
 
+// Brasil em UTC-3 (sem DST desde 2019). Usado pra agrupar batches em
+// "dia BRT" — duas insercoes do mesmo dia local viram o mesmo lote.
+const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
+function toBrtDayString(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const asBrt = new Date(d.getTime() - BRT_OFFSET_MS);
+  return asBrt.toISOString().slice(0, 10);
+}
+
 const LOT_MARKER_REGEX = /\[LOT:(.+?)\]/i;
 
 function extractLotCode(notes: string | null | undefined) {
@@ -437,6 +446,10 @@ export function IncubatorsManager() {
       const totalEggs = byDevice.reduce((sum, batch) => sum + batch.eggsSet, 0);
       const hatched = byDevice.reduce((sum, batch) => sum + batch.stats.hatched, 0);
       const active = activeByDevice.length;
+      // Chocagens = numero de LOTES distintos = dias BRT em que houve
+      // insercao nessa chocadeira. Batches do mesmo dia (varias especies
+      // ou multiplas insercoes em horarios diferentes) contam como 1 lote.
+      const totalLots = new Set(byDevice.map((batch) => toBrtDayString(batch.entryDate))).size;
 
       const groupMap = new Map<
         string,
@@ -502,7 +515,10 @@ export function IncubatorsManager() {
       return {
         ...device,
         active,
-        totalBatches: byDevice.length,
+        // Contagem antiga era byDevice.length (1 por especie+insercao).
+        // Trocada por totalLots (1 por dia BRT distinto) — o que o user
+        // entende intuitivamente como "chocagens" no card.
+        totalBatches: totalLots,
         hatched,
         hatchRate: totalEggs ? (hatched / totalEggs) * 100 : 0,
         speciesCountdowns
