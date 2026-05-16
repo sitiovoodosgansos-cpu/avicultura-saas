@@ -453,7 +453,20 @@ export function IncubatorsManager() {
 
       const groupMap = new Map<
         string,
-        { species: string; eggs: number; remainingDays: number; hatchDate: Date; lineCount: number; totalDays: number; batchIds: string[] }
+        {
+          species: string;
+          eggs: number;
+          // Soma de hatched+infertile+embryoLoss+pippedDied dos batches do
+          // grupo. Indica quantos ovos ja foram resolvidos.
+          consumed: number;
+          // eggs - consumed. Quando chega a 0 o grupo eh filtrado fora.
+          remaining: number;
+          remainingDays: number;
+          hatchDate: Date;
+          lineCount: number;
+          totalDays: number;
+          batchIds: string[];
+        }
       >();
       for (const batch of activeByDevice) {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
@@ -467,9 +480,16 @@ export function IncubatorsManager() {
         const hatchDate = addDaysToDate(entryDate, resolved.days);
         const remainingDays = getDaysUntil(hatchDate);
         const groupKey = `${batch.flockGroupId}|${entryDate.toISOString().slice(0, 10)}`;
+        const batchConsumed =
+          (batch.stats.hatched ?? 0) +
+          (batch.stats.infertile ?? 0) +
+          (batch.stats.embryoLoss ?? 0) +
+          (batch.stats.pippedDied ?? 0);
         const existing = groupMap.get(groupKey);
         if (existing) {
           existing.eggs += batch.eggsSet;
+          existing.consumed += batchConsumed;
+          existing.remaining = Math.max(0, existing.eggs - existing.consumed);
           existing.lineCount += 1;
           existing.batchIds.push(batch.id);
           continue;
@@ -477,6 +497,8 @@ export function IncubatorsManager() {
         groupMap.set(groupKey, {
           species: cardLabel,
           eggs: batch.eggsSet,
+          consumed: batchConsumed,
+          remaining: Math.max(0, batch.eggsSet - batchConsumed),
           remainingDays,
           hatchDate,
           lineCount: 1,
@@ -484,7 +506,13 @@ export function IncubatorsManager() {
           batchIds: [batch.id]
         });
       }
-      const batchCountdowns = Array.from(groupMap.values());
+      // Filtra grupos totalmente resolvidos (remaining === 0) — todos os
+      // ovos ja foram marcados como nascido/infertil/morto/parou. Saem
+      // do card visualmente; os batches ficam ACTIVE no banco ate finalize
+      // explicito (pra permitir reverter eventos se o user errou).
+      const batchCountdowns = Array.from(groupMap.values()).filter(
+        (item) => item.remaining > 0
+      );
 
       const speciesCountdowns = batchCountdowns
         .sort((a, b) => a.remainingDays - b.remainingDays || b.eggs - a.eggs)
@@ -1214,7 +1242,12 @@ export function IncubatorsManager() {
                         </div>
                       </div>
                       <div className="mt-1.5 flex items-center justify-between text-[11px] text-zinc-500">
-                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-700">{item.eggs} ovos</span>
+                        <span
+                          className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-zinc-700"
+                          title={`${item.remaining} ovos restantes de ${item.eggs} inseridos · ${item.consumed} resolvidos (nascidos/inférteis/parados/mortos)`}
+                        >
+                          {item.remaining}/{item.eggs} ovos
+                        </span>
                         <span>Eclosao: {item.hatchDateLabel}</span>
                       </div>
                       <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-200">
