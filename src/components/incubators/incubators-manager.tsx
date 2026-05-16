@@ -817,7 +817,15 @@ export function IncubatorsManager() {
     const defaultQty = isConsuming ? remaining : 0;
 
     setError(null);
-    setFinalizeBatchOnSubmit(type === "HATCHED");
+    // ANTES: setFinalizeBatchOnSubmit(type === "HATCHED") auto-finalizava
+    // o lote inteiro ao clicar 🐣, mesmo registrando PARCIAL (ex: 2 de 7
+    // nascidos). O lote ia pra Inativos com os outros 5 ovos sem
+    // classificacao, gerando confusao ('coloquei nascidos mas nao
+    // contabilizou no card Ativo'). Agora o icone apenas registra o
+    // evento; a card auto-some via filtro remaining===0 quando tudo
+    // for classificado. O botao Check (✓) continua finalizando
+    // explicitamente quando o user quer.
+    setFinalizeBatchOnSubmit(false);
     setEditingEventId(null);
     setEditingEventBatchId(null);
     setEventTypeLocked(true);
