@@ -229,6 +229,17 @@ function monthBucketLastMonths(months: number) {
 }
 
 export async function getDashboardData(tenantId: string): Promise<DashboardData> {
+  // Reconcilia Bird records faltando pra HATCHED events antes de carregar
+  // os KPIs — garante que 'Filhotes' batenha com 'Nascidos' da chocadeira.
+  // Idempotente; no-op quando ja esta sincronizado.
+  try {
+    const { reconcileHatchedBirds } = await import("@/lib/incubators/reconcile");
+    await reconcileHatchedBirds(tenantId);
+  } catch (err) {
+    // Nao bloqueia o load do dashboard se a reconciliacao falhar.
+    console.error("[dashboard] reconcileHatchedBirds failed:", err);
+  }
+
   const now = new Date();
   const today = startOfDay(now);
   const tomorrow = addDays(today, 1);

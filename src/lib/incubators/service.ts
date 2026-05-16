@@ -205,6 +205,15 @@ export async function listIncubatorContext(tenantId: string) {
   // antes desse fix), o agrupamento eh recalculado aqui.
   await regroupBatchLots(tenantId);
 
+  // Reconcilia Birds com HATCHED events — cria Bird records faltantes
+  // pra que o card 'Filhotes' bata com NASCIDOS da chocadeira.
+  try {
+    const { reconcileHatchedBirds } = await import("@/lib/incubators/reconcile");
+    await reconcileHatchedBirds(tenantId);
+  } catch (err) {
+    console.error("[incubators] reconcileHatchedBirds failed:", err);
+  }
+
   const [incubators, batches, flockGroups] = await Promise.all([
     prisma.incubator.findMany({
       where: { tenantId },
