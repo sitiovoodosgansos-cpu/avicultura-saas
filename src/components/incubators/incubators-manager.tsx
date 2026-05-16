@@ -352,17 +352,29 @@ export function IncubatorsManager() {
   const [eventTypeLocked, setEventTypeLocked] = useState(false);
   const activeBatches = useMemo(() => batches.filter((batch) => batch.status === "ACTIVE"), [batches]);
   const finalizedBatches = useMemo(() => batches.filter((batch) => batch.status !== "ACTIVE"), [batches]);
-  const visibleBatches = batchFilter === "ACTIVE" ? activeBatches : finalizedBatches;
-  const lotGroups = useMemo(() => {
+
+  // Constroi TODOS os lotes a partir de TODOS os batches (independente do
+  // filtro Ativos/Inativos), agrupados pelo lotCode (ou fallback por
+  // entryDate+incubator quando nao ha lotCode). Assim batches que mudaram
+  // de ACTIVE pra HATCHED continuam visiveis no mesmo card do lote — o
+  // card vira um 'relatorio completo' das coisas que aconteceram naquele
+  // lote. O fallbackKey antes incluia 'batch.status', o que separava
+  // active+finalized do mesmo dia em lotes diferentes na UI. Removido.
+  //
+  // O status do lote eh derivado: ACTIVE se qualquer batch ainda eh ATIVO,
+  // senao usa o status do primeiro batch (representa lote finalizado).
+  const allLotGroups = useMemo(() => {
     const groups = new Map<string, LotGroup>();
 
-    for (const batch of visibleBatches) {
+    for (const batch of batches) {
       const lotCode = extractLotCode(batch.notes);
-      const fallbackKey = `legacy:${batch.incubatorId}:${toDateInput(batch.entryDate)}:${batch.status}:${stripLotMetadata(batch.notes)}`;
+      const fallbackKey = `legacy:${batch.incubatorId}:${toDateInput(batch.entryDate)}:${stripLotMetadata(batch.notes)}`;
       const key = lotCode ? `code:${lotCode}` : fallbackKey;
       const existing = groups.get(key);
       if (existing) {
         existing.lines.push(batch);
+        // Promove pra ACTIVE se qualquer batch ainda esta ativo
+        if (batch.status === "ACTIVE") existing.status = "ACTIVE";
         continue;
       }
       groups.set(key, {
@@ -376,7 +388,11 @@ export function IncubatorsManager() {
     }
 
     return Array.from(groups.values()).sort((a, b) => new Date(b.entryDate).getTime() - new Date(a.entryDate).getTime());
-  }, [visibleBatches]);
+  }, [batches]);
+
+  const activeLotGroups = useMemo(() => allLotGroups.filter((lot) => lot.status === "ACTIVE"), [allLotGroups]);
+  const finalizedLotGroups = useMemo(() => allLotGroups.filter((lot) => lot.status !== "ACTIVE"), [allLotGroups]);
+  const lotGroups = batchFilter === "ACTIVE" ? activeLotGroups : finalizedLotGroups;
 
   const totalBatchEggs = useMemo(
     () => batchLines.reduce((sum, line) => sum + (Number.isFinite(line.eggsSet) ? line.eggsSet : 0), 0),
@@ -1322,8 +1338,8 @@ export function IncubatorsManager() {
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-base font-semibold text-zinc-900">Registro de lotes</h3>
             <div className="rounded-full bg-zinc-100 p-1 text-xs">
-              <button type="button" className={`rounded-full px-3 py-1 ${batchFilter === "ACTIVE" ? "bg-white text-zinc-900 shadow" : "text-zinc-500"}`} onClick={() => setBatchFilter("ACTIVE")}>Ativos ({activeBatches.length})</button>
-              <button type="button" className={`rounded-full px-3 py-1 ${batchFilter === "FINALIZED" ? "bg-white text-zinc-900 shadow" : "text-zinc-500"}`} onClick={() => setBatchFilter("FINALIZED")}>Inativos ({finalizedBatches.length})</button>
+              <button type="button" className={`rounded-full px-3 py-1 ${batchFilter === "ACTIVE" ? "bg-white text-zinc-900 shadow" : "text-zinc-500"}`} onClick={() => setBatchFilter("ACTIVE")}>Ativos ({activeLotGroups.length})</button>
+              <button type="button" className={`rounded-full px-3 py-1 ${batchFilter === "FINALIZED" ? "bg-white text-zinc-900 shadow" : "text-zinc-500"}`} onClick={() => setBatchFilter("FINALIZED")}>Inativos ({finalizedLotGroups.length})</button>
             </div>
           </div>
 
