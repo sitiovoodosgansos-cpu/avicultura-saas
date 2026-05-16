@@ -1991,37 +1991,6 @@ export function IncubatorsManager() {
           </div>
         ) : null}
 
-        {/* Adicionar novo evento pra esse lote — atalho pra nao precisar
-            voltar pro card da chocadeira pra registrar */}
-        {historyModalBatchIds && historyModalBatchIds.length > 0 ? (
-          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-              Adicionar evento
-            </p>
-            <p className="mt-1 text-[11px] text-emerald-800">
-              Registre nascidos, inferteis, parados ou bicaram diretamente
-              nesse lote.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {EVENT_ICONS.map((icon) => (
-                <button
-                  key={icon.type}
-                  type="button"
-                  onClick={() => {
-                    const batchIds = historyModalBatchIds;
-                    setHistoryModalBatchIds(null);
-                    if (batchIds) openEventModalForSpeciesType(batchIds, icon.type);
-                  }}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${icon.bg} ${icon.text} ${icon.hoverBg}`}
-                >
-                  <span aria-hidden>{icon.emoji}</span>
-                  {icon.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
         <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Eventos registrados
         </p>
