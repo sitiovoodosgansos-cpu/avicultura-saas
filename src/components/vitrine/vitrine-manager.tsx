@@ -366,9 +366,16 @@ export function VitrineManager() {
 
   // Aplica busca + filtro de grupo nos cards visiveis. Mantem `summary` e
   // contadores no panorama (todos os anuncios) e so filtra a grade.
+  // Tambem esconde grupos com 0 aves disponiveis — quando esgota a ultima
+  // ave da raca, o card some. Volta a aparecer quando entrar nova ave ou
+  // nascer filhote do mesmo grupo (status=AVAILABLE + availableQuantity > 0).
   const visibleGrouped = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return grouped.filter(({ group }) => {
+    return grouped.filter(({ group, listings }) => {
+      const totalAvailable = listings
+        .filter((l) => l.status === "AVAILABLE")
+        .reduce((s, l) => s + l.availableQuantity, 0);
+      if (totalAvailable <= 0) return false;
       if (groupFilter && group.id !== groupFilter) return false;
       if (!q) return true;
       const haystack = [
