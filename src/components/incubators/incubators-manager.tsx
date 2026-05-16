@@ -411,7 +411,10 @@ export function IncubatorsManager() {
   };
   const eventBatchOptions = useMemo<EventBatchOption[]>(() => {
     const map = new Map<string, EventBatchOption>();
-    for (const batch of activeBatches) {
+    // Inclui TODOS os batches (active + finalized) com remaining > 0.
+    // Batches HATCHED-por-bug com ovos pendentes ainda aparecem aqui pra
+    // o user terminar a classificacao.
+    for (const batch of batches) {
       const dateKey = toDateInput(batch.entryDate);
       const key = `${batch.flockGroupId}|${dateKey}`;
       const consumed =
@@ -439,8 +442,9 @@ export function IncubatorsManager() {
     for (const opt of map.values()) {
       opt.label = `${opt.incubator} - ${opt.flockGroupTitle} - ${new Date(opt.entryDate).toLocaleDateString("pt-BR")} - ${opt.totalEggs} ovos`;
     }
-    return Array.from(map.values());
-  }, [activeBatches]);
+    // Filtra grupos ja resolvidos (sem ovo restante pra classificar).
+    return Array.from(map.values()).filter((opt) => opt.remaining > 0);
+  }, [batches]);
 
   const selectedEventBatchGroup = useMemo(
     () => eventBatchOptions.find((opt) => opt.groupKey === eventForm.batchId) ?? null,
@@ -484,7 +488,13 @@ export function IncubatorsManager() {
           batchIds: string[];
         }
       >();
-      for (const batch of activeByDevice) {
+      // Itera TODOS os batches do device (ativos + finalizados). O bug
+      // anterior auto-finalizava batches com nascidos parciais — eles ficavam
+      // status=HATCHED com remaining > 0. Agora reaparecem aqui ate o user
+      // resolver os ovos restantes ou finalizar explicitamente. Batches que
+      // o user fechou conscientemente via Check (✓) tem remaining === 0 e
+      // sao filtrados depois.
+      for (const batch of byDevice) {
         const speciesName = batch.flockGroup.species?.name?.trim() || "";
         const resolved = resolveIncubationDays(
           batch.flockGroup.species?.incubationDays,
@@ -522,10 +532,9 @@ export function IncubatorsManager() {
           batchIds: [batch.id]
         });
       }
-      // Filtra grupos totalmente resolvidos (remaining === 0) — todos os
-      // ovos ja foram marcados como nascido/infertil/morto/parou. Saem
-      // do card visualmente; os batches ficam ACTIVE no banco ate finalize
-      // explicito (pra permitir reverter eventos se o user errou).
+      // Filtra grupos totalmente resolvidos (remaining === 0). Sai do card
+      // visualmente; os batches ficam no DB pra preservar historico e
+      // permitir reverter eventos via 'Editar eventos registrados'.
       const batchCountdowns = Array.from(groupMap.values()).filter(
         (item) => item.remaining > 0
       );
@@ -803,7 +812,12 @@ export function IncubatorsManager() {
     batchIds: string[],
     type: EventForm["type"]
   ) {
-    const targetBatch = activeBatches.find((batch) => batchIds.includes(batch.id));
+    // Procura primeiro nos active. Se nao achar (batch foi auto-finalizado
+    // pelo bug antigo), aceita qualquer status — o backend permite registrar
+    // evento em batch HATCHED desde que tenha remaining > 0.
+    const targetBatch =
+      activeBatches.find((batch) => batchIds.includes(batch.id)) ??
+      batches.find((batch) => batchIds.includes(batch.id));
     if (!targetBatch) {
       setError("Lote nao encontrado.");
       return;
@@ -814,7 +828,9 @@ export function IncubatorsManager() {
     // Pra eventos 'consumidores' (HATCHED/INFERTILE/EMBRYO_LOSS/PIPPED_DIED)
     // = ovos ainda nao classificados. Pra OTHER (nao-consumidor) = total
     // de ovos do grupo (usuario tipicamente registra qty 0 ou descritiva).
-    const groupBatches = activeBatches.filter((b) =>
+    // Inclui batches finalizados pra cobrir o cenario de batches
+    // auto-finalizados pelo bug anterior que ainda tem remaining > 0.
+    const groupBatches = batches.filter((b) =>
       `${b.flockGroupId}|${toDateInput(b.entryDate)}` === groupKey
     );
     const totalEggs = groupBatches.reduce((s, b) => s + b.eggsSet, 0);
@@ -942,13 +958,15 @@ export function IncubatorsManager() {
   }
 
   function openFinalizeForSpecies(batchIds: string[]) {
-    const targetBatch = activeBatches.find((batch) => batchIds.includes(batch.id));
+    const targetBatch =
+      activeBatches.find((batch) => batchIds.includes(batch.id)) ??
+      batches.find((batch) => batchIds.includes(batch.id));
     if (!targetBatch) {
       setError("Lote nao encontrado para finalizar.");
       return;
     }
     const groupKey = `${targetBatch.flockGroupId}|${toDateInput(targetBatch.entryDate)}`;
-    const groupBatches = activeBatches.filter((b) => `${b.flockGroupId}|${toDateInput(b.entryDate)}` === groupKey);
+    const groupBatches = batches.filter((b) => `${b.flockGroupId}|${toDateInput(b.entryDate)}` === groupKey);
     const totalEggs = groupBatches.reduce((s, b) => s + b.eggsSet, 0);
     const totalConsumed = groupBatches.reduce(
       (s, b) =>
@@ -1022,8 +1040,10 @@ export function IncubatorsManager() {
       return;
     }
 
-    // Distribui FIFO (por entryDate ascendente, depois por id) entre os batches do grupo
-    const groupBatches = activeBatches
+    // Distribui FIFO (por entryDate ascendente, depois por id) entre os batches do grupo.
+    // Inclui batches finalizados pelo bug antigo (que ainda tem remaining > 0)
+    // pra permitir terminar a classificacao deles.
+    const groupBatches = batches
       .filter((b) => selectedEventBatchGroup.batchIds.includes(b.id))
       .sort((a, b) => new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime() || a.id.localeCompare(b.id));
 
