@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { ChevronDown, ChevronRight, Pencil, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, ShoppingCart, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DeleteActionButton } from "@/components/ui/delete-action-button";
+import type { BulkCartItem } from "@/components/vitrine/bulk-sell-modal";
 import {
   formatAge,
   formatBRL,
@@ -94,13 +95,19 @@ export function FlockGroupCard({
   listings,
   onEdit,
   onRemove,
-  onViewBirds
+  onViewBirds,
+  cart,
+  onAddToCart,
+  onRemoveFromCart
 }: {
   group: FlockGroupRef;
   listings: VitrineListingItem[];
   onEdit: (listing: VitrineListingItem) => void;
   onRemove: (id: string) => void;
   onViewBirds: (listings: VitrineListingItem[]) => void;
+  cart: Map<string, BulkCartItem>;
+  onAddToCart: (listing: VitrineListingItem) => void;
+  onRemoveFromCart: (listingId: string) => void;
 }) {
   const available = listings.filter((listing) => listing.status === "AVAILABLE");
   const totalAvailable = available.reduce((acc, listing) => acc + listing.availableQuantity, 0);
@@ -154,7 +161,18 @@ export function FlockGroupCard({
       <ul className="grid gap-2">
         {displayRows.map((row) => {
           if (row.kind === "single") {
-            return <SingleListingRow key={row.listing.id} listing={row.listing} onEdit={onEdit} onRemove={onRemove} onViewBirds={onViewBirds} />;
+            return (
+              <SingleListingRow
+                key={row.listing.id}
+                listing={row.listing}
+                onEdit={onEdit}
+                onRemove={onRemove}
+                onViewBirds={onViewBirds}
+                cart={cart}
+                onAddToCart={onAddToCart}
+                onRemoveFromCart={onRemoveFromCart}
+              />
+            );
           }
 
           // Linha mesclada: soma quantidades e oferece expansao pra
@@ -226,7 +244,57 @@ export function FlockGroupCard({
                     </span>
                   ) : null}
                 </div>
-                <div className="flex shrink-0 gap-1.5">
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  {/* Carrinho na linha mesclada: adiciona 1 do PRIMEIRO
+                      listing com availableQuantity disponivel. Se o user
+                      precisa de granularidade fina (escolher de qual
+                      insercao tirar), expandir o grupo. */}
+                  {(() => {
+                    const target = row.listings.find(
+                      (l) =>
+                        l.status === "AVAILABLE" &&
+                        l.availableQuantity > 0 &&
+                        (cart.get(l.id)?.quantity ?? 0) < l.availableQuantity
+                    );
+                    const totalInCartForBucket = row.listings.reduce(
+                      (s, l) => s + (cart.get(l.id)?.quantity ?? 0),
+                      0
+                    );
+                    if (!target && totalInCartForBucket === 0) return null;
+                    return (
+                      <div className="inline-flex items-center gap-0.5 rounded-lg border border-emerald-300 bg-emerald-100 px-1 py-0.5 text-emerald-800">
+                        <button
+                          type="button"
+                          aria-label="Remover 1 do carrinho"
+                          disabled={totalInCartForBucket === 0}
+                          onClick={() => {
+                            // Decrementa do ULTIMO listing do bucket que esta no carrinho
+                            const last = [...row.listings]
+                              .reverse()
+                              .find((l) => (cart.get(l.id)?.quantity ?? 0) > 0);
+                            if (last) onRemoveFromCart(last.id);
+                          }}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-[1.5rem] text-center text-xs font-semibold">
+                          {totalInCartForBucket}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label="Adicionar 1 ao carrinho"
+                          disabled={!target}
+                          onClick={() => {
+                            if (target) onAddToCart(target);
+                          }}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          +
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <Button
                     type="button"
                     size="icon"
@@ -266,6 +334,9 @@ export function FlockGroupCard({
                       onEdit={onEdit}
                       onRemove={onRemove}
                       onViewBirds={onViewBirds}
+                      cart={cart}
+                      onAddToCart={onAddToCart}
+                      onRemoveFromCart={onRemoveFromCart}
                       compact
                     />
                   ))}
@@ -289,14 +360,25 @@ function SingleListingRow({
   onEdit,
   onRemove,
   onViewBirds,
+  cart,
+  onAddToCart,
+  onRemoveFromCart,
   compact = false
 }: {
   listing: VitrineListingItem;
   onEdit: (listing: VitrineListingItem) => void;
   onRemove: (id: string) => void;
   onViewBirds: (listings: VitrineListingItem[]) => void;
+  cart: Map<string, BulkCartItem>;
+  onAddToCart: (listing: VitrineListingItem) => void;
+  onRemoveFromCart: (listingId: string) => void;
   compact?: boolean;
 }) {
+  const cartItem = cart.get(listing.id);
+  const inCart = Boolean(cartItem);
+  const canAddMore = !cartItem || cartItem.quantity < listing.availableQuantity;
+  const sellable =
+    listing.status === "AVAILABLE" && listing.availableQuantity > 0;
   return (
     <li
       className={
@@ -381,7 +463,46 @@ function SingleListingRow({
             <span className="text-[9px] font-medium text-amber-600">sem tabela</span>
           ) : null}
         </div>
-        <div className="flex shrink-0 gap-1.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+          {/* Carrinho: 🛒 quando nao esta na selecao; [- N +] quando esta */}
+          {sellable ? (
+            inCart && cartItem ? (
+              <div className="inline-flex items-center gap-0.5 rounded-lg border border-emerald-300 bg-emerald-100 px-1 py-0.5 text-emerald-800">
+                <button
+                  type="button"
+                  aria-label="Remover 1 do carrinho"
+                  onClick={() => onRemoveFromCart(listing.id)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold transition hover:bg-emerald-200"
+                >
+                  −
+                </button>
+                <span className="min-w-[1.5rem] text-center text-xs font-semibold">
+                  {cartItem.quantity}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Adicionar 1 ao carrinho"
+                  disabled={!canAddMore}
+                  onClick={() => onAddToCart(listing)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-md text-sm font-bold transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  +
+                </button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => onAddToCart(listing)}
+                aria-label="Adicionar 1 ave ao carrinho"
+                title="Adicionar 1 ave ao carrinho"
+                className="h-8 w-8 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 sm:h-9 sm:w-9"
+              >
+                <ShoppingCart className="h-4 w-4" aria-hidden />
+              </Button>
+            )
+          ) : null}
           <Button
             type="button"
             size="icon"

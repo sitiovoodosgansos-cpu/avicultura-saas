@@ -222,8 +222,9 @@ export function VitrineManager() {
     }
   }
 
-  // Toggle o listing no carrinho. Default: quantity=1, unitPrice = preço
-  // sugerido da tabela (currentPrice) ou 0 se nao houver tier.
+  // Toggle o listing no carrinho — adiciona com quantity=1 ou remove se
+  // ja estava. Usado pelo modal BulkSellModal pra remover item via o
+  // botao "Remover" da linha.
   function toggleCart(listing: VitrineListingItem) {
     setCart((prev) => {
       const next = new Map(prev);
@@ -235,6 +236,41 @@ export function VitrineManager() {
           quantity: 1,
           unitPrice: listing.currentPrice ?? 0
         });
+      }
+      return next;
+    });
+  }
+
+  // Incrementa +1 ave do listing no carrinho (capado em availableQuantity).
+  // Usado pelo botao + da linha e do balde lateral.
+  function incrementCart(listing: VitrineListingItem) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(listing.id);
+      if (existing) {
+        const newQty = Math.min(listing.availableQuantity, existing.quantity + 1);
+        next.set(listing.id, { ...existing, quantity: newQty });
+      } else {
+        next.set(listing.id, {
+          listing,
+          quantity: 1,
+          unitPrice: listing.currentPrice ?? 0
+        });
+      }
+      return next;
+    });
+  }
+
+  // Decrementa 1 ave. Se chegar a 0, remove o item inteiro do carrinho.
+  function decrementCart(listingId: string) {
+    setCart((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(listingId);
+      if (!existing) return next;
+      if (existing.quantity <= 1) {
+        next.delete(listingId);
+      } else {
+        next.set(listingId, { ...existing, quantity: existing.quantity - 1 });
       }
       return next;
     });
@@ -508,6 +544,9 @@ export function VitrineManager() {
             onEdit={openEdit}
             onRemove={handleRemove}
             onViewBirds={(grouped) => setViewingBirdsListings(grouped)}
+            cart={cart}
+            onAddToCart={incrementCart}
+            onRemoveFromCart={decrementCart}
           />
         ))}
       </div>
@@ -582,32 +621,95 @@ export function VitrineManager() {
         onClose={() => setViewingBirdsListings(null)}
       />
 
-      {/* Barra flutuante do carrinho da Vitrine — acumula listings em
-          uma unica venda. Substitui o modal per-listing antigo. */}
+      {/* Balde lateral suspenso (estilo Prateleira) — bottom no mobile,
+          painel vertical no desktop. Cada item tem -/+ proprios e o
+          'Finalizar' abre o BulkSellModal pra registrar cliente/pagamento.
+          Backend (sell-bulk) cria 1 FinancialEntry com a categoria
+          ADULT_BIRD_SALE/CHICK_SALE compartilhada por todas as linhas,
+          alimentando Faturamento do Plantel + Receita por raca do Dashboard. */}
       {cart.size > 0 ? (
-        <div className="cart-floating-bar fixed inset-x-3 mx-auto flex max-w-3xl items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.18)]">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="text-xl" aria-hidden>🛒</span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">
-                {cart.size} {cart.size === 1 ? "item" : "itens"} ·{" "}
-                {cartList.reduce((s, it) => s + it.quantity, 0)} ave(s) ·{" "}
-                {new Intl.NumberFormat("pt-BR", {
-                  style: "currency",
-                  currency: "BRL"
-                }).format(cartTotal)}
-              </p>
-              <p className="truncate text-[11px] text-slate-500">
-                Tudo será gerado como uma única venda
-              </p>
+        <div
+          className={
+            "cart-floating-bar fixed bottom-3 left-3 right-3 z-40 flex max-h-[70vh] flex-col rounded-2xl border border-zinc-200 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.18)] " +
+            "md:bottom-auto md:left-auto md:right-3 md:top-1/2 md:w-80 md:-translate-y-1/2 md:max-h-[80vh]"
+          }
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="text-2xl" aria-hidden>🛒</span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">Venda</p>
+                <p className="truncate text-[11px] text-slate-500">
+                  {cartList.reduce((s, it) => s + it.quantity, 0)} ave
+                  {cartList.reduce((s, it) => s + it.quantity, 0) === 1 ? "" : "s"} ·{" "}
+                  {new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL"
+                  }).format(cartTotal)}
+                </p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={clearCart}
+              className="rounded-lg px-2 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+            >
+              Limpar
+            </button>
           </div>
-          <Button type="button" variant="outline" onClick={clearCart}>
-            Limpar
-          </Button>
-          <Button type="button" onClick={openCart}>
-            Finalizar venda
-          </Button>
+
+          <div className="hidden flex-1 overflow-y-auto px-3 py-2 md:block">
+            <ul className="space-y-1.5">
+              {cartList.map((item) => {
+                const label = item.listing.title?.trim() || item.listing.flockGroup?.title || "Lote";
+                return (
+                  <li
+                    key={item.listing.id}
+                    className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/40 px-2 py-1.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-slate-800">{label}</p>
+                      <p className="text-[10px] text-slate-500">
+                        {item.quantity}/{item.listing.availableQuantity} ·{" "}
+                        {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL"
+                        }).format((item.unitPrice ?? 0) * item.quantity)}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-zinc-200 bg-white px-1 py-0.5">
+                      <button
+                        type="button"
+                        aria-label="Remover 1"
+                        onClick={() => decrementCart(item.listing.id)}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-bold text-zinc-700 hover:bg-zinc-100"
+                      >
+                        −
+                      </button>
+                      <span className="min-w-[1.25rem] text-center text-xs font-semibold">
+                        {item.quantity}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Adicionar 1"
+                        onClick={() => incrementCart(item.listing)}
+                        disabled={item.quantity >= item.listing.availableQuantity}
+                        className="inline-flex h-6 w-6 items-center justify-center rounded text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <div className="border-t border-zinc-100 px-3 py-2">
+            <Button type="button" onClick={openCart} className="w-full">
+              Finalizar venda
+            </Button>
+          </div>
         </div>
       ) : null}
     </div>
