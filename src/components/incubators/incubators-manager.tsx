@@ -1345,7 +1345,26 @@ export function IncubatorsManager() {
 
           <div className="mt-3 grid gap-3">
             {lotGroups.length === 0 ? <p className="text-sm text-zinc-500">Nenhum lote nesse filtro.</p> : null}
-            {lotGroups.map((lot, lotIndex) => (
+            {lotGroups.map((lot, lotIndex) => {
+              // Totais agregados do lote (somando todos os batches/especies)
+              // exibidos no header como mini-relatorio. Espelha as colunas
+              // da tabela mas em forma resumida.
+              const lotTotals = lot.lines.reduce(
+                (acc, batch) => {
+                  acc.eggs += batch.eggsSet;
+                  acc.hatched += batch.stats.hatched;
+                  acc.infertile += batch.stats.infertile;
+                  acc.embryoLoss += batch.stats.embryoLoss;
+                  acc.pippedDied += batch.stats.pippedDied;
+                  return acc;
+                },
+                { eggs: 0, hatched: 0, infertile: 0, embryoLoss: 0, pippedDied: 0 }
+              );
+              const consumed =
+                lotTotals.hatched + lotTotals.infertile + lotTotals.embryoLoss + lotTotals.pippedDied;
+              const lotRemaining = Math.max(0, lotTotals.eggs - consumed);
+              const hatchRate = lotTotals.eggs > 0 ? (lotTotals.hatched / lotTotals.eggs) * 100 : 0;
+              return (
               <div key={lot.key} className="rounded-2xl border border-zinc-200 bg-white p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -1353,6 +1372,33 @@ export function IncubatorsManager() {
                     <p className="text-xs text-zinc-500">{lot.incubatorName} | Entrada: {new Date(lot.entryDate).toLocaleDateString("pt-BR")}</p>
                     <p className="text-xs text-zinc-500">Status: {batchStatusLabel(lot.status)}</p>
                   </div>
+                </div>
+
+                {/* Mini-relatorio do lote — chips com totais agregados */}
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-800">
+                    <span className="text-zinc-500">🥚 Ovos</span> {lotTotals.eggs}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                    <span>🐣 Nasceram</span> {lotTotals.hatched}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                    <span>🚫 Inferteis</span> {lotTotals.infertile}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                    <span>🛑 Pararam</span> {lotTotals.embryoLoss}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                    <span>💀 Bicaram</span> {lotTotals.pippedDied}
+                  </span>
+                  {lotRemaining > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
+                      <span>⏳ Restam</span> {lotRemaining}
+                    </span>
+                  ) : null}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                    <span>📈 Eclosão</span> {formatPercent(hatchRate)}
+                  </span>
                 </div>
                 {(() => {
                   const aggregated = new Map<string, {
@@ -1530,7 +1576,8 @@ export function IncubatorsManager() {
                   );
                 })()}
               </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       </section>
