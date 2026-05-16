@@ -1461,20 +1461,14 @@ export function IncubatorsManager() {
                   }
                   const rows = Array.from(aggregated.values());
 
+                  // Antes o 'Editar' abria o modal de dados do lote
+                  // (incubadora, data, especie, qtd ovos, status). Agora
+                  // abre o modal de eventos onde o user pode editar/excluir
+                  // cada lancamento (caso de evento errado). De dentro do
+                  // modal de eventos tem um botao pra alternar pro modal
+                  // de dados do lote quando precisar mudar especie/qtd.
                   function editAction(row: (typeof rows)[number]) {
-                    const batch = row.first;
-                    setEditingBatchId(batch.id);
-                    setEditingBatchLotCode(extractLotCode(batch.notes));
-                    setBatchForm({
-                      incubatorId: batch.incubatorId,
-                      entryDate: toDateInput(batch.entryDate),
-                      lockdownDate: "",
-                      expectedHatchDate: toDateInput(batch.expectedHatchDate),
-                      notes: stripLotMetadata(batch.notes),
-                      status: batch.status
-                    });
-                    setBatchLines([{ lineId: `line-${Date.now()}`, flockGroupId: batch.flockGroupId, eggsSet: batch.eggsSet }]);
-                    setShowBatchModal(true);
+                    openBatchHistoryModal(row.batchIds);
                   }
 
                   return (
@@ -1886,13 +1880,43 @@ export function IncubatorsManager() {
       </AppModal>
 
       {/* Historico de eventos do grupo de lotes — permite editar/excluir
-          eventos ja registrados (data errada, qty errada, etc). */}
+          eventos ja registrados (data errada, qty errada, etc), adicionar
+          novos eventos rapido, e alternar pro modal de 'dados do lote'
+          (mudar especie / qtd ovos / status). */}
       <AppModal
         open={historyModalBatchIds !== null}
         title="✏️ Editar lote"
         error={error}
         onClose={() => setHistoryModalBatchIds(null)}
       >
+        {/* Resumo do lote — info do contexto que o user esta editando */}
+        {historyModalBatchIds && historyModalBatchIds.length > 0 ? (() => {
+          const firstBatch = batches.find((b) => historyModalBatchIds.includes(b.id));
+          if (!firstBatch) return null;
+          const groupBatches = batches.filter((b) => historyModalBatchIds.includes(b.id));
+          const totalEggs = groupBatches.reduce((s, b) => s + b.eggsSet, 0);
+          const consumed = groupBatches.reduce(
+            (s, b) =>
+              s +
+              (b.stats.hatched + b.stats.infertile + b.stats.embryoLoss + b.stats.pippedDied),
+            0
+          );
+          const remaining = Math.max(0, totalEggs - consumed);
+          return (
+            <div className="mb-3 rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
+              <p className="text-sm font-semibold text-zinc-900">
+                {firstBatch.flockGroup.title}
+              </p>
+              <p className="text-[11px] text-zinc-500">
+                {firstBatch.incubator.name} · Entrada{" "}
+                {new Date(firstBatch.entryDate).toLocaleDateString("pt-BR")} · {totalEggs}{" "}
+                ovo{totalEggs === 1 ? "" : "s"} · {remaining} restante
+                {remaining === 1 ? "" : "s"}
+              </p>
+            </div>
+          );
+        })() : null}
+
         {/* Editor da data de entrada do lote — fix pra lancamento errado.
             Mudar essa data altera toda a contagem regressiva. */}
         {historyModalBatchIds ? (
@@ -1918,6 +1942,82 @@ export function IncubatorsManager() {
               >
                 {entryDateSaving ? "Salvando..." : "Salvar data"}
               </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Botao pra abrir o modal de dados do lote (especie/qtd/status).
+            Util quando o user selecionou a ESPECIE errada no cadastro. */}
+        {historyModalBatchIds && historyModalBatchIds.length > 0 ? (
+          <div className="mb-4 rounded-2xl border border-sky-200 bg-sky-50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+              Dados do lote (especie, qtd de ovos, status)
+            </p>
+            <p className="mt-1 text-[11px] text-sky-800">
+              Selecionou a especie errada ou cadastrou uma quantidade
+              incorreta? Edite aqui.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2"
+              onClick={() => {
+                const firstBatchId = historyModalBatchIds[0];
+                const batch = batches.find((b) => b.id === firstBatchId);
+                if (!batch) return;
+                setHistoryModalBatchIds(null);
+                setEditingBatchId(batch.id);
+                setEditingBatchLotCode(extractLotCode(batch.notes));
+                setBatchForm({
+                  incubatorId: batch.incubatorId,
+                  entryDate: toDateInput(batch.entryDate),
+                  lockdownDate: "",
+                  expectedHatchDate: toDateInput(batch.expectedHatchDate),
+                  notes: stripLotMetadata(batch.notes),
+                  status: batch.status
+                });
+                setBatchLines([
+                  {
+                    lineId: `line-${Date.now()}`,
+                    flockGroupId: batch.flockGroupId,
+                    eggsSet: batch.eggsSet
+                  }
+                ]);
+                setShowBatchModal(true);
+              }}
+            >
+              📦 Editar dados do lote
+            </Button>
+          </div>
+        ) : null}
+
+        {/* Adicionar novo evento pra esse lote — atalho pra nao precisar
+            voltar pro card da chocadeira pra registrar */}
+        {historyModalBatchIds && historyModalBatchIds.length > 0 ? (
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+              Adicionar evento
+            </p>
+            <p className="mt-1 text-[11px] text-emerald-800">
+              Registre nascidos, inferteis, parados ou bicaram diretamente
+              nesse lote.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {EVENT_ICONS.map((icon) => (
+                <button
+                  key={icon.type}
+                  type="button"
+                  onClick={() => {
+                    const batchIds = historyModalBatchIds;
+                    setHistoryModalBatchIds(null);
+                    if (batchIds) openEventModalForSpeciesType(batchIds, icon.type);
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${icon.bg} ${icon.text} ${icon.hoverBg}`}
+                >
+                  <span aria-hidden>{icon.emoji}</span>
+                  {icon.label}
+                </button>
+              ))}
             </div>
           </div>
         ) : null}
