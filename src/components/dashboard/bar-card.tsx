@@ -48,9 +48,22 @@ export function BarCard({
   const radius: [number, number, number, number] =
     layout === "horizontal" ? [0, 12, 12, 0] : [12, 12, 0, 0];
 
+  // Em horizontal a altura cresce com a quantidade de barras pra cada
+  // label ter espaco minimo (~38px). Antes era h-64 fixo e 12 barras
+  // virava um amontoado ilegivel. Vertical mantem altura fixa porque
+  // os labels ficam no eixo X (sem competir por altura).
+  const minHorizontalHeight = 256;
+  const heightStyle: React.CSSProperties =
+    layout === "horizontal"
+      ? { height: Math.max(minHorizontalHeight, data.length * 38 + 24) }
+      : {};
+
   return (
     <ChartCardShell title={title} subtitle={subtitle} palette={palette} icon={icon}>
-      <div className="h-64 w-full">
+      <div
+        className={layout === "horizontal" ? "w-full" : "h-64 w-full"}
+        style={heightStyle}
+      >
         {isEmpty ? (
           <EmptyChart icon={icon} message={emptyMessage} />
         ) : (
@@ -76,7 +89,8 @@ export function BarCard({
                     tick={{ fontSize: 11, fill: "#475569" }}
                     axisLine={false}
                     tickLine={false}
-                    width={130}
+                    width={160}
+                    interval={0}
                   />
                 </>
               ) : (

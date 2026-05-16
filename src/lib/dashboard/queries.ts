@@ -401,6 +401,8 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
     // Vendas da vitrine all-time pra funnel + receita por grupo.
     // Resolve grupo via listing.flockGroup (preferindo o pai via
     // sourceIncubatorBatch quando o listing aponta pra Chocada).
+    // sourceIncubatorBatchId vem pra que o funnel 'Jornada das aves'
+    // conte SOMENTE vendas de filhotes da chocadeira (nao avulsas).
     prisma.vitrineSale.findMany({
       where: { tenantId },
       select: {
@@ -408,15 +410,23 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         totalPrice: true,
         listing: {
           select: {
+            sourceIncubatorBatchId: true,
             flockGroup: { select: { title: true } },
             sourceIncubatorBatch: { select: { flockGroup: { select: { title: true } } } }
           }
         }
       }
     }),
-    // Aves disponiveis na vitrine agora
+    // Aves disponiveis na vitrine agora — SOMENTE filhotes da chocadeira
+    // (sourceIncubatorBatchId != null) pra o funnel 'Jornada das aves'.
+    // Avulsas, recrias compradas e 1:1 do plantel sao trilhas separadas
+    // e nao representam a 'jornada do ovo eclodido ate a venda'.
     prisma.vitrineListing.aggregate({
-      where: { tenantId, status: "AVAILABLE" },
+      where: {
+        tenantId,
+        status: "AVAILABLE",
+        sourceIncubatorBatchId: { not: null }
+      },
       _sum: { availableQuantity: true }
     }),
     // Despesas do mes agrupadas por categoria
@@ -793,7 +803,13 @@ export async function getDashboardData(tenantId: string): Promise<DashboardData>
         hatchedTotal: hatchCount,
         filhotesAlive,
         availableInVitrine: vitrineAvailableAgg._sum.availableQuantity ?? 0,
-        soldAllTime: vitrineSalesAll.reduce((s, x) => s + x.quantitySold, 0)
+        // Somente vendas de filhotes da chocadeira contam na 'Jornada
+        // das aves'. Vendas de avulsas/recria/1:1 do plantel sao trilhas
+        // separadas — somar todas inflava o funnel com vendas que nunca
+        // passaram pela chocadeira.
+        soldAllTime: vitrineSalesAll
+          .filter((s) => s.listing?.sourceIncubatorBatchId != null)
+          .reduce((s, x) => s + x.quantitySold, 0)
       }),
       revenueByGroup: buildRevenueByGroup(
         vitrineSalesAll,
