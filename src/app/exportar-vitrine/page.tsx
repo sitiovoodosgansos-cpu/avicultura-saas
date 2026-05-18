@@ -123,9 +123,9 @@ export default async function ExportarVitrinePage() {
                 <tr className="border-b-2 border-slate-300 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-600">
                   <th className="py-3 pr-3">Raça / Espécie</th>
                   <th className="py-3 px-2">Idade</th>
-                  <th className="py-3 px-2 text-center">♀ Fêmeas</th>
-                  <th className="py-3 px-2 text-center">♂ Machos</th>
-                  <th className="py-3 px-2 text-center">? Indef.</th>
+                  <th className="py-3 px-2 text-center">Fêmeas</th>
+                  <th className="py-3 px-2 text-center">Machos</th>
+                  <th className="py-3 px-2 text-center">Indefinido</th>
                   <th className="py-3 px-2 text-center">Total</th>
                   <th className="py-3 pl-2 text-right">Preço un.</th>
                 </tr>
@@ -142,27 +142,47 @@ export default async function ExportarVitrinePage() {
                     <td className="py-3 px-2 text-slate-700">{formatAge(row.ageInMonths)}</td>
                     <td className="py-3 px-2 text-center">
                       {row.female > 0 ? (
-                        <span className="font-semibold text-rose-700">{row.female}</span>
+                        <span className="inline-flex flex-col items-center leading-tight">
+                          <span className="font-semibold text-rose-700">{row.female}</span>
+                          <span className="text-[9px] uppercase tracking-wide text-rose-500">
+                            {row.female === 1 ? "fêmea" : "fêmeas"}
+                          </span>
+                        </span>
                       ) : (
                         <span className="text-slate-300">—</span>
                       )}
                     </td>
                     <td className="py-3 px-2 text-center">
                       {row.male > 0 ? (
-                        <span className="font-semibold text-sky-700">{row.male}</span>
+                        <span className="inline-flex flex-col items-center leading-tight">
+                          <span className="font-semibold text-sky-700">{row.male}</span>
+                          <span className="text-[9px] uppercase tracking-wide text-sky-500">
+                            {row.male === 1 ? "macho" : "machos"}
+                          </span>
+                        </span>
                       ) : (
                         <span className="text-slate-300">—</span>
                       )}
                     </td>
                     <td className="py-3 px-2 text-center">
                       {row.unknown > 0 ? (
-                        <span className="font-semibold text-slate-500">{row.unknown}</span>
+                        <span className="inline-flex flex-col items-center leading-tight">
+                          <span className="font-semibold text-slate-600">{row.unknown}</span>
+                          <span className="text-[9px] uppercase tracking-wide text-slate-400">
+                            {row.unknown === 1 ? "indefinido" : "indefinidos"}
+                          </span>
+                        </span>
                       ) : (
                         <span className="text-slate-300">—</span>
                       )}
                     </td>
-                    <td className="py-3 px-2 text-center font-semibold text-slate-900">
-                      {row.total}
+                    <td className="py-3 px-2 text-center">
+                      <span className="inline-flex flex-col items-center leading-tight">
+                        <span className="font-semibold text-slate-900">{row.total}</span>
+                        <span className="text-[9px] uppercase tracking-wide text-slate-400">
+                          {row.total === 1 ? "ave" : "aves"}
+                        </span>
+                      </span>
                     </td>
                     <td className="py-3 pl-2 text-right font-semibold text-emerald-700">
                       {formatBRL(row.pricePerUnit)}
