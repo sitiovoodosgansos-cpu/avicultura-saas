@@ -30,6 +30,39 @@ type VitrineResponse = {
   flockGroups: FlockGroupRef[];
 };
 
+// Buckets de idade pra o filtro da Vitrine. Cobrem desde recem-nascido
+// (0 meses) ate adulto reprodutor. Labels em portugues pra dropdown.
+const AGE_BUCKETS = [
+  { value: "newborn", label: "Recém-nascidos (0 mês)" },
+  { value: "1", label: "1 mês" },
+  { value: "2", label: "2 meses" },
+  { value: "3", label: "3 meses" },
+  { value: "4-6", label: "4 a 6 meses" },
+  { value: "7-12", label: "7 a 12 meses" },
+  { value: "adult", label: "Adultos (12+ meses)" }
+] as const;
+
+function matchAgeBucket(age: number, bucket: string): boolean {
+  switch (bucket) {
+    case "newborn":
+      return age <= 0;
+    case "1":
+      return age === 1;
+    case "2":
+      return age === 2;
+    case "3":
+      return age === 3;
+    case "4-6":
+      return age >= 4 && age <= 6;
+    case "7-12":
+      return age >= 7 && age <= 12;
+    case "adult":
+      return age > 12;
+    default:
+      return true;
+  }
+}
+
 export function VitrineManager() {
   const [data, setData] = useState<VitrineResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +87,9 @@ export function VitrineManager() {
   // Filtros: busca livre + dropdown de grupo (mesmo padrao da Prateleira).
   const [searchQuery, setSearchQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
+  // Filtro por idade — buckets fixos que casam com a realidade da
+  // criacao (recem-nascido ate adulto). Vazio = sem filtro.
+  const [ageFilter, setAgeFilter] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -369,27 +405,38 @@ export function VitrineManager() {
   // Tambem esconde grupos com 0 aves disponiveis — quando esgota a ultima
   // ave da raca, o card some. Volta a aparecer quando entrar nova ave ou
   // nascer filhote do mesmo grupo (status=AVAILABLE + availableQuantity > 0).
+  //
+  // Filtro por idade aplica DENTRO de cada grupo: o card so mostra
+  // listings que casam com o bucket selecionado. Grupos sem nenhuma
+  // listing no bucket somem.
   const visibleGrouped = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return grouped.filter(({ group, listings }) => {
-      const totalAvailable = listings
-        .filter((l) => l.status === "AVAILABLE")
-        .reduce((s, l) => s + l.availableQuantity, 0);
-      if (totalAvailable <= 0) return false;
-      if (groupFilter && group.id !== groupFilter) return false;
-      if (!q) return true;
-      const haystack = [
-        group.title,
-        group.species?.name,
-        group.breed?.name,
-        group.variety?.name
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [grouped, searchQuery, groupFilter]);
+    return grouped
+      .map(({ group, listings }) => {
+        const filteredListings = ageFilter
+          ? listings.filter((l) => matchAgeBucket(l.ageInMonths, ageFilter))
+          : listings;
+        return { group, listings: filteredListings };
+      })
+      .filter(({ group, listings }) => {
+        const totalAvailable = listings
+          .filter((l) => l.status === "AVAILABLE")
+          .reduce((s, l) => s + l.availableQuantity, 0);
+        if (totalAvailable <= 0) return false;
+        if (groupFilter && group.id !== groupFilter) return false;
+        if (!q) return true;
+        const haystack = [
+          group.title,
+          group.species?.name,
+          group.breed?.name,
+          group.variety?.name
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(q);
+      });
+  }, [grouped, searchQuery, groupFilter, ageFilter]);
 
   // Lista do dropdown: prefere grupos que ja tem anuncio (vem do `grouped`),
   // depois completa com o catalogo do plantel pra possibilitar pre-filtro.
@@ -512,12 +559,27 @@ export function VitrineManager() {
                 ))}
               </select>
             </div>
-            {searchQuery || groupFilter ? (
+            <div className="md:w-56">
+              <select
+                value={ageFilter}
+                onChange={(event) => setAgeFilter(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-[color:var(--line)] bg-white px-3 text-sm text-zinc-700 shadow-sm focus:border-[color:var(--brand)] focus:outline-none"
+              >
+                <option value="">Todas as idades</option>
+                {AGE_BUCKETS.map((b) => (
+                  <option key={b.value} value={b.value}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {searchQuery || groupFilter || ageFilter ? (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery("");
                   setGroupFilter("");
+                  setAgeFilter("");
                 }}
                 className="rounded-2xl border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-50"
               >
@@ -525,7 +587,7 @@ export function VitrineManager() {
               </button>
             ) : null}
           </div>
-          {searchQuery || groupFilter ? (
+          {searchQuery || groupFilter || ageFilter ? (
             <p className="mt-3 text-xs text-zinc-500">
               Mostrando <span className="font-semibold text-zinc-800">{visibleGrouped.length}</span> de{" "}
               {grouped.length} grupos.
