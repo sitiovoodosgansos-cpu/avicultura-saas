@@ -184,8 +184,15 @@ export default async function ExportarVitrinePage() {
                         </span>
                       </span>
                     </td>
-                    <td className="py-3 pl-2 text-right font-semibold text-emerald-700">
-                      {formatBRL(row.pricePerUnit)}
+                    <td className="py-3 pl-2 text-right">
+                      <span className="inline-flex flex-col items-end leading-tight">
+                        <span className="font-semibold text-emerald-700">
+                          {formatBRL(row.pricePerUnit)}
+                        </span>
+                        <span className="text-[9px] uppercase tracking-wide text-emerald-500">
+                          cada
+                        </span>
+                      </span>
                     </td>
                   </tr>
                 ))}
